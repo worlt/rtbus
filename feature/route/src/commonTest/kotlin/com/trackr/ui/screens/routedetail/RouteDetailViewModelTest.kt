@@ -2,6 +2,7 @@ package com.trackr.ui.screens.routedetail
 
 import com.trackr.core.data.repository.DefaultTrackingRepository
 import com.trackr.core.data.repository.InMemoryTrackingSessionStore
+import com.trackr.core.data.route.AmapSchemeAlignmentService
 import com.trackr.core.data.route.DefaultRoutePlanRepository
 import com.trackr.core.data.route.FavoriteGroupSelection
 import com.trackr.core.data.route.RouteAlignmentService
@@ -90,7 +91,11 @@ class RouteDetailViewModelTest {
     )
 
     private fun createPlanViewModel(): RoutePlanViewModel = RoutePlanViewModel(
-        routePlan = DefaultRoutePlanRepository(FakeAmapRouteGateway(), alignment, ioDispatcher = main.dispatcher),
+        routePlan = DefaultRoutePlanRepository(
+            gateway = FakeAmapRouteGateway(),
+            schemeAlignment = AmapSchemeAlignmentService(realtime, ioDispatcher = main.dispatcher),
+            ioDispatcher = main.dispatcher
+        ),
         settings = settings,
         realtime = realtime,
         userLocationStore = FakeUserLocationStore(),

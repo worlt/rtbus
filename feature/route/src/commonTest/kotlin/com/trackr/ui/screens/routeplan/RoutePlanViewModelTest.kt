@@ -5,6 +5,7 @@ import com.trackr.core.data.local.SerialWriter
 import com.trackr.core.data.repository.AmapKeyRepository
 import com.trackr.core.data.repository.AmapRouteGateway
 import com.trackr.core.data.repository.DefaultAmapKeyRepository
+import com.trackr.core.data.route.AmapSchemeAlignmentService
 import com.trackr.core.data.route.DefaultRoutePlanRepository
 import com.trackr.core.data.route.FavoriteGroupSelection
 import com.trackr.core.data.route.RouteAlignmentService
@@ -91,7 +92,7 @@ class RoutePlanViewModelTest {
     ): RoutePlanViewModel = RoutePlanViewModel(
         routePlan = DefaultRoutePlanRepository(
             gateway = gateway,
-            alignment = alignment,
+            schemeAlignment = AmapSchemeAlignmentService(realtime, ioDispatcher = main.dispatcher),
             coordinator = null,
             ioDispatcher = main.dispatcher,
             wallClockMillis = { 1_000_000_000L }

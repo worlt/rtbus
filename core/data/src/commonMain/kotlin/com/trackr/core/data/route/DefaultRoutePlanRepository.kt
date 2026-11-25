@@ -34,7 +34,7 @@ import kotlin.uuid.Uuid
  */
 class DefaultRoutePlanRepository(
     private val gateway: AmapRouteGateway,
-    private val alignment: RouteAlignmentService,
+    private val schemeAlignment: AmapSchemeAlignmentService,
     private val coordinator: TransitProviderCoordinator? = null,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     /** 墙钟（毫秒），用于算路缓存时间桶；测试可替换 */
@@ -120,7 +120,7 @@ class DefaultRoutePlanRepository(
                 ).getOrNull().orEmpty()
 
                 if (schemes.isNotEmpty()) {
-                    schemes = alignment.alignAmapSchemesWithRealtimeSource(schemes, city)
+                    schemes = schemeAlignment.alignAmapSchemesWithRealtimeSource(schemes, city)
                 }
             }
 

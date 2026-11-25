@@ -21,6 +21,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.trackr.core.data.repository.DefaultTrackingRepository
 import com.trackr.core.data.repository.InMemoryTrackingSessionStore
+import com.trackr.core.data.route.AmapSchemeAlignmentService
 import com.trackr.core.data.route.DefaultRoutePlanRepository
 import com.trackr.core.data.route.FavoriteGroupSelection
 import com.trackr.core.data.route.RouteAlignmentService
@@ -348,7 +349,12 @@ class RoutePlanScreenTest {
         val alignment = RouteAlignmentService(settings, realtime, coordinator = null, ioDispatcher = Dispatchers.Unconfined)
         val gateway = FakeAmapRouteGateway().apply { planResult = { listOf(demoTabs[0].scheme) } }
         val viewModel = RoutePlanViewModel(
-            routePlan = DefaultRoutePlanRepository(gateway, alignment, coordinator = null, ioDispatcher = Dispatchers.Unconfined),
+            routePlan = DefaultRoutePlanRepository(
+                gateway = gateway,
+                schemeAlignment = AmapSchemeAlignmentService(realtime, ioDispatcher = Dispatchers.Unconfined),
+                coordinator = null,
+                ioDispatcher = Dispatchers.Unconfined
+            ),
             settings = settings,
             realtime = realtime,
             userLocationStore = FakeUserLocationStore(),

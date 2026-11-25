@@ -9,7 +9,7 @@
 - 用户只要求移除高德地图、起终点提示/公交算路、Key/初始化/SDK/相关专属配置。
 - 保留原有全国城市选择、城市切换、线路/站点搜索范围；不得做单城市版或添加城市/线路白名单。少量城市/线路只是可选验收样本，不是支持范围，也不是用户必须先提供的开工条件。
 - 保留乘车码、小组件、收藏/分组、追踪、一起等、到站/定时提醒、语音、通知/厂商适配、快捷方式、长辈版、主题和应用内更新等现有好用功能；不能以“精简”为由删除。
-- feature/route 同时含高德规划和普通路线详情/追踪。RouteAlignmentService 也有混合职责；先解耦再删高德，不能直接删除整个模块。RouteProjectionMath 等仍被公交解析/追踪使用的工具保留。
+- feature/route 同时含高德规划和普通路线详情/追踪。RouteAlignmentService 已拆出独立的 AmapSchemeAlignmentService；清理时继续保留普通匹配、整组对齐、返程、缓存和追踪能力，不能直接删除整个模块。RouteProjectionMath 等仍被公交解析/追踪使用的工具保留。
 - 不顺带换技术栈、重写数据库、合并所有模块、移除 KMP/iOS，或全局替换源码包名。
 
 ## 2. Git 和发布约定
@@ -86,11 +86,17 @@
 - 本轮日志：`resume-host-suite.log`；汇总：`resume-suite-summary.json`。环境与 wrapper 入口沿用第 4 节 / `baseline.md`。
 - 根壳裁剪后定向复验：Compose app 20 项、Android 启动/导航/Koin 37 项均通过；debug APK/16 KB 检查通过，BUILD SUCCESSFUL（1m 5s / 386 tasks）。日志 `root-shell-detachment.log`。品牌静态检查 6 项、`git diff --check` 通过；不代替运行测试。
 - 根壳裁剪后再次完整运行 `test :androidApp:assembleDebug`（其余参数同上）：**BUILD SUCCESSFUL**，1m 13s，636 tasks（20 executed / 616 up-to-date）；XML 再汇总 **1,623 项，0 失败/errors/跳过**。日志 `root-shell-final-host-suite.log`，汇总 `root-shell-final-suite-summary.json`。
-- 尚未完成：规划源码、混合职责 RouteAlignmentService、feature/route 内部 Android/iOS 地图实现、SDK/Key/隐私存储及 iOS runtime/构建配置仍有残留；没有执行 release / 真机 / iOS 验收。
+### 本轮续接：拆分规划与普通路线对齐
+- 新增 `AmapSchemeAlignmentService`，迁移仅供 `DefaultRoutePlanRepository` 使用的规划方案对齐；普通 `RouteAlignmentService` 保留实时线路匹配、整组对齐、返程和合成候选缓存。规划专属方案上限也随协作者隔离。
+- 新增 8 项规划对齐回归和 6 项普通路线对齐/缓存/返程测试；既有规划仓库、规划 ViewModel、路线详情 ViewModel 与屏幕测试装配已改为使用各自职责的服务。
+- 两个完整模块测试：`:core:data:testAndroidHostTest :feature:route:testAndroidHostTest` **BUILD SUCCESSFUL**。完整 `test :androidApp:assembleDebug` **BUILD SUCCESSFUL**（3m 39s，636 tasks；51 executed / 585 up-to-date）。JUnit XML 汇总 **1,637 项，0 failures / errors / skipped**。
+- `checkDebug16kbPageAlignment` 通过，6 个 64 位共享库对齐合格；debug APK 仍包含高德 SDK 原生库，不能视作已移除高德或 release 验收。品牌检查 6 项、`git diff --check` 通过。
+- 本轮日志位于忽略目录 `build/rtbus-validation/`：`alignment-split-green.log`、`alignment-split-preservation-red.log`、`alignment-split-modules.log`、`alignment-split-full-host.log`。未执行 iOS 构建、release 或真机验收。
+- 尚未完成：规划界面/仓库/模型、feature/route 内部 Android/iOS 地图实现、SDK/Key/隐私存储与 iOS runtime/构建配置仍有残留；release / 真机 / iOS 验收未完成。
 
 ## 7. 唯一明确的下一步
 
-先拆分 `core/data/.../route/RouteAlignmentService.kt` 的混合职责：把仅由 `DefaultRoutePlanRepository` 使用的 `alignAmapSchemesWithRealtimeSource` 及其高德方案专属辅助逻辑移到规划专属协作者，避免随后删除规划仓库时误删普通路线能力。保留 `findRealtimeLineMatch`、`alignTransitGroupWithRealtimeSource`、`buildReverseTransitGroup`、`alignSyntheticCandidateCached` 等仍被 `RouteDetailViewModel` 和 `RouteGroupSaving.kt` 使用的逻辑。以 `:core:data:testAndroidHostTest`、`:feature:route:testAndroidHostTest` 及完整主机测试验证后本地提交，再删高德专属规划/地图/SDK 残留。不要删整个 feature/route 模块或共享 RouteProjectionMath；不配置 remote、不推送。
+继续删除高德专属规划与地图实现：从 feature/route 中移除规划页面、ViewModel、地图 UI / Android 与 iOS 装配，并删掉仅服务规划的仓库/接口/SDK 绑定；按引用图确认模型、共享投影/坐标工具及普通路线详情/追踪继续保留。每个小增量先跑对应模块测试，再运行完整主机套件及可用平台编译，最后本地提交。不删除整个 feature/route，不移除 KMP/iOS，不配置 remote、不推送。
 
 ## 8. 记录维护
 

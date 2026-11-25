@@ -8,7 +8,6 @@ import com.trackr.core.model.TransitLeg
 import com.trackr.core.testing.FakeAmapRouteGateway
 import com.trackr.core.testing.FakeClock
 import com.trackr.core.testing.FakeRealtimeRepository
-import com.trackr.core.testing.FakeSettingsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -30,17 +29,14 @@ class RoutePlanRepositoryTest {
     private val clock = FakeClock()
 
     private fun repository(gateway: FakeAmapRouteGateway): DefaultRoutePlanRepository {
-        val settings = FakeSettingsRepository(hangzhou)
-        val alignment = RouteAlignmentService(
-            settings = settings,
-            realtime = FakeRealtimeRepository(currentCity = { settings.selectedCity.value }),
+        val schemeAlignment = AmapSchemeAlignmentService(
+            realtime = FakeRealtimeRepository(),
             coordinator = null,
-            ioDispatcher = Dispatchers.Unconfined,
-            wallClockMillis = { clock.nowMillis }
+            ioDispatcher = Dispatchers.Unconfined
         )
         return DefaultRoutePlanRepository(
             gateway = gateway,
-            alignment = alignment,
+            schemeAlignment = schemeAlignment,
             coordinator = null,
             ioDispatcher = Dispatchers.Unconfined,
             wallClockMillis = { clock.nowMillis }
