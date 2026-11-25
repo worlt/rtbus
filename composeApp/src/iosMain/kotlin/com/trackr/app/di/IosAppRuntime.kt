@@ -63,10 +63,7 @@ internal class IosAppRuntime(val module: Module, val resolveFavorite: (String) -
                         val settings = DefaultSettingsRepository.create(store, writer)
                         val history = DefaultSearchHistoryRepository.create(store, writer)
                         val favorites = DefaultFavoritesRepository.create(RoomFavoritesStore(db))
-                        val defaults = AmapKeyDefaults(hasAndroidMapSdk = false,
-                            hasIosMapSdk = false,
-                            iosKey = (NSBundle.mainBundle.objectForInfoDictionaryKey("AmapIosKey") as? String).orEmpty(),
-                            webKey = (NSBundle.mainBundle.objectForInfoDictionaryKey("AmapWebKey") as? String).orEmpty())
+                        val defaults = AmapKeyDefaults(hasAndroidMapSdk = false, hasIosMapSdk = false)
                         val keys = DefaultAmapKeyRepository.create(
                             DataStoreAmapKeyStore(createPreferencesDataStore("$privateDir/trackr_amap_keys.preferences_pb", scope)), writer, defaults
                         )

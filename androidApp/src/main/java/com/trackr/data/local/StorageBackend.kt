@@ -97,11 +97,11 @@ class StorageBackend private constructor(
             return openLegacy(appContext, writeScope)
         }
 
-        /** 构建时注入的高德 Key（local.properties / 环境变量），两槽各自兜底（§2.5） */
+        /** 原生 SDK 已移除；Web Key/旧存储留待后续独立清理，不再启用地图能力。 */
         private fun amapKeyDefaults() = AmapKeyDefaults(
-            androidKey = BuildConfig.AMAP_ANDROID_KEY,
+            androidKey = "",
             webKey = BuildConfig.AMAP_WEB_KEY,
-            hasAndroidMapSdk = true
+            hasAndroidMapSdk = false
         )
 
         private fun newWriter(scope: CoroutineScope) = SerialWriter(scope).apply {

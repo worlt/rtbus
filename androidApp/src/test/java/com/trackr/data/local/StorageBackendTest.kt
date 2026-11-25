@@ -251,6 +251,18 @@ class StorageBackendTest {
     }
 
     @Test
+    fun retiredNativeSdk_storedAndroidKeyCannotEnableMaps_inEitherBackend() {
+        writeLegacy()
+        for (forceLegacy in listOf(false, true)) {
+            val backend = open(forceLegacy = forceLegacy)
+            assertEquals("android-key", backend.amapKeys.androidKey.value)
+            assertEquals("", backend.amapKeys.effectiveAndroidKey.value)
+            assertFalse(backend.amapKeys.canShowMap.value)
+            closeAll()
+        }
+    }
+
+    @Test
     fun freshInstall_newStoreMatchesLegacyDefaults() {
         val viaNew = seen(open())
         val viaLegacy = seen(open(forceLegacy = true))

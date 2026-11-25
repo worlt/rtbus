@@ -48,10 +48,10 @@ interface AmapKeyRepository {
 }
 
 /**
- * 构建时注入的 Key 和平台能力。
- * @param androidKey Android 是 `BuildConfig.AMAP_ANDROID_KEY`
- * @param webKey Android 是 `BuildConfig.AMAP_WEB_KEY`；iOS 构建时注入（第 35 步）
- * @param hasAndroidMapSdk 平台有没有高德 Android 地图 SDK。iOS 为 false：Android 槽不用，[AmapKeyRepository.canShowMap] 恒为 false（第 38 步之前）
+ * 遗留 Key/能力兼容模型，随 Key 页面与存储在下一增量清理。
+ * 两端生产装配均显式关闭原生 SDK 能力；Android/iOS 原生 Key 不再从构建配置注入。
+ * @param webKey Android 暂保留 `BuildConfig.AMAP_WEB_KEY`，iOS 已停止构建注入。
+ * @param hasAndroidMapSdk 旧能力规则的输入；当前生产平台必须为 false，不代表仍安装 SDK。
  */
 data class AmapKeyDefaults(
     val androidKey: String = "",

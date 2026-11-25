@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		00000000000000000000000D /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000005 /* AppDelegate.swift */; };
-		1EDDC3FA25D575006C5D609C /* libPods-Trackr.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DD690DF9B8937BD152CA49D8 /* libPods-Trackr.a */; };
 		2AC23DA4FB306CDA0CA7344A /* NativeSnapshots.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66A2F0D00D8EB559960F7E83 /* NativeSnapshots.swift */; };
 		331A7EDE917AE6F9DB0AB3D4 /* SnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53DAE7336AD0E98EEFDEA1B2 /* SnapshotTests.swift */; };
 		5C99566BC07C41F749C380DA /* TrackrSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5410650B401FA89D4018806D /* TrackrSnapshot.swift */; };
@@ -61,16 +60,13 @@
 		386D6CFD8884BB7C51283F42 /* Debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = Configuration/Debug.xcconfig; sourceTree = "<group>"; };
 		53DAE7336AD0E98EEFDEA1B2 /* SnapshotTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SnapshotTests.swift; path = TrackrTests/SnapshotTests.swift; sourceTree = "<group>"; };
 		5410650B401FA89D4018806D /* TrackrSnapshot.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TrackrSnapshot.swift; path = Shared/TrackrSnapshot.swift; sourceTree = "<group>"; };
-		5A0E3808A9914AA431EA59A9 /* Pods-Trackr.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Trackr.debug.xcconfig"; path = "Target Support Files/Pods-Trackr/Pods-Trackr.debug.xcconfig"; sourceTree = "<group>"; };
 		5CBC3B1EAB4BCC754D985F63 /* TrackrTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TrackrTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		66A2F0D00D8EB559960F7E83 /* NativeSnapshots.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NativeSnapshots.swift; path = Trackr/NativeSnapshots.swift; sourceTree = "<group>"; };
 		82437377B69DEC1D5BAF8D2A /* StartupTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = StartupTests.swift; path = TrackrUITests/StartupTests.swift; sourceTree = "<group>"; };
 		95DBE9B81113CA857E26A350 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		D3D744B01DE9E7D10FCB7E75 /* TrackrWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TrackrWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		DD690DF9B8937BD152CA49D8 /* libPods-Trackr.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Trackr.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		E6962B901BA0B31A2C252648 /* Release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = Configuration/Release.xcconfig; sourceTree = "<group>"; };
 		F7912B5B6B689965C49551BE /* TrackrWidgets.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TrackrWidgets.swift; path = TrackrWidgets/TrackrWidgets.swift; sourceTree = "<group>"; };
-		FE5231E396AC561A77578671 /* Pods-Trackr.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Trackr.release.xcconfig"; path = "Target Support Files/Pods-Trackr/Pods-Trackr.release.xcconfig"; sourceTree = "<group>"; };
 		FE5F9E2AEFAD587F6CBD1A34 /* Shared.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = Shared.xcconfig; path = Configuration/Shared.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -79,7 +75,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1EDDC3FA25D575006C5D609C /* libPods-Trackr.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -118,7 +113,6 @@
 				000000000000000000000003 /* Products */,
 				386D6CFD8884BB7C51283F42 /* Debug.xcconfig */,
 				E6962B901BA0B31A2C252648 /* Release.xcconfig */,
-				E03A687B6234FF42841E6E54 /* Pods */,
 				ACA6050357F3DFFEE990C4A1 /* Frameworks */,
 				66A2F0D00D8EB559960F7E83 /* NativeSnapshots.swift */,
 				5410650B401FA89D4018806D /* TrackrSnapshot.swift */,
@@ -143,7 +137,6 @@
 		ACA6050357F3DFFEE990C4A1 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				DD690DF9B8937BD152CA49D8 /* libPods-Trackr.a */,
 				DD06F79E3268A337043D77A6 /* iOS */,
 			);
 			name = Frameworks;
@@ -157,16 +150,6 @@
 			name = iOS;
 			sourceTree = "<group>";
 		};
-		E03A687B6234FF42841E6E54 /* Pods */ = {
-			isa = PBXGroup;
-			children = (
-				5A0E3808A9914AA431EA59A9 /* Pods-Trackr.debug.xcconfig */,
-				FE5231E396AC561A77578671 /* Pods-Trackr.release.xcconfig */,
-			);
-			name = Pods;
-			path = Pods;
-			sourceTree = "<group>";
-		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -174,11 +157,9 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 00000000000000000000000C /* Build configuration list for PBXNativeTarget "Trackr" */;
 			buildPhases = (
-				63783713C15C5FFFB81CE391 /* [CP] Check Pods Manifest.lock */,
 				000000000000000000000008 /* Build shared CMP framework */,
 				000000000000000000000009 /* Sources */,
 				00000000000000000000000A /* Frameworks */,
-				B6F8EED0487B7D9D3410EDCD /* [CP] Copy Pods Resources */,
 				7397C7168F3E117D1F00E1E4 /* Embed App Extensions */,
 			);
 			buildRules = (
@@ -313,45 +294,6 @@
 			shellPath = /bin/sh;
 			shellScript = "set -eu\nif [ \"${OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED:-}\" = \"YES\" ]; then exit 0; fi\nif [ -z \"${JAVA_HOME:-}\" ]; then export JAVA_HOME=\"$(/usr/libexec/java_home)\"; fi\ncd \"$SRCROOT/..\"\n./gradlew :composeApp:embedAndSignAppleFrameworkForXcode\n";
 		};
-		63783713C15C5FFFB81CE391 /* [CP] Check Pods Manifest.lock */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
-				"${PODS_ROOT}/Manifest.lock",
-			);
-			name = "[CP] Check Pods Manifest.lock";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Pods-Trackr-checkManifestLockResult.txt",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
-			showEnvVarsInLog = 0;
-		};
-		B6F8EED0487B7D9D3410EDCD /* [CP] Copy Pods Resources */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-Trackr/Pods-Trackr-resources-${CONFIGURATION}-input-files.xcfilelist",
-			);
-			name = "[CP] Copy Pods Resources";
-			outputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-Trackr/Pods-Trackr-resources-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Trackr/Pods-Trackr-resources.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -440,7 +382,6 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 21;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
-				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(SRCROOT)/../composeApp/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)",
@@ -454,10 +395,6 @@
 				MARKETING_VERSION = 0.1.13;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
-					"-framework",
-					ComposeApp,
-				);
-				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = (
 					"-framework",
 					ComposeApp,
 				);
@@ -480,7 +417,6 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 21;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
-				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(SRCROOT)/../composeApp/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)",
@@ -494,10 +430,6 @@
 				MARKETING_VERSION = 0.1.13;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
-					"-framework",
-					ComposeApp,
-				);
-				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = (
 					"-framework",
 					ComposeApp,
 				);
@@ -541,7 +473,6 @@
 				INFOPLIST_FILE = TrackrWidgets/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MARKETING_VERSION = 0.1.13;
-				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.github.u5151561.trackr.widgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -617,7 +548,6 @@
 				INFOPLIST_FILE = TrackrWidgets/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MARKETING_VERSION = 0.1.13;
-				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.github.u5151561.trackr.widgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;

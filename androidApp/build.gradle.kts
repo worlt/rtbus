@@ -23,13 +23,7 @@ val localProperties = Properties().apply {
 fun localOrEnv(name: String): String =
     System.getenv(name)?.trim().orEmpty().ifBlank { localProperties.getProperty(name, "").trim() }
 
-// 高德 Android 平台 Key：与「PackageName + 签名 SHA-1」绑定。
-// debug 的 PackageName 带 .debug 后缀，需在高德控制台为该包名配置对应的 Android Key。
-val amapAndroidKeyFallback = localOrEnv("AMAP_ANDROID_KEY")
-// 可分别配置 debug / release 的 Android Key，未配置时回落到通用值。
-val amapAndroidKeyDebug = localOrEnv("AMAP_ANDROID_KEY_DEBUG").ifBlank { amapAndroidKeyFallback }
-val amapAndroidKeyRelease = localOrEnv("AMAP_ANDROID_KEY_RELEASE").ifBlank { amapAndroidKeyFallback }
-// 高德 Web 服务 Key（restapi.amap.com），与 Android 平台 Key 互不通用。
+// 规划数据链已退役；保留 Web Key 配置到后续 Key 页面/存储清理增量。
 val amapWebServiceKey = localOrEnv("AMAP_WEB_KEY")
 
 android {
@@ -47,8 +41,6 @@ android {
             "USE_NEW_STORE",
             providers.gradleProperty("trackr.useNewStore").getOrElse("true").toBooleanStrict().toString()
         )
-        buildConfigField("String", "AMAP_ANDROID_KEY", "\"$amapAndroidKeyRelease\"")
-        manifestPlaceholders["AMAP_ANDROID_KEY"] = amapAndroidKeyRelease
 
         vectorDrawables {
             useSupportLibrary = true
@@ -81,14 +73,10 @@ android {
         debug {
             applicationIdSuffix = ".debug"
             enableUnitTestCoverage = true
-            buildConfigField("String", "AMAP_ANDROID_KEY", "\"$amapAndroidKeyDebug\"")
-            manifestPlaceholders["AMAP_ANDROID_KEY"] = amapAndroidKeyDebug
         }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            buildConfigField("String", "AMAP_ANDROID_KEY", "\"$amapAndroidKeyRelease\"")
-            manifestPlaceholders["AMAP_ANDROID_KEY"] = amapAndroidKeyRelease
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -100,7 +88,7 @@ android {
         }
     }
 
-    // 两个 ABI 各出一个包，不把 56 MB 原生库塞进同一个 APK：arm64 约 51 MB、armv7 约 40 MB。
+    // 两个 ABI 各出一个包，避免把所有 ABI 的原生依赖塞进同一个 APK。
     // 产物在 build/outputs/apk/release/androidApp-<abi>-release.apk。
     splits {
         abi {
@@ -158,7 +146,6 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.navigation3)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.ktor.client.core)
-    implementation(libs.amap.search)
     implementation(platform(libs.koin.bom))
     implementation(libs.koin.android)
     implementation(libs.koin.compose.viewmodel)
@@ -192,34 +179,6 @@ dependencies {
 
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
-}
-
-/*
- * 高德 Key 注入状态自检：./gradlew amapKeyStatus
- * 用于核对「开放平台注册的包名 + SHA-1」与当前构建产物是否一致。
- */
-tasks.register("amapKeyStatus") {
-    group = "help"
-    description = "打印高德 Android/Web Key 注入情况与各变体包名"
-    doLast {
-        fun state(key: String) = if (key.isEmpty()) "❌ 未配置" else "✅ 已配置（${key.length} 位）"
-        println(
-            """
-            |高德 Key 状态
-            |  AMAP_ANDROID_KEY          : ${state(amapAndroidKeyFallback)}
-            |  AMAP_ANDROID_KEY_DEBUG    : ${state(amapAndroidKeyDebug)}
-            |  AMAP_ANDROID_KEY_RELEASE  : ${state(amapAndroidKeyRelease)}
-            |  AMAP_WEB_KEY              : ${state(amapWebServiceKey)}
-            |
-            |包名（提交到高德开放平台时填写）
-            |  debug   : com.github.u5151561.trackr.debug
-            |  release : com.github.u5151561.trackr
-            |
-            |debug / release 包名不同，请分别配置匹配包名和签名 SHA-1 的 Android Key。
-            |签名 SHA-1 可在 App 内「配置 Key」弹窗一键复制。
-            """.trimMargin()
-        )
-    }
 }
 
 /*

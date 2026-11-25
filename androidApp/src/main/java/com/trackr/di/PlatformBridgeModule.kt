@@ -65,8 +65,8 @@ val platformBridgeModule: Module = module {
     // 收藏分组一次性数据修复的版本号（原来在 viewModelModule 里给 FavoritesGroupViewModel 现建）
     single<LocalMigrationFlags> { StoreMigrationFlags(get()) }
     factory { androidAppVersion(androidContext()) }
-    // 构建时注入的高德 Key（和 StorageBackend 里给 AmapKeyRepository 的是同一组值）；「更多」页 Key 对话框判断「已配置」用
-    single { AmapKeyDefaults(androidKey = BuildConfig.AMAP_ANDROID_KEY, webKey = BuildConfig.AMAP_WEB_KEY, hasAndroidMapSdk = true) }
+    // 与 StorageBackend 保持一致：没有原生地图 SDK，Key 页面/存储另行清理。
+    single { AmapKeyDefaults(androidKey = "", webKey = BuildConfig.AMAP_WEB_KEY, hasAndroidMapSdk = false) }
 }
 
 /** 乘车码：转调 [TransitCodeHelper]（Intent 都带 NEW_TASK，用 applicationContext 打开和原来一样） */

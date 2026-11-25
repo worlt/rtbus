@@ -63,3 +63,6 @@ xcuserdata/
 iosApp/DerivedData/
 iosApp/Configuration/Local.xcconfig
 iosApp/Pods/
+
+# Python script caches
+__pycache__/

@@ -6,13 +6,13 @@
 
 ## RTBus 本地裁剪状态（2026-11-25）
 
-高德规划页面、Android/iOS 地图 UI、Swift 地图安装桥接及规划专属仓库/网关/模型/Web 客户端均已移除，iOS runtime 不再注册 Web 规划网关。普通路线详情、收藏、前台追踪和共享投影/坐标工具保留。CocoaPods 高德依赖、Key/隐私存储及构建配置仍待后续清理；下方既有运行/打包记录不能视为当前裁剪版本已通过 iOS 验收。本轮在 Windows 仅完成可用的 Android/主机验证，未执行 Xcode 构建或模拟器运行。
+高德规划页面、Android/iOS 地图 UI、Swift 地图安装桥接及规划专属仓库/网关/模型/Web 客户端均已移除，iOS runtime 不再注册 Web 规划网关。普通路线详情、收藏、前台追踪和共享投影/坐标工具保留。CocoaPods 高德依赖、Pods 工程/构建阶段及专属链接/Key 注入配置已移除，Key 设置页/隐私存储待后续清理；下方既有运行/打包记录不能视为当前裁剪版本已通过 iOS 验收。本轮在 Windows 仅完成可用的 Android/主机验证，未执行 Xcode 构建或模拟器运行。
 
 ## 在模拟器运行
 
 需要 macOS、完整 Xcode（含 iOS Simulator runtime）、JDK，以及项目现有的 Gradle / Android SDK 环境。本工程提供 `iosArm64` 和 `iosSimulatorArm64`，模拟器使用 Apple Silicon。
 
-1. 先执行 `pod install --project-directory=iosApp`，再用 Xcode 打开 `iosApp/Trackr.xcworkspace`。
+1. 用 Xcode 直接打开 `iosApp/Trackr.xcodeproj`；本工程已无 CocoaPods 依赖，不需要 `pod install`。
 2. 选择共享的 **Trackr** scheme 和一台 iPhone 模拟器，点击 Run。
 3. 首次构建会通过 Run Script 执行 `:composeApp:embedAndSignAppleFrameworkForXcode`，编译共享代码并复制 Compose 资源。无需手动导入 framework。
 4. 首次打开会申请使用期间定位权限。可以拒绝并手动选城市、搜索线路；模拟器附近站查询需要设置模拟坐标，例如执行 `xcrun simctl location booted set 31.2304,121.4737`（上海）。新版 Xcode 可在 Device Hub 中查看模拟器。
@@ -20,7 +20,7 @@
 命令行构建（不需要开发者签名）：
 
 ```sh
-xcodebuild -workspace iosApp/Trackr.xcworkspace -scheme Trackr \
+xcodebuild -project iosApp/Trackr.xcodeproj -scheme Trackr \
   -configuration Debug -sdk iphonesimulator \
   -destination 'generic/platform=iOS Simulator' \
   -derivedDataPath iosApp/DerivedData CODE_SIGNING_ALLOWED=NO build
@@ -40,7 +40,7 @@ xcrun simctl launch booted com.github.u5151561.trackr
 Release 配置的 framework 链接（`:composeApp:linkReleaseFrameworkIosArm64`）跑在 Gradle daemon 里，`org.gradle.jvmargs` 低于 6 GB 会直接 `OutOfMemoryError: Java heap space`（Debug 链接的内存峰值低于 Release，所以只在打包时暴露）。`gradle.properties` 已按 6 GB 配置。
 
 ```sh
-xcodebuild -workspace iosApp/Trackr.xcworkspace -scheme Trackr -configuration Release \
+xcodebuild -project iosApp/Trackr.xcodeproj -scheme Trackr -configuration Release \
   -sdk iphoneos -destination 'generic/platform=iOS' \
   -derivedDataPath iosApp/DerivedData CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
 
@@ -73,13 +73,13 @@ ditto iosApp/DerivedData/Build/Products/Release-iphoneos/Trackr.app /tmp/trackr-
 
 ## 本机 Key 与签名
 
-将 `iosApp/Configuration/Local.xcconfig.example` 复制为 `Local.xcconfig`，按需填写 `DEVELOPMENT_TEAM`、`TRACKR_APP_GROUP`。`AMAP_WEB_KEY`、`AMAP_IOS_KEY` 仍是待清理的旧配置，不是普通公交查询/路线详情的使用前提。该文件已被 Git 忽略；不要提交个人 Key、Team 或 provisioning profile。
+将 `iosApp/Configuration/Local.xcconfig.example` 复制为 `Local.xcconfig`，按需填写 `DEVELOPMENT_TEAM`、`TRACKR_APP_GROUP`。构建不再注入 `AMAP_WEB_KEY` 或 `AMAP_IOS_KEY`；普通公交查询/路线详情不需要高德 Key。该文件已被 Git 忽略；不要提交个人 Key、Team 或 provisioning profile。
 
 三个 Key 槽及高德 Key 设置页/授权撤回仍留在代码中，等待独立的 Key/隐私清理增量；不能据此推断仍可规划或显示地图。当前 runtime 已无高德 Web 请求通道，普通路线详情与追踪不依赖这些 Key。
 
 真机需同时为 `Trackr` 和 `TrackrWidgets` 配置同一开发团队，并在开发者账户中给两个 Bundle ID 启用相同 App Group。更换 Bundle ID 时同时更新扩展 ID 和 App Group。`CODE_SIGNING_ALLOWED=NO` 只验证构建，不能作为真机安装或 App Group 授权通过记录。
 
-高德 `AMap3DMap 11.2.100` 的 CocoaPods 依赖及相关链接配置仍有残留，尚未完成清理。Swift 地图适配与安装桥接已删除，不再安排规划/地图功能验收；不能把依赖仍在或旧构建记录当作当前功能可用。
+高德 CocoaPods 依赖、Podfile/锁文件、Pods workspace/库/配置引用及构建阶段已删除；ComposeApp 共享 framework 和小组件扩展保留。模拟器不再使用为旧 SDK 绕过链接而设的专属覆盖，沿用公共 ComposeApp 链接设置。当前只有源码/工程引用静态检查，仍需在 macOS 上实际执行 Xcode 构建、链接和模拟器/真机验收。
 
 ## 装配和存储
 
@@ -91,7 +91,7 @@ ditto iosApp/DerivedData/Build/Products/Release-iphoneos/Trackr.app /tmp/trackr-
 
 ## 原生底部页签与安全区
 
-`AppTabBar` 由 Koin 的 `platformUiModule` 注入：Android 使用现有 Material `NavigationBar`，iOS 使用 UIKit `UITabBar`（SF Symbols、原生选中态和 VoiceOver）。页面栈、深链、路线页签的 Key/隐私条件仍由共享 `Navigator` 管理；原生控件只回报点击，不能绕过共享状态自行切页。
+`AppTabBar` 由 Koin 的 `platformUiModule` 注入：Android 使用现有 Material `NavigationBar`，iOS 使用 UIKit `UITabBar`（SF Symbols、原生选中态和 VoiceOver）。页面栈与深链仍由共享 `Navigator` 管理，规划页签已退役；原生控件只回报点击，不能绕过共享状态自行切页。
 
 iOS 底栏固定显示在标准版根页，子页、长辈版和键盘打开时隐藏。没有手绘仿 iOS 按钮，也没有另建 UIKit 页面栈。UIKit 通过 `sizeThatFits` 提供内容高度，系统底部安全区另外计入一次；共享页面通过 `LocalBottomBarHeight` 让开实际底栏。公交列表、乘车码按钮和提示条、路线面板以及「我的」列表和提示条都使用该值。状态栏、刘海和详情页的底部操作仍使用现有 `WindowInsets`。
 
@@ -128,10 +128,10 @@ iOS 底栏固定显示在标准版根页，子页、长辈版和键盘打开时�
 ./gradlew test
 ./gradlew :core:data:iosSimulatorArm64Test :core:domain:iosSimulatorArm64Test :core:datastore:iosSimulatorArm64Test
 ./gradlew :composeApp:linkDebugTestIosSimulatorArm64 :feature:search:linkDebugTestIosSimulatorArm64
-xcodebuild -workspace iosApp/Trackr.xcworkspace -scheme Trackr \
+xcodebuild -project iosApp/Trackr.xcodeproj -scheme Trackr \
   -destination 'platform=iOS Simulator,id=<本机模拟器 UDID>' \
   -derivedDataPath iosApp/DerivedData -parallel-testing-enabled NO CODE_SIGN_IDENTITY=- test
-xcodebuild -workspace iosApp/Trackr.xcworkspace -scheme Trackr \
+xcodebuild -project iosApp/Trackr.xcodeproj -scheme Trackr \
   -sdk iphoneos -destination 'generic/platform=iOS' \
   -derivedDataPath iosApp/DerivedData CODE_SIGNING_ALLOWED=NO build
 ```

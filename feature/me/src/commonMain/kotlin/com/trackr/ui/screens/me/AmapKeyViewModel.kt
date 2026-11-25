@@ -85,7 +85,7 @@ class AmapKeyViewModel(
         derive(
             AmapKeyUiState(
                 showAndroidSlot = defaults.hasAndroidMapSdk,
-                showIosSlot = !defaults.hasAndroidMapSdk,
+                showIosSlot = defaults.hasIosMapSdk,
                 privacyConsented = amapKeys.privacyConsent.value == true,
                 iosInput = savedIosKey,
                 androidInput = savedAndroidKey,

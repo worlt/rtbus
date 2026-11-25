@@ -27,7 +27,7 @@
 
 ---
 
-> **本地开发中的衍生项目**：基于 [Trackr（追客）](https://github.com/5151561/Trackr) 修改，保留原作者及贡献者的 MIT 版权和许可声明。当前已完成显示名称调整，已关闭高德规划入口并移除 Android 高德启动绑定；地图/SDK/Key 清理及独立更新源仍未完成；暂未发布 RTBus 安装包，不应把上游发行版当作 RTBus。
+> **本地开发中的衍生项目**：基于 [Trackr（追客）](https://github.com/5151561/Trackr) 修改，保留原作者及贡献者的 MIT 版权和许可声明。当前已完成显示名称调整，已移除高德规划/地图 UI、数据链及两端原生 SDK 依赖/链接；Key 页面/存储、专属隐私及独立更新源仍未完成；暂未发布 RTBus 安装包，不应把上游发行版当作 RTBus。
 >
 > 保留原有全国城市选择、切换和查询范围，以及乘车码、小组件、追踪提醒等功能。本页截图仍为上游版本参考，后续以 RTBus 实际验收结果更新。
 
@@ -71,7 +71,7 @@
 
 - 收藏路线的普通详情、文字站序与追踪入口保留。
 - 高德起终点提示、公交算路和地图属于移除范围；路线规划页签和导航入口已关闭，不再注册规划 ViewModel 或 Android SDK 绑定。
-- Android 应用启动代码不再显式配置或初始化高德 SDK，也不再启动 Key 同步；旧地图、Key 设置/存储、Web 客户端和 SDK 依赖仍在清理，尚不能宣称安装包已无高德组件。
+- 高德规划/地图 UI、Web 客户端及两端原生 SDK 依赖/链接已删除；普通定位仍使用系统 API。Key 设置/存储与专属隐私流程待独立清理，release、真机与 iOS 验收尚未完成。
 
 ### 搜索与其他
 
@@ -127,7 +127,7 @@ iosApp/              Xcode 宿主（UIKit 薄壳）和 TrackrWidgets 扩展
 | 网络 | Ktor 3.6（Android 用 OkHttp 引擎，iOS 用 Darwin）、Kotlinx Serialization |
 | 本地存储 | Room 2.8（SQLite）、DataStore Preferences |
 | 桌面微件 | Glance 1.2、WorkManager |
-| 地图与算路 | Android：高德 3dmap + location + search；iOS：高德 Web 算路，真机另接 AMap3DMap |
+| 定位 | Android 系统 LocationManager；iOS Core Location，不依赖地图 SDK |
 | 构建 | Gradle 9.8、AGP 9.5、Version Catalogs、约定插件 |
 | 性能 | Baseline Profile、Macrobenchmark、Compose 稳定性配置 |
 | 测试 | JUnit 4、Robolectric、Turbine、Ktor MockEngine、Jacoco |
@@ -187,130 +187,11 @@ iOS 包（未签名，需自行重签）用 Xcode 打包，命令和限制见 [i
 
 ---
 
-## 🔑 旧高德实现说明（清理中）
+## 高德移除状态
 
-> 以下保留为上游旧实现的清理参考，**不是当前 RTBus 的功能或 Key 配置指南**。规划入口已关闭；`routeAndroidModule`、Android SDK 算路/Key 绑定和启动初始化链已删除，后文提到的部分类型已不再存在。当前构建仍含 SDK/地图残留，后续继续移除；无需为 RTBus 配置高德 Key。
+规划页面、地图桥接、规划数据链、Android 全局 SDK 与 iOS CocoaPods/链接已移除；普通公交定位、全国城市查询、收藏路线详情和追踪不依赖高德 Key。
 
-上游路线规划页的地图和公交算路依赖高德。下文记录其 Android 实现与旧配置方式，供后续删除残留时核对；iOS 的旧配置记录见 [iOS 启动工程](docs/ios.md#本机-key-与签名)。
-
-### 用到了哪些能力
-
-| 能力 | 实现 | 使用哪个 Key |
-| :--- | :--- | :--- |
-| 平面地图渲染：方案折线、起终点标记、定位蓝点、夜间样式 | `TextureMapView` + `AMap` | Android 平台 Key |
-| 地点输入提示（起点 / 终点联想） | `Inputtips`（search SDK） | Android 平台 Key |
-| 公交算路（换乘方案、步行段、票价） | `RouteSearch`（search SDK） | Android 平台 Key |
-| 算路兜底 | `restapi.amap.com` 的公交路径规划接口 | Web 服务 Key |
-| 定位 | 系统 `LocationManager`（不用高德定位取点） | 不需要 |
-
-依赖只有一个一体化包，地图、定位、搜索都在里面：
-
-```kotlin
-amap-search = { group = "com.amap.api", name = "3dmap-location-search", version = "11.3.100_loc11.3.101_sea9.8.1" }
-```
-
-它只在 `:feature:route` 的 `androidMain`（以及 `:androidApp` 的构建配置）出现，`commonMain` 和其他模块不引用高德类。选 `11.2.100` 以上是因为从这个版本起 `.so` 按 16 KB 页对齐；低于它的版本在 16 KB 页大小的新设备上会加载失败。
-
-### 两类 Key 严格分开
-
-高德的「Android 平台 Key」和「Web 服务 Key」互不通用，填反是地图空白最常见的原因。
-
-| Key 类型 | 用途 | 是否绑定包名 |
-| :--- | :--- | :--- |
-| Android 平台 Key | 地图渲染、输入提示、公交算路 SDK | 是，绑定包名 + 签名 SHA-1 |
-| Web 服务 Key | `restapi.amap.com` 算路兜底 | 否 |
-
-代码里两个槽位分别存储，互不回落（`AmapKeyRepository`）。生效优先级相同：
-
-```text
-App 内「我的 → 高德 Key」填的  >  local.properties / 环境变量注入的  >  空
-```
-
-两个槽都没有时，底栏不显示「路线」页签；只有 Web 服务 Key 时页签显示，能算路但不画地图；只有 Android Key 时地图和算路都可用。
-
-### 配置 Key
-
-**方式一：应用内填写（推荐给使用者）**
-
-打开「我的 → 高德 Key」，分别填 Android 平台 Key 和 Web 服务 Key，保存后立即生效，不需要重新编译。首次使用会先弹高德隐私说明，同意后才初始化 SDK。
-
-**方式二：构建时注入（推荐给自建打包）**
-
-在 `local.properties`（已被 Git 忽略）里写：
-
-```properties
-# Android 平台 Key，绑定包名 + SHA-1
-AMAP_ANDROID_KEY=你的 Android 平台 Key
-# Web 服务 Key，只用于算路兜底，可选
-AMAP_WEB_KEY=你的 Web 服务 Key
-```
-
-也可以用同名环境变量。构建时注入的 Android Key 会同时写进 `BuildConfig.AMAP_ANDROID_KEY` 和 Manifest 的 `com.amap.api.v2.apikey` 元数据。查看注入状态：
-
-```bash
-./gradlew amapKeyStatus
-```
-
-输出会列出两个 Key 是否已配置、最终包名，以及「一个 Key 可同时填发布版和调试版 SHA-1」的提示。
-
-**注册 Key 时填什么**
-
-- 包名：`com.github.u5151561.trackr`（debug 和 release 相同）。
-- SHA-1：在路线规划页点「诊断信息」可以直接复制当前安装包的包名和签名 SHA-1。开源分发的 APK 签名固定，所有人用同一组包名 + SHA-1；自己从源码编译的人签名不同，需要按自己构建的 SHA-1 另注册一个 Key。
-
-### 初始化顺序
-
-顺序错了地图会一直黑屏或空白，所以代码里固定成这条链：
-
-1. `TrackrApp` 启动时把 `BuildConfig` 里的 Key 交给 `MapSdkInitializer`。
-2. 用户同意隐私说明后，`MapsInitializer.updatePrivacyShow/updatePrivacyAgree`、`ServiceSettings`、`AMapLocationClient` 一起完成合规声明。
-3. `MapsInitializer.setApiKey`、`ServiceSettings.setApiKey`、`AMapLocationClient.setApiKey` 注入同一个 Android Key。
-4. 之后才允许创建 `TextureMapView`；`AmapMapSession` 会等容器挂到窗口并完成一帧布局后再 `onCreate`。
-5. 运行期换 Key 会销毁并重建地图实例，因为 SDK 只在创建时读一次 Key。
-
-### 地图实例的生命周期
-
-路线页挂在 Navigation 3 的 entry 上，切走页签时 composable 会被销毁。如果地图跟着销毁，每次切回来都要重新初始化 GL、重新拉瓦片，相机位置也会丢。
-
-`AmapMapSession` 用一个 Activity 级的容器托管 `TextureMapView`：
-
-- 切走页签：只把容器从窗口摘下（`onPause`），地图实例、瓦片缓存、相机位置保留；
-- 切回来：同一个实例重新挂上（`onResume`）；
-- 按 Home 或锁屏：暂停定位与渲染，回前台再恢复；
-- Activity 真正销毁时才 `onDestroy`。
-
-取景和坐标：
-
-- 业务层统一存 WGS-84；交给高德前转成 GCJ-02（`CoordTransform`），否则会偏 300～600 米。
-- 有方案时取景包住所有方案点，并为底部面板留出内边距；只有一个点或所有点重合时用 16 级街道缩放。
-- 没有定位时用当前城市中心兜底，城市中心同样先转 GCJ-02。
-
-### 算路与兜底
-
-`AndroidAmapRouteGateway` 的规则：
-
-1. 先走 Android 搜索 SDK 的公交算路；成功就直接返回。
-2. 只有 SDK **调用失败**（未配 Key、网络、鉴权）才回落到 Web 服务接口。
-3. SDK 成功但结果为空时不再请求 Web，避免重复打接口。
-4. 算路结果按「城市 + 坐标 + 15 分钟时间桶」缓存，输入提示按「城市 + 关键字」缓存。
-5. 所有高德调用都要求用户已同意隐私说明。
-
-降级行为：
-
-| 情况 | 界面表现 |
-| :--- | :--- |
-| 两个 Key 都没有 | 底栏不显示「路线」页签，其他功能不受影响 |
-| 只有 Web 服务 Key | 路线页可算路，不显示地图区域 |
-| Android Key 无效 / 未绑定当前签名 | 地图区显示失败原因和「重试」，算路仍可回落 Web |
-| 15 秒内底图没画出来 | 浮层提示检查包名、SHA-1，或是否把 Web Key 当成了地图 Key |
-| 设备是 x86 / x86_64 模拟器 | 原生库缺失，地图不可用；请用真机或 arm 模拟器 |
-
-### 常见问题
-
-- **地图一片空白**：先点「诊断信息」核对包名、SHA-1、Key 来源；再确认填的是 Android 平台 Key，不是 Web 服务 Key。
-- **算路提示额度不足**：Web 服务 Key 的个人开发者配额较低（约 3 QPS），把应用内配置换成自己的 Key。
-- **自己编译后地图不出图**：debug 签名和发布签名不同，需要把当前构建的 SHA-1 也加进同一个 Key，或单独注册。
-- **16 KB 页设备上地图加载失败**：确认依赖是 `11.2.100` 及以上。
+Key 设置页/仓库/旧存储和专属隐私流程仍待下一独立增量清理。无需配置高德 Key；旧配置/初始化指南不再适用，历史实现可查本地 Git。当前验证结果与未完成验收以 [交接记录](tasks/HANDOFF.md) 为准，不能把 debug 构建或 iOS 静态检查当作发行版/设备验收。
 
 ---
 
@@ -334,7 +215,7 @@ AMAP_WEB_KEY=你的 Web 服务 Key
 - [chelaile-mcp](https://github.com/PeanutSplash/chelaile-mcp)：车来了数据协议与参数参考。
 - [BusFleetTracker-GuiYang-Public-Transit](https://github.com/mage802/BusFleetTracker-GuiYang-Public-Transit)：贵阳公交数据分析与追踪实现参考。
 
-地图与公交算路由 [高德开放平台](https://lbs.amap.com/) 提供。
+上游已退役的地图与公交算路能力曾由 [高德开放平台](https://lbs.amap.com/) 提供，RTBus 不再使用。
 
 ---
 

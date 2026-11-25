@@ -31,10 +31,10 @@
 - 已有 Fake/桩数据定向 JVM 测试：`:core:domain` 215、`:core:data` 41、`:core:navigation` 70、`:feature:bus` 53、`:feature:search` 30、`:feature:route` 4，合计 **413 项通过，0 失败**；未连接真实公交接口。
 
 尚未完成，不能误报：
-- 高德尚未彻底拆除：规划入口/DI、Android 启动绑定、规划 UI/地图及规划专属数据链和两端 Web 规划绑定已删除；全局 Android SDK、CocoaPods/链接、Key 设置页/仓库/存储、专属隐私及构建配置仍有残留。普通查询/路线详情/追踪保留，APK 仍含高德原生库。
+- 高德尚未彻底拆除：规划 UI/数据链、全局 Android SDK、iOS CocoaPods/链接及原生 Key 注入已删除；两个 debug APK 已无高德原生库/DEX 类。Key 设置页/仓库/存储、专属隐私与 Android AMAP_WEB_KEY 等剩余配置仍待独立清理。普通查询、系统定位、路线详情和追踪保留。
 - applicationId、源码包名/类名、Bundle ID、URL scheme、数据库/偏好文件名、签名配置和图标仍沿用工程现状；应用 ID 尚未独立，不能宣称能与原版并存。
 - 原版更新端点仍在代码中，尚未切断或替换。用户没有自己的远程仓库，这是正常的本地开发阶段，不阻止其他改造。
-- 裁剪前品牌版本的 Android debug 构建与 413 项定向 JVM 测试成功；并未单独构建原始快照。当前裁剪版本完整 Android/JVM 主机测试全绿（1,553 项，0 失败/errors/跳过，见第 6 节最新增量）；release APK、真机和 iOS 验收仍未完成。
+- 裁剪前品牌版本的 Android debug 构建与 413 项定向 JVM 测试成功；并未单独构建原始快照。当前裁剪版本完整 Android/JVM 主机测试全绿（1,555 项，0 失败/errors/跳过，见第 6 节最新增量）；debug 构建及 release 合并 Manifest 已验证，release APK 构建/签名、真机和 iOS 验收仍未完成。
 
 ## 4. 环境和构建状态（续接先重新核对）
 
@@ -115,9 +115,19 @@
 - debug APK 与 checkDebug16kbPageAlignment 通过（6 个 64 位共享库）；实际检查两个 ABI 的 APK 仍含 libAMapSDK_MAP_v11_3_100.so / libapssdk.so。全局 SDK/CocoaPods、Key/隐私与构建配置未清理，不是彻底移除高德、release 或真机/iOS 验收。未连接真实公交接口、无 remote、不推送。
 - 日志与汇总仍在忽略目录 build/rtbus-validation/：route-data-preservation-baseline.log、route-data-boundary-red.log、route-data-removal-modules.log、route-data-removal-module-summary.json、route-data-removal-full-host.log、route-data-removal-suite-summary.json、route-data-static-checks.log、route-data-preservation-check.json。git diff --check 通过；同步了 iOS 状态/路线图和测试文档中的退役能力记录。
 
+### 本轮续接：全局原生 SDK / CocoaPods 清理
+- 已移除 Android app 的一体化 SDK、版本目录别名、专属 Maven 镜像、原生 Key 注入/状态任务、Manifest API Key/APSService、SDK R8 规则及高德明文域名例外；保留普通定位/追踪/小组件/安装组件和朗斯城市索引 HTTP 例外。
+- 已移除 iOS Podfile/锁文件、Pods workspace、库/配置/构建阶段引用和旧模拟器链接覆盖；保留 ComposeApp framework、共享构建阶段、App Group 与小组件。直接打开 xcodeproj，不再 pod install；Windows 仅能做工程/引用静态检查。
+- 两端生产装配显式没有原生地图 SDK；Android 旧 Key 仍保留存储，但不能启用地图。修正 Key 页将“无 Android SDK”误当“有 iOS SDK”的判断，新增无原生 SDK 不显示任一原生 Key 槽测试。Key 页/仓库/存储/专属隐私整体清理仍属下一独立增量，Android AMAP_WEB_KEY 配置暂保留。
+- 定向 :feature:me:testAndroidHostTest 与 :androidApp:testDebugUnitTest 已通过：381 项（me 66、app 315），0 failures/errors/skipped；新增 2 项运行测试，未移除或弱化保留测试。新增 9 项源码/产物检查器回归，与已有边界/品牌检查合计 21 项通过。入场源码边界和旧 APK 均被新检查器拒绝；完整 test :androidApp:assembleDebug :androidApp:processReleaseMainManifest 已通过（5m 17s，638 tasks；323 executed / 315 up-to-date）：18 个模块任务的 XML 合计 1,555 项，0 failures/errors/skipped，比上轮仅新增上述 2 项。
+- 两个 ABI 的 debug APK 均只含 libandroidx.graphics.path.so 与 libdatastore_shared_counter.so；检查器已确认没有高德原生库、资源文件名或 DEX vendor 类描述符。debug/release 合并 Manifest 和两个 APK 的 aapt2 解码 Manifest 均无 API Key/APSService；普通定位、追踪、小组件、重启恢复和更新安装组件保留。
+- checkDebug16kbPageAlignment 的 4 个 64 位共享库全部通过；两个 debug APK 的 zipalign -c -P 16 -v 4 均通过。debug/release runtime 完整依赖图均生成成功并通过无高德依赖检查；未构建 release APK，未做签名/升级、真机或 iOS 构建/链接/运行验收，不访问真实公交接口。
+- 日志与汇总均在忽略目录 build/rtbus-validation/，前缀 native-sdk-：removal-modules.log / removal-module-summary.json、removal-full-host.log / removal-suite-summary.json、debug-dependencies.log / release-dependencies.log、artifact-checks.log / artifact-summary.json、static-checks.log、boundary-red.log / boundary-green.log、apk-red.log，以及各 ABI 的 manifest.log / zipalign.log。产物检查可复用 .github/scripts/check_native_sdk_artifacts.py（命令见 docs/testing.md）。JDK/Gradle 缓存沿用第 4 节；本轮 Gradle 使用 --no-daemon --console=plain --max-workers=2 -Dorg.gradle.parallel=false -Dorg.gradle.vfs.watch=false。git diff --check 通过；无 remote，不推送。
+- 43 个保留核心源/测试文件与 af12ed4 字节一致；源 Manifest 除两个高德声明外完全一致。记录在 build/rtbus-validation/native-sdk-preservation-check.json（不是设备验收）。
+
 ## 7. 唯一明确的下一步
 
-移除全局 Android 高德 SDK 依赖与 iOS CocoaPods/链接残留，按引用图仅清理对应 SDK 专属构建/Manifest 配置与能力标志；用依赖图、合并 Manifest、APK 原生库清单和 16 KB 检查确认不再打包高德。普通公交定位、路线详情/追踪、共享投影工具及其他系统组件保留。不重复已完成的数据链删除；Key 设置页/仓库/存储、专属隐私和剩余配置随后独立清理。先测对应模块、再跑完整主机套件及可用平台构建并本地提交；不配置 remote、不推送。
+独立清理高德 Key 设置入口/页面、导航与 DI、仓库/存储/迁移装配和专属隐私流程，移除 Android AMAP_WEB_KEY 等剩余构建配置。保护普通设置、收藏/数据库、追踪会话及升级签名校验；审查旧 Key 文件的备份排除，不能因停止使用而把旧敏感文件纳入备份。旧导航状态要安全回落，不破坏普通路线详情。不要重做 SDK/CocoaPods 或此前 UI/数据链删除；按新旧存储、备份、导航恢复、启动和完整主机套件验证后本地提交。不配置 remote、不推送。
 
 ## 8. 记录维护
 

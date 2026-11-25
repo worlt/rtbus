@@ -10,6 +10,19 @@
 
 离线边界检查：`python .github/scripts/test_route_feature_boundary.py` 与 `python .github/scripts/test_route_data_boundary.py`（各 3 项）。它们只保护源码/装配边界，不代替 Gradle 测试、构建、真机或 iOS 验收。
 
+`python .github/scripts/test_native_sdk_boundary.py` 的 9 项检查覆盖 Android SDK 依赖/镜像/Manifest/R8、明文例外、iOS Pods/工程引用，以及产物检查器对遗留依赖、原生库和次级 DEX 的拒绝。真实 Application 的 Koin 默认能力和新旧存储回归验证：已存 Android Key 仍被保留，但不能重新启用原生地图；Key 页也不会将“无 Android SDK”误认为“有 iOS SDK”。
+
+实际产物另行检查（必须先构建并保存成功的依赖报告；不是仅扫描源码）：
+
+```sh
+python .github/scripts/check_native_sdk_artifacts.py \
+  --dependencies <debugRuntimeClasspath.log> <releaseRuntimeClasspath.log> \
+  --manifests <debug-merged-manifest.xml> <release-merged-manifest.xml> \
+  --apks <arm64-v8a-debug.apk> <armeabi-v7a-debug.apk>
+```
+
+检查器拒绝残留 SDK 依赖/组件、SDK 原生库/资源和 vendor DEX 类描述符，并列出实际 APK 原生库。APK 检查仅适用于传入的变体；debug 通过不代表 release APK 或 iOS 已验收。
+
 ## 1. 测试架构概览
 
 - 单元测试框架：JUnit 4 (`junit:junit:4.13.2`), `kotlinx-coroutines-test:1.10.2`

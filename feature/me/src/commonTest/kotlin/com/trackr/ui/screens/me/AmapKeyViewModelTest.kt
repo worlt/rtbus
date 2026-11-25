@@ -58,6 +58,15 @@ class AmapKeyViewModelTest {
     }
 
     @Test
+    fun withoutNativeSdk_doesNotOfferEitherNativeKeySlot() {
+        val state = createViewModel(
+            defaults = AmapKeyDefaults(hasAndroidMapSdk = false, hasIosMapSdk = false)
+        ).uiState.value
+        assertFalse(state.showAndroidSlot)
+        assertFalse(state.showIosSlot)
+    }
+
+    @Test
     fun onlyWebKeyChanged_writesOnlyWebSlot() {
         val viewModel = createViewModel()
 

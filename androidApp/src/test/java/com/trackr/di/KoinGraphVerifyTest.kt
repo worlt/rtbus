@@ -5,6 +5,7 @@ import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.test.core.app.ApplicationProvider
 import com.trackr.TrackrApp
+import com.trackr.core.data.repository.AmapKeyDefaults
 import com.trackr.core.data.repository.RealtimeRepository
 import com.trackr.core.data.repository.TrackingRepository
 import com.trackr.core.data.route.RouteAlignmentService
@@ -155,6 +156,10 @@ class KoinGraphVerifyTest {
         val koin = GlobalContext.get()
         assertTrue(app is TrackrApp)
         assertNotNull(koin.get<StorageBackend>())
+        val mapDefaults = koin.get<AmapKeyDefaults>()
+        assertFalse(mapDefaults.hasAndroidMapSdk)
+        assertFalse(mapDefaults.hasIosMapSdk)
+        assertEquals("", mapDefaults.androidKey)
         assertNotNull(koin.get<ITransitRepository>())
         assertNotNull(koin.get<IScheduledReminderRepository>())
         assertNotNull(koin.get<IRouteGroupRepository>())
