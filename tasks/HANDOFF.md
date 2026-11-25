@@ -62,14 +62,15 @@
 - 已围绕 `feature/route` 与根 Compose 装配完成首个边界切分：Android/iOS 的 `routeEntries` 不再注册 `ScreenKey.RoutePlan`，普通 `ScreenKey.RouteDetail` 入口和共享 `RouteDetailViewModel` 保留。
 - 根 `TrackrRoot` 不再预取 `RoutePlanViewModel`，不再根据高德 Key 显示路线规划 tab，也不再显示高德隐私同意弹窗；平台地图壳以 disabled 方式保留，待后续删 SDK 时清理。
 - `routeDataModule` 不再提供 `RoutePlanRepository`，`routeModule` 不再提供 `RoutePlanViewModel`；路线详情、追踪、收藏继续使用 `RouteAlignmentService` / `RouteGroupSaver` 等共享能力。
+- Android `platformFeatureModules` 已不再装配 `routeAndroidModule`；普通路线详情不依赖高德 SDK/Key 绑定。高德类和地图会话仍保留在源码中，APK 当前仍包含高德 native 库。
 - `rememberVisibleTabs` 固定返回公交 / 我的，旧 `RoutePlan` 栈仍由 `Navigator.onTabsChanged` 清回首页，以避免恢复旧存档时触发不存在的规划入口。
-- 新增/调整导航边界测试：`:composeApp:testAndroidHostTest`（20 项通过）与 `:feature:route:testAndroidHostTest`（4 项通过）均通过；`:androidApp:assembleDebug` 成功（390 个任务，16 KB 对齐检查通过）；`git diff --check` 通过。
+- 新增/调整导航边界测试：`:composeApp:testAndroidHostTest`（20 项通过）与 `:feature:route:testAndroidHostTest`（4 项通过）均通过；本轮再次执行 `:androidApp:assembleDebug` 成功（390 个任务，16 KB 对齐检查通过）；`git diff --check` 通过。
 - 未完成：RoutePlanViewModel、RoutePlanRepository、RouteAlignmentService、AmapRouteGateway、SDK/Key/地图资源仍在工程中；本轮不是高德彻底移除，也未构建 release/真机/iOS。
 
 ## 7. 明确的下一步
 
-1. 从 `composeApp` 的 `platformFeatureModules` 中移除未再被应用使用的 `routeAndroidModule`，再确认 Android/iOS 地图会话和 Amap Key 绑定没有普通路线详情依赖；不要先删共享对齐/追踪逻辑。
-2. 后续再清理 Android/iOS 地图会话、Amap Key/隐私存储和 `routeAndroidModule`，每步跑对应 JVM 测试并本地提交。
+1. 删除已无应用装配用途的 `routeAndroidModule` 及其 Android 高德 Key/SDK 绑定文件，先保留普通路线详情所需的共享对齐/追踪逻辑。
+2. 再清理 Android/iOS 地图会话、Amap Key/隐私存储和构建依赖，随后检查合并 Manifest、依赖图和 APK 是否不再包含高德组件。
 
 ## 8. 记录维护
 

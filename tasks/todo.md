@@ -19,12 +19,12 @@
 - [ ] 不改现有收藏/分组/提醒数据结构、不全局替换源码包名、不改技术栈。验收：无无关重构；验证：变更范围审查。
 
 ## 2. 拆分高德与保留功能
-- [~] 拆开路线规划和路线详情的导航及 ViewModel/DI 绑定。已完成入口与应用 DI 的首个边界增量：不再注册规划页 entry，普通路线详情 entry 保留；RoutePlanViewModel 与 RoutePlanRepository 不再进入应用 Koin DI，旧 RoutePlan Key 仅保留序列化兼容。规划源码/测试和高德平台 DI 尚未删除。
+- [~] 拆开路线规划和路线详情的导航及 ViewModel/DI 绑定。已完成入口与应用 DI 的首个边界增量：不再注册规划页 entry，普通路线详情 entry 保留；RoutePlanViewModel 与 RoutePlanRepository 不再进入应用 Koin DI，旧 RoutePlan Key 仅保留序列化兼容。规划源码/测试和 `routeAndroidModule` / 高德平台实现尚未删除。
 - [ ] 拆分 RouteAlignmentService 等混合实现。验收：普通路线对齐/返程/追踪所需逻辑保留；验证：相关仓库和 ViewModel 测试。
 - [~] 清理根页面/启动流程的规划与高德引用。已停止根级规划 ViewModel 预取、隐私弹窗和规划 tab；平台壳固定 disabled，但高德平台模块/更新参数仍暂留，需后续完全移除。
 
 ## 3. 删除高德专属实现
-- [ ] 移除地图、高德算路/输入提示和高德专属动作。验收：无空按钮/失效入口，公交文字站序仍正常；验证：UI 回归。
+- [~] 移除地图、高德算路/输入提示和高德专属动作。已从 Android 应用 Koin 装配移除 `routeAndroidModule`；地图/算路源码和 SDK 仍待删除。验收：无空按钮/失效入口，公交文字站序仍正常；验证：UI 回归。
 - [ ] 移除高德 Key 页/存储/同步/初始化及专属隐私流程。验收：不再要求高德同意或 Key；验证：启动、设置、备份规则测试。
 - [ ] 移除 SDK/Web 客户端及无人引用的网关、构建变量/镜像/Manifest 声明。验收：release 无高德依赖/组件；验证：依赖图、合并 Manifest 和 APK。
 - [ ] 同步受影响的平台引用、资源、文档与测试。验收：无因粗删模块破坏 KMP 编译；验证：可用平台编译任务和静态引用检查。
