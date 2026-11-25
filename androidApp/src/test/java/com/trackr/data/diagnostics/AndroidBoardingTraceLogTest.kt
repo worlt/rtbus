@@ -33,7 +33,14 @@ class AndroidBoardingTraceLogTest {
     }
 
     private fun TestScope.log(maxBytes: Long = 1_000_000L) = AndroidBoardingTraceLog(
-        context, scope = this, io = StandardTestDispatcher(testScheduler), maxBytes = maxBytes, launchShare = { shared += it }
+        context,
+        scope = this,
+        io = StandardTestDispatcher(testScheduler),
+        maxBytes = maxBytes,
+        provideUriForFile = { file ->
+            Uri.parse("content://${context.packageName}.fileprovider/diagnostics/${file.name}")
+        },
+        launchShare = { shared += it }
     )
 
     @Test

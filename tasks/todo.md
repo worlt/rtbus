@@ -45,7 +45,7 @@
 - [ ] 更新许可、隐私、README、截图和 CI，完成 release 构建。验收：声明匹配实际功能，结果有日志；验证：发布检查表。
 
 ## 唯一明确的下一步
-- 已单跑 AndroidBoardingTraceLogTest：4 项中 3 项通过，share_joinsOldAndCurrent_andOpensChooser 在 assertTrue(log.share()) 失败。诊断 init script 未能显示底层异常（share() 捕获后只 Log.w）；先用 Robolectric ShadowLog/等效方式取得异常并判断 FileProvider 配置与产品缺陷，再按 HANDOFF.md 第 6 节隔离其余 3 项失败。不得跳过测试或削弱断言。
+- 继续收口全量主机测试基线：分享日志测试已通过注入 URI 边界隔离 Robolectric FileProvider 缓存根问题；更新取消测试和小组件测试各自单跑通过，但需完整套件复验顺序/异步污染；DataStore 损坏恢复测试单跑仍失败，查明 ReplaceFileCorruptionHandler 未接管的原因。详见 HANDOFF.md 第 6–7 节；不得跳过测试或削弱断言。
 - 基线恢复后再清理根壳 disabled 地图会话桥接及闲置高德参数；保留普通路线详情/对齐/追踪，不重复删除已完成的 Android 绑定。
 
 ## 明确不纳入本轮

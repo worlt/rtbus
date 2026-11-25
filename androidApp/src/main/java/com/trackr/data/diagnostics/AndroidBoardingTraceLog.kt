@@ -2,6 +2,7 @@ package com.trackr.data.diagnostics
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.util.Log
 import androidx.core.content.FileProvider
 import com.trackr.core.domain.platform.BoardingTraceLog
@@ -26,6 +27,9 @@ class AndroidBoardingTraceLog(
     @Suppress("OPT_IN_USAGE")
     private val io: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(1),
     private val maxBytes: Long = MAX_BYTES,
+    private val provideUriForFile: (File) -> Uri = { file ->
+        FileProvider.getUriForFile(context.applicationContext, "${context.applicationContext.packageName}.fileprovider", file)
+    },
     private val launchShare: (Intent) -> Unit = { context.applicationContext.startActivity(it) }
 ) : BoardingTraceLog {
 
@@ -65,7 +69,7 @@ class AndroidBoardingTraceLog(
             }
         } ?: return false
         return try {
-            val uri = FileProvider.getUriForFile(appContext, "${appContext.packageName}.fileprovider", export)
+            val uri = provideUriForFile(export)
             val send = Intent(Intent.ACTION_SEND).apply {
                 type = "text/plain"
                 putExtra(Intent.EXTRA_STREAM, uri)
