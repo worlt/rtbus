@@ -54,10 +54,23 @@
 1. 读根 AGENTS.md，再读本交接和 todo.md；按需查 plan.md 的依赖边界，不要从零重新询问已确定的范围。
 2. 在实际 Git 根执行 git status --short、git log -5 --oneline、git remote -v，保留用户现有改动。
 3. 工具链与 Android 构建 / 定向测试基线已完成；细节见 `baseline.md`。
-4. 下一步：围绕 `feature/route` 与根 Compose 装配，先为“拆分规划入口但保留普通路线详情和追踪”编写/确认边界测试，再做首个约 1–5 文件的路由 / ViewModel / DI 解耦增量；每步验证并本地提交。
+4. 已完成首个“拆分规划入口但保留普通路线详情和追踪”的边界增量；后续按本文件第 7 节继续拆 RoutePlanViewModel 依赖链。
 5. 更新机制保留。后续本地阶段可显式提示正式源未配置，以 MockEngine/本地 APK 夹具验证；不能编造仓库或回退原作者端点，不为测试取消 HTTPS、包名、版本和签名校验。正式远程源等用户确认后再接入。
 
-## 6. 记录维护
+## 6. 本轮增量（2026-11-25）
+
+- 已围绕 `feature/route` 与根 Compose 装配完成首个边界切分：Android/iOS 的 `routeEntries` 不再注册 `ScreenKey.RoutePlan`，普通 `ScreenKey.RouteDetail` 入口和共享 `RouteDetailViewModel` 保留。
+- 根 `TrackrRoot` 不再预取 `RoutePlanViewModel`，不再根据高德 Key 显示路线规划 tab，也不再显示高德隐私同意弹窗；平台地图壳以 disabled 方式保留，待后续删 SDK 时清理。
+- `rememberVisibleTabs` 固定返回公交 / 我的，旧 `RoutePlan` 栈仍由 `Navigator.onTabsChanged` 清回首页，以避免恢复旧存档时触发不存在的规划入口。
+- 新增/调整导航边界测试：`:composeApp:testAndroidHostTest`（20 项通过）与 `:feature:route:testAndroidHostTest`（4 项通过）均通过；`git diff --check` 通过。
+- 未完成：RoutePlanViewModel、RoutePlanRepository、RouteAlignmentService、AmapRouteGateway、SDK/Key/地图资源仍在工程中；本轮不是高德彻底移除，也未构建 release/真机/iOS。
+
+## 7. 明确的下一步
+
+1. 继续在 `feature/route` 内拆除 `RoutePlanViewModel` 依赖链：先确认 `RoutePlanRepository` / `RouteAlignmentService` 哪些能力被普通路线详情、收藏和追踪共同使用，再以 1–5 文件增量移除规划专属接口；不要先删共享对齐/追踪逻辑。
+2. 后续再清理 Android/iOS 地图会话、Amap Key/隐私存储和 `routeAndroidModule`，每步跑对应 JVM 测试并本地提交。
+
+## 8. 记录维护
 
 每个阶段完成或准备切换任务时：更新本文件的已完成/未完成/验证结果/下一步，以及 todo.md；只记录有效状态，不复制全量对话和大型日志，不写敏感信息。与代码一起作合理本地提交，并在回复中给出提交号和未解决事项。
 

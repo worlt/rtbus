@@ -13,11 +13,8 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.ime
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -41,7 +38,6 @@ import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
-import com.trackr.core.data.repository.AmapKeyRepository
 import com.trackr.core.designsystem.theme.TrackrTheme
 import com.trackr.core.model.UiMode
 import com.trackr.core.navigation.Navigator
@@ -64,7 +60,6 @@ import com.trackr.ui.bottombar.LocalBottomBarHeight
 import com.trackr.app.navigation.AppTabBar
 import com.trackr.feature.bus.home.BusHomeViewModel
 import com.trackr.ui.screens.routedetail.RouteDetailViewModel
-import com.trackr.ui.screens.routeplan.RoutePlanViewModel
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -92,19 +87,15 @@ fun TrackrRoot(
                 "TrackrRoot 要放在有 ViewModelStoreOwner 的地方（Activity / ComposeUIViewController）"
             }
             CompositionLocalProvider(LocalAppViewModelStoreOwner provides appViewModelStoreOwner) {
-                // Android：地图会话（切页签不销毁地图）；iOS：直接显示
-                val amapKeys = koinInject<AmapKeyRepository>()
-                val privacyConsent by amapKeys.privacyConsent.collectAsStateWithLifecycle()
-                // 长辈版没有地图规划，不建地图会话
-                PlatformHost(enabled = privacyConsent == true && shell.uiMode == UiMode.Standard) {
+                // 规划入口已移除；保留平台壳调用位，后续高德实现清理时可直接删除。
+                PlatformHost(enabled = false) {
                     // 标准版 3 个页签各一条栈；长辈版一条栈、没有底栏（§8.4）。切换模式时新模式从首页开始（Q9）
                     UiModeNavHost(
                         uiMode = shell.uiMode,
                         standard = {
                             TrackrNavApp(
                                 deepLink = deepLink,
-                                onDeepLinkConsumed = onDeepLinkConsumed,
-                                onAmapPrivacyAccepted = onAmapPrivacyAccepted
+                                onDeepLinkConsumed = onDeepLinkConsumed
                             )
                         },
                         elder = {
@@ -132,14 +123,13 @@ fun TrackrRoot(
 @Composable
 private fun TrackrNavApp(
     deepLink: DeepLink?,
-    onDeepLinkConsumed: () -> Unit,
-    onAmapPrivacyAccepted: () -> Unit
+    onDeepLinkConsumed: () -> Unit
 ) {
     // 3 个页签各一条返回栈 + 当前页签，跨进程重建恢复（:core:navigation，重构计划 §3.3）
     val navigationState = rememberNavigationState()
     val navigator = remember(navigationState) { Navigator(navigationState) }
 
-    // 跨页共享的 ViewModel：首页（首页 / 权限回调）、规划页和路线详情（规划页 / 路线详情页共用）。
+    // 跨页共享的 ViewModel：首页和路线详情。
     // 在这里（NavDisplay 外）先取一次 Activity 级的实例，收藏的自动 ETA 刷新、一次性数据修复都从这时开始
     val appViewModelStoreOwner = LocalAppViewModelStoreOwner.current
     val homeViewModel = koinViewModel<BusHomeViewModel>(viewModelStoreOwner = appViewModelStoreOwner)
@@ -148,23 +138,10 @@ private fun TrackrNavApp(
     LaunchedEffect(homeViewModel) {
         if (!navigationState.isShowingRootOf(ScreenKey.Home)) homeViewModel.setPollingActive(false)
     }
-    koinViewModel<RoutePlanViewModel>(viewModelStoreOwner = appViewModelStoreOwner)
     koinViewModel<RouteDetailViewModel>(viewModelStoreOwner = appViewModelStoreOwner)
 
-    // D2：没有高德 Key 就不显示「路线规划」；Key 被清空且正停在那个页签时回首页、清掉它的栈
-    val visibleTabs = rememberVisibleTabs(koinInject<AmapKeyRepository>(), navigator)
-    val hasMapKey = ScreenKey.RoutePlan in visibleTabs
-    val amapKeys = koinInject<AmapKeyRepository>()
-    val privacyConsent by amapKeys.privacyConsent.collectAsStateWithLifecycle()
-    var showAmapPrivacyDialog by rememberSaveable { mutableStateOf(false) }
-
-    // 恢复到路线页但还没同意时回首页，并在用户主动进入路线页时再显示说明。
-    LaunchedEffect(navigationState.topLevel, privacyConsent, hasMapKey) {
-        if (hasMapKey && navigationState.topLevel == ScreenKey.RoutePlan && privacyConsent != true) {
-            navigator.selectTab(ScreenKey.Home)
-            showAmapPrivacyDialog = true
-        }
-    }
+    // 规划页已从应用入口移除；旧 RoutePlan 栈仍由 rememberVisibleTabs 交给 Navigator 清理。
+    val visibleTabs = rememberVisibleTabs(navigator)
 
     // 收藏变化后同步桌面快捷方式与小组件：第 4 步起在应用级作用域里做（见 FavoritesShortcutWidgetSync）
     // 首页轮询开关：第 17 步起由首页 Route 的 LifecycleStartEffect 控制（重构计划 §4.4）
@@ -251,13 +228,7 @@ private fun TrackrNavApp(
     val tabBarContentHeight = if (!showTabBar) 0.dp else if (navBarHeightPx == 0) {
         tabBar.initialContentHeight
     } else with(density) { (navBarHeightPx - systemNavBarInsetPx).coerceAtLeast(0).toDp() }
-    val onSelectTab: (ScreenKey) -> Unit = { key ->
-        if (key == ScreenKey.RoutePlan && privacyConsent != true) {
-            showAmapPrivacyDialog = true
-        } else {
-            navigator.selectTab(key)
-        }
-    }
+    val onSelectTab: (ScreenKey) -> Unit = navigator::selectTab
 
     CompositionLocalProvider(
         LocalBottomBarCollapseOffset provides bottomBarCollapseOffset,
@@ -310,32 +281,12 @@ private fun TrackrNavApp(
         }
     }
 
-    if (showAmapPrivacyDialog && hasMapKey && privacyConsent != true) {
-        AlertDialog(
-            onDismissRequest = { showAmapPrivacyDialog = false },
-            title = { Text("高德地图隐私说明") },
-            text = {
-                Text("路线规划会使用高德地图与公交服务获取地图、地点提示和公交路线。相关请求会包含你输入的地点及必要的位置信息，请阅读并同意高德隐私政策后继续。")
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    amapKeys.setPrivacyConsent(true)
-                    showAmapPrivacyDialog = false
-                    onAmapPrivacyAccepted()
-                    navigator.selectTab(ScreenKey.RoutePlan)
-                }) { Text("同意并继续") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showAmapPrivacyDialog = false }) { Text("暂不使用") }
-            }
-        )
-    }
+
 }
 
-/** 底栏文字（第 25 步按 v3 改成 公交 / 路线 / 我的；Key 名 Home / More 暂不改） */
+/** RTBus 底栏文字；RoutePlan 保留为旧状态 Key，但不再是可见页签。 */
 internal fun bottomTabLabel(key: ScreenKey): String = when (key) {
     ScreenKey.Home -> "公交"
-    ScreenKey.RoutePlan -> "路线"
     ScreenKey.More -> "我的"
-    else -> error("$key 不是顶层页签")
+    else -> error("$key 不是 RTBus 顶层页签")
 }

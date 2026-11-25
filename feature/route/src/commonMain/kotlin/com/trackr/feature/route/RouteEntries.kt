@@ -3,21 +3,24 @@ package com.trackr.feature.route
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
 import com.trackr.core.navigation.TrackrNavigator
+import com.trackr.core.navigation.ScreenKey
 import com.trackr.ui.screens.routedetail.RouteDetailViewModel
 import com.trackr.ui.screens.routeplan.RoutePlanViewModel
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 /**
- * 路线规划页签和路线详情的导航入口（`:composeApp` 组装）。
- * 两个页面都在 commonMain；entry 还是 expect / actual，因为 Android 的 actual 文件里另带高德 SDK 的 Koin 模块
- * `routeAndroidModule`，两边的 entry 内容目前相同。
+ * 路线相关导航入口（`:composeApp` 组装）。
+ *
+ * RTBus 当前只把普通路线详情（包括追踪 / 实时到站）接入应用导航；原高德规划页
+ * 的实现仍保留在 feature 内，待后续拆除其数据层和平台实现。保留 [ScreenKey.RoutePlan]
+ * 的序列化兼容性，但不再注册规划页 entry，避免入口层继续依赖高德功能。
  */
 expect fun EntryProviderScope<NavKey>.routeEntries(navigator: TrackrNavigator)
 
 /**
- * 规划页、路线（追踪 / 实时到站）的 Koin 定义：原 `FavoritesGroupViewModel` 拆出来的两个。
- * 两个都取 Activity 级的一个实例（规划页和路线详情页共用 [RouteDetailViewModel]，追踪状态两边一致）。
+ * 路线相关的 Koin 定义。规划 ViewModel 暂时保留以便本轮小步拆分和既有测试继续编译；
+ * 应用根不再提前创建它，后续移除规划实现时一并删除。
  */
 val routeModule = module {
     viewModel {
