@@ -32,9 +32,12 @@ import com.trackr.feature.search.searchModule
 import com.trackr.feature.stop.stopModule
 import com.trackr.util.MainDispatcherRule
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import io.ktor.client.HttpClientConfig
 import io.ktor.client.engine.HttpClientEngine
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -161,6 +164,19 @@ class KoinGraphVerifyTest {
         assertTrue("应用 DI 不再包含 Android 高德 SDK 或 Key 同步", types.none {
             it.qualifiedName.orEmpty().startsWith("com.trackr.data.remote.amap.")
         })
+    }
+
+    /** Robolectric terminates each Application before resetting SQLite's connection registry. */
+    @Test
+    fun applicationTermination_closesOwnedKoinAndAppScope() {
+        val app = ApplicationProvider.getApplicationContext<TrackrApp>()
+        val appJob = GlobalContext.get().get<CoroutineScope>(AppScopeQualifier).coroutineContext[Job]!!
+        assertTrue(appJob.isActive)
+
+        app.onTerminate()
+
+        assertNull(GlobalContext.getOrNull())
+        assertFalse(appJob.isActive)
     }
 
     /** 带参数的定义：按类型给一份样例参数 */

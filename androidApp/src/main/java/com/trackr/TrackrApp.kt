@@ -33,6 +33,17 @@ class TrackrApp : Application() {
         get<FavoritesShortcutWidgetSync>().start()
     }
 
+    override fun onTerminate() {
+        // Android kills a real process without this callback. Emulated processes (Robolectric)
+        // do call it: release Room/DataStore and app collectors before their platform is reset,
+        // rather than waiting for the next Application.onCreate to stop the previous container.
+        try {
+            stopKoin()
+        } finally {
+            super.onTerminate()
+        }
+    }
+
     private fun startKoinOnce() {
         // 生产环境每个进程只会走一次；Robolectric 每个用例都新建 Application，而 Koin 的全局容器跨用例保留，先停掉旧的
         if (GlobalContext.getOrNull() != null) stopKoin()

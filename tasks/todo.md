@@ -10,7 +10,7 @@
 - [ ] 记录原工程编译、测试及现有功能基线。验收：无“未运行却称通过”；验证：日志和功能清单。
   - [x] 补齐并校验 JDK 21、SDK Platform 37.0、AGP 实际选用的 Build Tools 36.0.0；wrapper 在 JDK 21 下启动成功。可复现环境见 baseline.md。
   - [x] Android debug 构建成功（335 个 Gradle 任务；16 KB native 检查通过），保留功能定向 JVM 测试 413 项通过、0 失败。详情及 APK 哈希见 baseline.md。静态品牌检查 6 项通过，不代替业务基线。
-  - [~] 当前裁剪版本完整主机测试已执行：1,622 项，1,618 通过、4 失败；本轮启动/导航/Koin 回归通过，debug APK 与 16 KB 检查完成。诊断分享、更新取消、小组件异常污染、DataStore 损坏恢复仍待隔离，不声称全绿；详见 HANDOFF.md 第 6 节。
+  - [x] 当前裁剪版本主机测试恢复全绿：1,623 项，0 失败/errors/跳过；包含新增 Application 终止回归。DataStore 损坏恢复、更新取消和小组件异步污染已修复；debug APK 与 16 KB 检查通过。并非 release/真机/iOS 验收；详见 HANDOFF.md 与 test-recovery.md。
 - [ ] 保留原 LICENSE，核实实际复用代码与依赖 notices；发布前确认公交数据源适用许可。验收：来源范围明确；验证：许可/来源台账。
 
 ## 1. 独立身份，不重构无关功能
@@ -45,8 +45,8 @@
 - [ ] 更新许可、隐私、README、截图和 CI，完成 release 构建。验收：声明匹配实际功能，结果有日志；验证：发布检查表。
 
 ## 唯一明确的下一步
-- 完整复验 1,622 项中 1,620 通过、2 失败：DataStore Preferences 损坏恢复（单跑也失败）与小组件测试 `UncaughtExceptionsBeforeTest`（单跑通过、全套失败）。已确认 DataStore handler 会运行，但 Windows 主机上替换损坏文件的 `.tmp` rename 失败；尝试升至 1.3.0 仍失败，版本已恢复 1.2.1。全量 Android app 单测复现更新取消测试（期望取消 2 个请求、实得 0）和小组件 `UncaughtExceptionsBeforeTest`；两类联合筛选单跑通过，负载/顺序敏感原因未明。继续定位，不跳过测试或削弱断言。分享日志与更新取消的独立回归通过，FileProvider 仍需设备验收。详见 HANDOFF.md 第 6–7 节。
-- 基线恢复后再清理根壳 disabled 地图会话桥接及闲置高德参数；保留普通路线详情/对齐/追踪，不重复删除已完成的 Android 绑定。
+- 完整主机套件 1,623 项已全绿、debug APK/16 KB 检查成功。Android app 314 项完整套件已额外重复运行通过（`resume-app-repeat.log`）；接下来继续高德裁剪。
+- 删除 TrackrRoot 闲置高德参数及根壳 disabled 地图会话包装，同步 common/Android/iOS 签名和 PlatformHostTest；保留系统栏设置、组合身份、普通路线详情/对齐/追踪。不重复删除已完成的 Android 绑定。
 
 ## 明确不纳入本轮
 - 不合并所有模块、不删除 iOS/KMP、不重写存储、不删辅助功能，也不接入另一地图平台。只有用户另行明确要求才重新评审。
