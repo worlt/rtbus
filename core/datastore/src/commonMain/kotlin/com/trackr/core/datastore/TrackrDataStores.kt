@@ -3,6 +3,7 @@ package com.trackr.core.datastore
 import androidx.datastore.core.DataMigration
 import androidx.datastore.core.DataStore
 import androidx.datastore.core.DataStoreFactory
+import androidx.datastore.core.Storage
 import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.core.okio.OkioStorage
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
@@ -115,12 +116,33 @@ fun createPreferencesDataStore(
     path: String,
     scope: CoroutineScope,
     migrations: List<DataMigration<Preferences>> = emptyList()
-): DataStore<Preferences> = PreferenceDataStoreFactory.createWithPath(
-    corruptionHandler = ReplaceFileCorruptionHandler { emptyPreferences() },
-    migrations = migrations,
-    scope = scope,
-    produceFile = { path.toPath() }
-)
+): DataStore<Preferences> = createPreferencesDataStore(path, scope, migrations, storage = null)
+
+/** Host tests may supply Android-compatible atomic replacement without duplicating recovery logic. */
+internal fun createPreferencesDataStore(
+    path: String,
+    scope: CoroutineScope,
+    migrations: List<DataMigration<Preferences>>,
+    storage: Storage<Preferences>?
+): DataStore<Preferences> {
+    val corruptionHandler = ReplaceFileCorruptionHandler { emptyPreferences() }
+    return if (storage == null) {
+        // Keep the platform's default storage in production (FileStorage on Android).
+        PreferenceDataStoreFactory.createWithPath(
+            corruptionHandler = corruptionHandler,
+            migrations = migrations,
+            scope = scope,
+            produceFile = { path.toPath() }
+        )
+    } else {
+        PreferenceDataStoreFactory.create(
+            storage = storage,
+            corruptionHandler = corruptionHandler,
+            migrations = migrations,
+            scope = scope
+        )
+    }
+}
 
 /** 建追踪会话的 DataStore（JSON 数组，没有会话时是空列表） */
 fun createTrackingSessionDataStore(

@@ -1,5 +1,7 @@
 package com.trackr.core.datastore
 
+import androidx.datastore.core.okio.OkioStorage
+import androidx.datastore.preferences.core.PreferencesSerializer
 import androidx.datastore.preferences.core.edit
 import com.trackr.core.model.BoardChoice
 import com.trackr.core.model.BoardOption
@@ -25,8 +27,13 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import okio.FileSystem
+import okio.ForwardingFileSystem
+import okio.Path.Companion.toPath
 import java.io.File
 import java.nio.file.Files
+import java.nio.file.StandardCopyOption.ATOMIC_MOVE
+import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 
 /** 三个 DataStore 文件：读写、重开读回、文件损坏不崩 */
 class TrackrDataStoresTest {
@@ -74,8 +81,29 @@ class TrackrDataStoresTest {
         val file = File(dir, TrackrDataStoreFiles.SETTINGS)
         file.writeBytes(byteArrayOf(0x7f, 0x01, 0x02, 0x03, 0x55))
 
-        val prefs = createPreferencesDataStore(file.absolutePath, newScope()).data.first()
+        // Android's File.renameTo implementation cannot replace an existing destination on Windows.
+        // Keep this host test focused on Preferences parsing + corruption-handler behavior, while
+        // supplying the replace-existing atomic move supported by the Android/Linux runtime.
+        val store = createPreferencesDataStore(
+            path = file.absolutePath,
+            scope = newScope(),
+            migrations = emptyList(),
+            storage = OkioStorage(
+                fileSystem = ReplaceExistingAtomicMoveFileSystem,
+                serializer = PreferencesSerializer,
+                producePath = { file.absolutePath.toPath() }
+            )
+        )
+
+        val prefs = store.data.first()
         assertTrue(prefs.asMap().isEmpty())
+        assertTrue(file.exists())
+        closeAll()
+
+        // Reopen with the production factory: recovery must persist valid Preferences, not just
+        // emit a transient empty value. This fails if the shared factory loses its handler.
+        val reopened = createPreferencesDataStore(file.absolutePath, newScope()).data.first()
+        assertTrue(reopened.asMap().isEmpty())
     }
 
     @Test
@@ -176,5 +204,12 @@ class TrackrDataStoresTest {
         file.writeText("{\"isActive\":tru")
 
         assertTrue(createTrackingSessionDataStore(file.absolutePath, newScope()).data.first().isEmpty())
+    }
+}
+
+/** Uses NIO's replace-existing atomic move so corruption recovery can be tested on Windows host. */
+private object ReplaceExistingAtomicMoveFileSystem : ForwardingFileSystem(FileSystem.SYSTEM) {
+    override fun atomicMove(source: okio.Path, target: okio.Path) {
+        Files.move(source.toNioPath(), target.toNioPath(), ATOMIC_MOVE, REPLACE_EXISTING)
     }
 }
