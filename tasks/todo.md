@@ -45,7 +45,7 @@
 - [ ] 更新许可、隐私、README、截图和 CI，完成 release 构建。验收：声明匹配实际功能，结果有日志；验证：发布检查表。
 
 ## 唯一明确的下一步
-- 先单跑 AndroidBoardingTraceLogTest，取得 share() 返回 false 的底层异常；随后隔离更新取消/小组件前序异常/DataStore 损坏恢复失败，收口绿色完整主机测试基线。命令和失败名称见 HANDOFF.md 第 6–7 节；不跳过测试或削弱断言。
+- 已单跑 AndroidBoardingTraceLogTest：4 项中 3 项通过，share_joinsOldAndCurrent_andOpensChooser 在 assertTrue(log.share()) 失败。诊断 init script 未能显示底层异常（share() 捕获后只 Log.w）；先用 Robolectric ShadowLog/等效方式取得异常并判断 FileProvider 配置与产品缺陷，再按 HANDOFF.md 第 6 节隔离其余 3 项失败。不得跳过测试或削弱断言。
 - 基线恢复后再清理根壳 disabled 地图会话桥接及闲置高德参数；保留普通路线详情/对齐/追踪，不重复删除已完成的 Android 绑定。
 
 ## 明确不纳入本轮

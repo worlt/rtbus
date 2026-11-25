@@ -82,7 +82,7 @@
 
 ## 7. 唯一明确的下一步
 
-先独立运行 `:androidApp:testDebugUnitTest --tests com.trackr.data.diagnostics.AndroidBoardingTraceLogTest`，获取 `share()` 返回 false 的底层异常，区分平台测试环境与产品缺陷；再逐个隔离第 6 节其余失败并检查前序异步异常污染，先收口绿色完整主机测试基线。不得通过跳过测试、削弱断言/更新安全校验或移除保留功能来消除失败。
+已按计划独立运行 `:androidApp:testDebugUnitTest --tests com.trackr.data.diagnostics.AndroidBoardingTraceLogTest`，4 项中 3 项通过；`share_joinsOldAndCurrent_andOpensChooser` 在 `assertTrue(log.share())` 失败（测试源第 70 行），确认 `share()` 仍返回 false。再用 `build/rtbus-validation/diagnostic.init.gradle` 重跑，输出仍只有断言栈；`AndroidBoardingTraceLog.share()` 捕获异常后仅 `Log.w` 并返回 false，因此当前测试报告没有底层异常。已核对主 Manifest 的 FileProvider authority 为 `${applicationId}.fileprovider`，并配置 `@xml/update_paths` 的 `diagnostics/` cache-path；需下一步通过 Robolectric ShadowLog 或等效诊断取出被吞异常，并确认是 FileProvider/Robolectric 配置还是产品缺陷。之后再逐个隔离第 6 节其余失败并检查前序异步异常污染，收口绿色完整主机测试基线。不得通过跳过测试、削弱断言/更新安全校验或移除保留功能消除失败。
 
 基线恢复后再继续原定裁剪：从 `TrackrRoot` 的闲置高德参数和 `PlatformShell.android.kt` 的 disabled `ProvideAmapMapSession` 包装开始，连同 iOS 对应桥接和 `PlatformHostTest` 一起收敛；保留内容组合身份、普通路线详情、共享对齐与追踪。再分增量删规划源码、Amap Key/隐私存储和 SDK/Web 构建依赖，最终检查合并 Manifest、依赖图和 APK。
 
