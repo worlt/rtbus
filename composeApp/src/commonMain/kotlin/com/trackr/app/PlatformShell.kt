@@ -7,9 +7,9 @@ import androidx.navigation3.runtime.NavKey
 import com.trackr.core.navigation.Navigator
 import com.trackr.core.navigation.ScreenKey
 
-/** 包在 NavDisplay 外面的平台部分。Android：Activity 级的高德地图会话（切页签不销毁地图，§3.4） */
+/** 包在 NavDisplay 外面的平台 UI。Android：根据应用主题同步系统栏和边到边显示。 */
 @Composable
-internal expect fun PlatformHost(enabled: Boolean, content: @Composable () -> Unit)
+internal expect fun PlatformHost(content: @Composable () -> Unit)
 
 /**
  * 首次打开时的定位 / 通知权限说明与申请。Android：先弹说明再申请定位和通知；

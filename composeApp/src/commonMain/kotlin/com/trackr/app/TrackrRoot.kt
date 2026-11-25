@@ -75,21 +75,20 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 fun TrackrRoot(
     deepLink: DeepLink? = null,
-    onDeepLinkConsumed: () -> Unit = {},
-    onAmapPrivacyAccepted: () -> Unit = {}
+    onDeepLinkConsumed: () -> Unit = {}
 ) {
     // 界面模式在 NavDisplay 之上读（§8.2）：决定主题和导航结构（标准版 / 长辈版，§8.4）
     val shellViewModel = koinViewModel<AppShellViewModel>()
     val shell by shellViewModel.shell.collectAsStateWithLifecycle()
     TrackrTheme(uiMode = shell.uiMode, themeMode = shell.themeMode, themeColors = shell.themeColors) {
         Surface(modifier = Modifier.fillMaxSize()) {
-            // 原来在 NavDisplay 外取、跨页共享的 ViewModel（首页、搜索、规划 / 收藏）仍挂在这一层
+            // 跨页共享的 ViewModel（首页、搜索、收藏）仍挂在 NavDisplay 外这一层
             val appViewModelStoreOwner = checkNotNull(LocalViewModelStoreOwner.current) {
                 "TrackrRoot 要放在有 ViewModelStoreOwner 的地方（Activity / ComposeUIViewController）"
             }
             CompositionLocalProvider(LocalAppViewModelStoreOwner provides appViewModelStoreOwner) {
-                // 规划入口已移除；保留平台壳调用位，后续高德实现清理时可直接删除。
-                PlatformHost(enabled = false) {
+                // 平台壳只处理系统栏等平台 UI，不再创建地图会话。
+                PlatformHost {
                     // 标准版公交 / 我的各一条栈；长辈版一条栈、没有底栏。切换模式时新模式从首页开始。
                     UiModeNavHost(
                         uiMode = shell.uiMode,

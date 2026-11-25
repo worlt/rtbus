@@ -13,7 +13,7 @@ import com.trackr.core.navigation.ScreenKey
 import org.jetbrains.compose.resources.vectorResource
 
 @Composable
-internal actual fun PlatformHost(enabled: Boolean, content: @Composable () -> Unit) = content()
+internal actual fun PlatformHost(content: @Composable () -> Unit) = content()
 
 @Composable
 internal actual fun PermissionOnboarding(afterOnboarding: @Composable () -> Unit) {

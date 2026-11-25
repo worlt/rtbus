@@ -55,7 +55,7 @@ class ThemeModeTest {
                     background = currentBackground
                     isDark = currentDark
                 }
-                PlatformHost(enabled = false) {
+                PlatformHost {
                     ThemeSettingsScreen(state = me, onEvent = meViewModel::onEvent)
                 }
             }
