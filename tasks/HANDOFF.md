@@ -17,7 +17,7 @@
 - 用户明确要求：只在本地 Git 小步提交，第一版完整可用且用户确认后再处理远程。当前无 remote；不创建远程仓库、不配置 remote、不推送，除非之后明确授权。
 - 每个合理增量验证后独立提交。先查 git status，不能覆盖、回退或混入来源不明的用户改动。不要用“写了代码”代替测试通过。
 - 原始 ZIP：C:\D\A_code\tracker\Trackr-main.zip。SHA-256：3CA1088CDDBDC5C4F4960FDA430F85FEA183F9FF685D7E2F779445BC67E490BD。
-- 已有提交：3c50980 = 700 个原始文件的快照；f0a2569 = 方案及本地流程；b8c7633 = 品牌更名。之后可能有交接文档提交，实际顺序以 git log 为准。
+- 已有提交：3c50980 = 700 个原始文件的快照；f0a2569 = 方案及本地流程；b8c7633 = 品牌更名。后续增量以 git log 为准；本次测试恢复提交为 93a05c2（DataStore）、3300d2d（更新取消）、2961bd0（Application 终止清理）；6de71ab 为根平台壳脱离地图会话。
 - 3c50980 是可回溯的源码快照，不是已经编译/测试通过的基线。
 
 ## 3. 已完成和尚未完成
@@ -61,7 +61,7 @@
 
 ### 已有高德边界切分（不要重做）
 - Android/iOS 的 `routeEntries` 不再注册 `ScreenKey.RoutePlan`，普通路线详情入口、共享 `RouteDetailViewModel`、对齐/追踪保留。
-- 根 `TrackrRoot` 不再预取规划 VM、显示规划 tab 或高德隐私弹窗；平台地图壳仍以 disabled 方式保留。
+- 根 `TrackrRoot` 不再预取规划 VM、显示规划 tab 或高德隐私弹窗；根平台壳的 disabled 地图包装及闲置高德回调已在本次续接移除（见下）。
 - 规划仓库/VM 已退出应用 DI；`routeAndroidModule`、Android SDK 算路网关/服务、初始化/Key 同步绑定及对应专属测试已删除。Android 原有存储、路线/提醒仓库、小组件同步启动顺序保留。
 - 根导航只创建公交/我的两条栈，避免隐藏规划栈触发 `Unknown screen RoutePlan`；旧规划 Key 保留解码兼容，旧当前页签回首页，其余栈按 Key 恢复。冷启动、旧状态恢复和 Koin 真实 Application 启动回归已覆盖。
 - 日志分享测试通过可注入 URI 边界隔离 Robolectric FileProvider 根解析问题；内容与分享 Intent 有断言，不等价于设备 FileProvider 验收。
@@ -72,17 +72,25 @@
 - 小组件 `UncaughtExceptionsBeforeTest` 的 suppressed 堆栈定位到前序 Room 失效通知访问 Robolectric 已重置的 SQLite 连接。TrackrApp 在模拟进程 `onTerminate` 时停止 Koin，及时关闭其存储和应用作用域；未修改小组件断言或数据库实现。新增终止回归在修复前失败、修复后通过。
 - 诊断经过、边界和初始失败复现详见 `test-recovery.md`。日志在本机忽略目录 `build/rtbus-validation/`，不提交大型日志或本机配置。
 
+### 本次续接：根平台壳脱离地图会话
+- 删除 TrackrRoot 的闲置 `onAmapPrivacyAccepted` 参数；common/Android/iOS `PlatformHost` 删除 enabled 参数，Android 不再包装 ProvideAmapMapSession，只在同一组合位置调用 content。
+- 保留 Android 主题驱动的系统栏、边到边显示与导航栏对比度设置；没有删除 PermissionOnboarding、标准/长辈导航或普通路线详情。
+- PlatformHostTest 不再要求高德 consent 翻转后创建地图会话，改为主题切换仍保留导航状态、Navigator、普通 remember token、已打开路线详情及跨页签返回栈。ThemeModeTest 继续检查系统栏跟随主题。
+- `composeApp/src` 中已无 `onAmapPrivacyAccepted`、`PlatformHost(enabled...)`、`ProvideAmapMapSession` 引用。iOS actual 签名已同步，但 Windows 没有执行 iOS 编译/链接/模拟器测试。
+
 ### 最新验证
 - `test :androidApp:assembleDebug --continue --init-script build/rtbus-validation/diagnostic.init.gradle --no-daemon --console=plain --stacktrace`：**BUILD SUCCESSFUL**，3m 19s，636 个任务（55 executed / 581 up-to-date）。
 - 按各模块 JUnit XML 汇总：**1,623 tests，0 failures / errors / skipped**。其中 Android app 314、DataStore 7、Compose app 20；新增 Application 终止回归使原 1,622 项增加 1 项。
 - 完整 app 套件额外 `:androidApp:testDebugUnitTest --rerun` 重跑：BUILD SUCCESSFUL，1m 10s，314 项均通过；日志 `resume-app-repeat.log`。
 - Android debug APK 与 `checkDebug16kbPageAlignment` 通过；APK 仍含 `libAMapSDK_MAP_v11_3_100.so` / `libapssdk.so`，不是高德彻底移除或发行版验收。
 - 本轮日志：`resume-host-suite.log`；汇总：`resume-suite-summary.json`。环境与 wrapper 入口沿用第 4 节 / `baseline.md`。
-- 尚未完成：规划源码、混合职责 RouteAlignmentService、Android/iOS 地图会话、SDK/Key/隐私存储及构建配置仍有残留；没有执行 release / 真机 / iOS 验收。
+- 根壳裁剪后定向复验：Compose app 20 项、Android 启动/导航/Koin 37 项均通过；debug APK/16 KB 检查通过，BUILD SUCCESSFUL（1m 5s / 386 tasks）。日志 `root-shell-detachment.log`。品牌静态检查 6 项、`git diff --check` 通过；不代替运行测试。
+- 根壳裁剪后再次完整运行 `test :androidApp:assembleDebug`（其余参数同上）：**BUILD SUCCESSFUL**，1m 13s，636 tasks（20 executed / 616 up-to-date）；XML 再汇总 **1,623 项，0 失败/errors/跳过**。日志 `root-shell-final-host-suite.log`，汇总 `root-shell-final-suite-summary.json`。
+- 尚未完成：规划源码、混合职责 RouteAlignmentService、feature/route 内部 Android/iOS 地图实现、SDK/Key/隐私存储及 iOS runtime/构建配置仍有残留；没有执行 release / 真机 / iOS 验收。
 
 ## 7. 唯一明确的下一步
 
-完整主机套件及 app 套件重复运行已通过；不要将主机全绿解释为已完成设备验收。接下来按原定裁剪，删除 `TrackrRoot` 闲置高德隐私回调参数和 `PlatformShell.android.kt` 的 disabled `ProvideAmapMapSession` 包装，同步 common/iOS `PlatformHost` 签名及测试。保留平台系统栏设置、内容组合身份、普通路线详情、共享对齐与追踪；将 `PlatformHostTest` 从旧高德 consent 翻转回归改为保留功能的重组/导航状态回归。每个增量验证后本地提交，不配置 remote、不推送。
+先拆分 `core/data/.../route/RouteAlignmentService.kt` 的混合职责：把仅由 `DefaultRoutePlanRepository` 使用的 `alignAmapSchemesWithRealtimeSource` 及其高德方案专属辅助逻辑移到规划专属协作者，避免随后删除规划仓库时误删普通路线能力。保留 `findRealtimeLineMatch`、`alignTransitGroupWithRealtimeSource`、`buildReverseTransitGroup`、`alignSyntheticCandidateCached` 等仍被 `RouteDetailViewModel` 和 `RouteGroupSaving.kt` 使用的逻辑。以 `:core:data:testAndroidHostTest`、`:feature:route:testAndroidHostTest` 及完整主机测试验证后本地提交，再删高德专属规划/地图/SDK 残留。不要删整个 feature/route 模块或共享 RouteProjectionMath；不配置 remote、不推送。
 
 ## 8. 记录维护
 

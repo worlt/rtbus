@@ -22,7 +22,7 @@
 ## 2. 拆分高德与保留功能
 - [~] 拆开路线规划和路线详情的导航及 ViewModel/DI 绑定。已完成入口与应用 DI 的首个边界增量：不再注册规划页 entry，普通路线详情 entry 保留；RoutePlanViewModel 与 RoutePlanRepository 不再进入应用 Koin DI，旧 RoutePlan Key 仅保留序列化兼容；根导航只创建公交/我的栈，避免隐藏规划栈触发 Unknown screen 崩溃，并补冷启动/旧规划状态恢复回归。`routeAndroidModule` 及 Android SDK 算路/Key 绑定已删除；规划源码/测试、地图会话与 SDK 依赖尚未删除。
 - [ ] 拆分 RouteAlignmentService 等混合实现。验收：普通路线对齐/返程/追踪所需逻辑保留；验证：相关仓库和 ViewModel 测试。
-- [~] 清理根页面/启动流程的规划与高德引用。已停止根级规划 ViewModel 预取、隐私弹窗和规划 tab；Android 启动初始化、隐私初始化回调及 Key 同步已删除；平台壳固定 disabled，根壳闲置参数与 Android/iOS 地图桥接仍待移除。
+- [~] 清理根页面/启动流程的规划与高德引用。已停止根级规划 ViewModel 预取、隐私弹窗和规划 tab；Android 启动初始化、隐私初始化回调及 Key 同步已删除；根壳闲置高德回调与 disabled 地图包装已移除，common/Android/iOS Host 签名同步；主题/系统栏/组合身份及路线详情回归通过。feature 内地图与 iOS runtime 高德装配仍待清理。
 
 ## 3. 删除高德专属实现
 - [~] 移除地图、高德算路/输入提示和高德专属动作。已删除 `routeAndroidModule`、AndroidAmapRouteGateway、AmapSdkTransitService 及专属测试/适配器；普通路线详情保留，地图、共享规划源码和 SDK 仍待删除。验收：无空按钮/失效入口，公交文字站序仍正常；验证：UI 回归。
@@ -45,8 +45,8 @@
 - [ ] 更新许可、隐私、README、截图和 CI，完成 release 构建。验收：声明匹配实际功能，结果有日志；验证：发布检查表。
 
 ## 唯一明确的下一步
-- 完整主机套件 1,623 项已全绿、debug APK/16 KB 检查成功。Android app 314 项完整套件已额外重复运行通过（`resume-app-repeat.log`）；接下来继续高德裁剪。
-- 删除 TrackrRoot 闲置高德参数及根壳 disabled 地图会话包装，同步 common/Android/iOS 签名和 PlatformHostTest；保留系统栏设置、组合身份、普通路线详情/对齐/追踪。不重复删除已完成的 Android 绑定。
+- 主机套件 1,623 项及额外 app 314 项重复运行已全绿；根壳闲置参数/disabled 地图包装与 common/Android/iOS 签名已收敛，定向 57 项及 debug APK/16 KB 检查通过。最终根壳裁剪后的全套记录见 HANDOFF.md。
+- 拆分 RouteAlignmentService：将 DefaultRoutePlanRepository 专用的 alignAmapSchemesWithRealtimeSource 及高德方案辅助逻辑独立，保留 RouteDetailViewModel/RouteGroupSaving 使用的线路匹配、组对齐、返程、缓存能力。验证 core:data、feature:route 和完整主机测试后本地提交，再删除规划/地图/SDK 残留。不重复根壳和 Android 绑定裁剪。
 
 ## 明确不纳入本轮
 - 不合并所有模块、不删除 iOS/KMP、不重写存储、不删辅助功能，也不接入另一地图平台。只有用户另行明确要求才重新评审。
