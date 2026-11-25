@@ -1,17 +1,14 @@
 <div align="center">
 
-<img src="androidApp/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png" width="76" height="76" alt="追客 Logo" />
+<img src="androidApp/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png" width="76" height="76" alt="实时公交 Logo" />
 
-# 追客 · Trackr
+# 实时公交 · Real-Time Bus（RTBus）
 
 <p align="center">
   <strong>Android 实时公交到站追踪</strong>
 </p>
 
 <p align="center">
-  <a href="https://github.com/5151561/Trackr/releases/latest">
-    <img src="https://img.shields.io/github/v/release/5151561/Trackr?label=Release&color=006874&logo=github&style=flat" alt="Release" />
-  </a>
   <a href="https://developer.android.com">
     <img src="https://img.shields.io/badge/Platform-Android%208.0%2B-3DDC84?style=flat&logo=android&logoColor=white" alt="Android" />
   </a>
@@ -30,6 +27,10 @@
 
 ---
 
+> **本地开发中的衍生项目**：基于 [Trackr（追客）](https://github.com/5151561/Trackr) 修改，保留原作者及贡献者的 MIT 版权和许可声明。当前已完成显示名称调整，高德移除及独立更新源尚在待办中；暂未发布 RTBus 安装包，不应把上游发行版当作 RTBus。
+>
+> 保留原有全国城市选择、切换和查询范围，以及乘车码、小组件、追踪提醒等功能。本页截图仍为上游版本参考，后续以 RTBus 实际验收结果更新。
+
 ## 📸 界面预览
 
 | 公交首页 | 线路详情 | 在途车辆 | 站点详情 |
@@ -43,7 +44,7 @@
 
 ## 📖 项目简介
 
-追客（Trackr / BusOnRoad）是一款实时公交到站追踪应用，以 Android 为主，iOS 版复用同一套页面（目前只出未签名包，见 [iOS 启动工程](docs/ios.md)）。它把「下一班还有几分钟」放在第一屏，围绕公交、线路、站点和换乘路线组织信息，没有开屏广告，也没有信息流。
+实时公交（英文名 Real-Time Bus，简称 RTBus）是一款实时公交到站追踪应用，以 Android 为主，iOS 版复用同一套页面（目前只出未签名包，见 [iOS 启动工程](docs/ios.md)）。它把「下一班还有几分钟」放在第一屏，围绕公交、线路、站点和换乘路线组织信息，没有开屏广告，也没有信息流。
 
 应用基于 **Material Design 3 Expressive** 设计，采用 **MAD 分层架构 + Kotlin Multiplatform**：业务页面、状态和 UI 在 `commonMain`，Android / iOS 的平台能力经接口注入。数据来自车来了与掌上公交两个实时数据源，按城市自动选择可用通道。
 

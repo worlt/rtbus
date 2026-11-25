@@ -190,7 +190,7 @@ fun ReminderEditScreen(
 
             if (!state.supportsAutoStart) item(key = "notification_only") {
                 SettingsCard(title = stringResource(MeRes.string.me_reminder_after)) {
-                    Text("到点发送通知，打开追客后可开始追踪", modifier = Modifier.padding(16.dp),
+                    Text("到点发送通知，打开实时公交后可开始追踪", modifier = Modifier.padding(16.dp),
                         style = MaterialTheme.typography.bodyMedium)
                 }
             }

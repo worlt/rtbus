@@ -154,13 +154,13 @@ class AndroidAppUpdateInstaller(
     }
 
     /**
-     * 校验下载到的安装包：是追客、版本比现在新、签名和现在装的一致。
+     * 校验下载到的安装包：是实时公交、版本比现在新、签名和现在装的一致。
      * 没问题返回 null，有问题返回给用户看的一句话。
      */
     private fun verifyPackage(file: File): String? {
         val archive = archiveInfo(file) ?: return "安装包不完整，请重新下载"
         if (archive.packageName != appContext.packageName) {
-            return "下载到的不是追客的安装包，已停止安装"
+            return "下载到的不是实时公交的安装包，已停止安装"
         }
 
         val installed = runCatching { installedInfo() }.getOrNull() ?: return "读不到当前版本，请重试"

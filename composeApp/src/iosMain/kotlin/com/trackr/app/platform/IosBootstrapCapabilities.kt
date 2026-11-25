@@ -67,7 +67,7 @@ internal fun showPlatformNotice(message: String) {
     var presenter = scene.windows.filterIsInstance<UIWindow>().firstOrNull { it.isKeyWindow() }?.rootViewController ?: return
     while (presenter.presentedViewController != null) presenter = presenter.presentedViewController!!
     if (presenter is UIAlertController) return
-    val alert = UIAlertController.alertControllerWithTitle("追客", message, UIAlertControllerStyleAlert)
+    val alert = UIAlertController.alertControllerWithTitle("实时公交", message, UIAlertControllerStyleAlert)
     alert.addAction(UIAlertAction.actionWithTitle("知道了", UIAlertActionStyleDefault, null))
     presenter.presentViewController(alert, animated = true, completion = null)
 }

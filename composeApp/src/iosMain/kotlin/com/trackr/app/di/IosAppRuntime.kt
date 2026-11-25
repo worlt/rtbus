@@ -151,7 +151,7 @@ internal class IosAppRuntime(val module: Module, val resolveFavorite: (String) -
                                 override fun start(target: com.trackr.core.model.TrackingTarget): Boolean {
                                     val started = controller.start(target)
                                     if (started) mainScope.launch {
-                                        if (!notifications.requestPermission()) showPlatformNotice("通知未开启，追踪仍可在应用内查看。请到系统设置允许追客通知。")
+                                        if (!notifications.requestPermission()) showPlatformNotice("通知未开启，追踪仍可在应用内查看。请到系统设置允许实时公交通知。")
                                     }
                                     return started
                                 }

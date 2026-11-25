@@ -81,7 +81,7 @@ class ReminderEditViewModel(
             is ReminderEditEvent.SetAutoStart -> editDraft { it.copy(autoStartLiveTracking = event.enabled) }
             ReminderEditEvent.OpenExactAlarmSettings -> {
                 if (!alarms.openExactAlarmSettings()) {
-                    addMessage("打不开系统设置。请到系统设置里给追客开「闹钟和提醒」")
+                    addMessage("打不开系统设置。请到系统设置里给实时公交开「闹钟和提醒」")
                 }
             }
             ReminderEditEvent.Save -> save()

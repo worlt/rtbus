@@ -244,7 +244,7 @@ class LiveProgressNotifier(
             .setProgress(maxProgress, currentProgress, false)
             .setContentIntent(contentPendingIntent)
 
-        // D3：默认锁屏显示全部内容；关了锁屏开关只显示「追客 · 追踪中」（系统设成隐藏敏感内容时生效）
+        // D3：默认锁屏显示全部内容；关了锁屏开关只显示「实时公交 · 追踪中」（系统设成隐藏敏感内容时生效）
         if (runCatching { showOnLockScreenSetting() }.getOrDefault(true)) {
             builder.setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
         } else {
@@ -539,7 +539,7 @@ class LiveProgressNotifier(
         val choice = watch.boardChoice
         if (choice != null) {
             val names = choice.options.joinToString("、") { it.lineName }
-            return NotificationTexts("$names 都在 $stopName", "上了哪辆？打开追客选一下", subText, "上了哪辆")
+            return NotificationTexts("$names 都在 $stopName", "上了哪辆？打开实时公交选一下", subText, "上了哪辆")
         }
         val primaryTexts = buildTexts(state)
         val title = primaryTexts.title
@@ -815,7 +815,7 @@ class LiveProgressNotifier(
         internal const val LIVE_NOTIFICATION_ENABLED_FALLBACK = true
 
         /** 锁屏开关关掉时锁屏上的标题（D3） */
-        internal const val LOCK_SCREEN_PUBLIC_TITLE = "追客 · 追踪中"
+        internal const val LOCK_SCREEN_PUBLIC_TITLE = "实时公交 · 追踪中"
 
         /**
          * 「乘车码」按钮在 [NotificationAction] 里的标识。第 18 步起按钮发的是 `trackr://transit-code` 链接，

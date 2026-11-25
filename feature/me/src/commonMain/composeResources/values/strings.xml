@@ -6,7 +6,7 @@
     <string name="me_theme_light">浅色</string>
     <string name="me_theme_dark">深色</string>
     <string name="me_about_title">关于</string>
-    <string name="me_app_name">追客</string>
+    <string name="me_app_name">实时公交</string>
     <string name="me_about_version_unknown">版本未知</string>
     <string name="me_about_version">版本 v%1$s</string>
     <string name="me_about_license">开源协议</string>
@@ -30,7 +30,7 @@
     <string name="me_about_downloading">正在下载… %1$d%</string>
     <string name="me_about_downloading_bytes">正在下载… %1$d MB</string>
     <string name="me_about_cancel_download">取消下载</string>
-    <string name="me_about_install_permission">系统还没允许追客安装应用。去设置里打开「允许安装未知应用」，回来会自动继续。</string>
+    <string name="me_about_install_permission">系统还没允许实时公交安装应用。去设置里打开「允许安装未知应用」，回来会自动继续。</string>
     <string name="me_about_open_install_settings">去设置</string>
     <string name="me_about_install_launched">已打开系统安装界面，按提示完成安装。</string>
     <string name="me_about_install_again">再次安装</string>
@@ -96,7 +96,7 @@
     <string name="me_notify_broken_live">「实时通知」渠道被关掉了，追踪进度不会显示</string>
     <string name="me_notify_fix">去开启</string>
     <string name="me_group_map">地图</string>
-    <string name="me_about_app">关于追客</string>
+    <string name="me_about_app">关于实时公交</string>
     <string name="me_version">版本 %1$s</string>
     <string name="me_data_source">数据来源</string>
     <string name="me_reminders_empty">还没有定时提醒</string>

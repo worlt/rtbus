@@ -215,7 +215,7 @@ fun ScheduledReminderDialog(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // iOS reminders notify only; polling starts when the app is opened.
-                if (!supportsAutoStart) Text("到点发送通知，打开追客后可开始追踪")
+                if (!supportsAutoStart) Text("到点发送通知，打开实时公交后可开始追踪")
                 if (supportsAutoStart) Surface(
                     color = MaterialTheme.colorScheme.surfaceContainerLow,
                     shape = RoundedCornerShape(12.dp),

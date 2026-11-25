@@ -51,7 +51,7 @@ fun MainViewController() = ComposeUIViewController {
                     } else {
                         CircularProgressIndicator()
                         Spacer(Modifier.height(16.dp))
-                        Text("正在打开追客")
+                        Text("正在打开实时公交")
                     }
                 }
             }

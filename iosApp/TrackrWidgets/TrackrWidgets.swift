@@ -26,9 +26,9 @@ struct FavoritesView: View {
     @Environment(\.widgetFamily) private var family
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("追客 · 收藏").font(.headline)
+            Text("实时公交 · 收藏").font(.headline)
             if entry.items.isEmpty {
-                Text("打开追客收藏公交或路线").font(.caption).foregroundStyle(.secondary)
+                Text("打开实时公交收藏公交或路线").font(.caption).foregroundStyle(.secondary)
             }
             ForEach(entry.items.prefix(family == .systemSmall ? 1 : 3)) { item in
                 if let url = URL(string: item.url) {
@@ -50,7 +50,7 @@ struct TrackrFavoritesWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "TrackrFavorites", provider: FavoritesProvider()) { FavoritesView(entry: $0) }
             .configurationDisplayName("收藏公交与路线")
-            .description("最近一次到站快照；打开追客刷新。")
+            .description("最近一次到站快照；打开实时公交刷新。")
             .supportedFamilies([.systemSmall, .systemMedium])
     }
 }

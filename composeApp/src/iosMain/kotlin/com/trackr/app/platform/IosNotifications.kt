@@ -75,7 +75,7 @@ class IosNotifications(private val scope: CoroutineScope, private val state: Rem
         }
         val content = UNMutableNotificationContent().apply {
             setTitle("乘车提醒 · ${reminder.lineName}")
-            setBody("${reminder.targetStopName}，打开追客查看实时到站并开始追踪")
+            setBody("${reminder.targetStopName}，打开实时公交查看实时到站并开始追踪")
             setSound(UNNotificationSound.defaultSound())
             setUserInfo(mapOf("url" to DeepLinkUris.line(reminder.cityId, reminder.lineId,
                 reminder.dataSourceType, reminder.targetStopId, reminder.targetOrder, reminder.lineName)))
@@ -156,7 +156,7 @@ class IosNotifications(private val scope: CoroutineScope, private val state: Rem
             TrackingEngine.Effect.Finished.Completed -> "已到达目的地，追踪结束"
         }
         val content = UNMutableNotificationContent().apply {
-            setTitle("追客")
+            setTitle("实时公交")
             setBody(text)
             setSound(UNNotificationSound.defaultSound())
         }

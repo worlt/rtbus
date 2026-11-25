@@ -493,7 +493,7 @@ class LiveProgressNotificationHelperTest {
         val public = notification.publicVersion
         assertNotNull(public)
         val title = public!!.extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()
-        assertEquals("追客 · 追踪中", title)
+        assertEquals("实时公交 · 追踪中", title)
         assertNull(public.extras.getCharSequence(Notification.EXTRA_TEXT))
         assertTrue(public.actions.isNullOrEmpty())
         // 完整版照旧

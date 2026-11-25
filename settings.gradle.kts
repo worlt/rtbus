@@ -21,7 +21,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Trackr"
+rootProject.name = "RTBus"
 include(":androidApp")
 include(":core:designsystem")
 include(":core:model")

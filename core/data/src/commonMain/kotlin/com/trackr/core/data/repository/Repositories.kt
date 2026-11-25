@@ -89,7 +89,7 @@ interface SettingsRepository {
     val nearbyStopsCount: StateFlow<Int>
     val isLiveNotificationEnabled: StateFlow<Boolean>
 
-    /** 追踪通知在锁屏显示全部内容（D3），默认开；关了锁屏只显示「追客 · 追踪中」 */
+    /** 追踪通知在锁屏显示全部内容（D3），默认开；关了锁屏只显示「实时公交 · 追踪中」 */
     val showOnLockScreen: StateFlow<Boolean>
 
     /**
