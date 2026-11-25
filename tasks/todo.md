@@ -45,7 +45,7 @@
 - [ ] 更新许可、隐私、README、截图和 CI，完成 release 构建。验收：声明匹配实际功能，结果有日志；验证：发布检查表。
 
 ## 唯一明确的下一步
-- 完整复验 1,622 项中 1,620 通过、2 失败：DataStore Preferences 损坏恢复（单跑也失败）与小组件测试 `UncaughtExceptionsBeforeTest`（单跑通过、全套失败）。已确认 DataStore handler 会运行，但 Windows 主机上替换损坏文件的 `.tmp` rename 失败；继续区分测试主机文件系统限制与生产缺陷，不能跳过测试或削弱断言。小组件异步异常源仍未定位。分享日志与更新取消的独立回归通过，FileProvider 仍需设备验收。详见 HANDOFF.md 第 6–7 节。
+- 完整复验 1,622 项中 1,620 通过、2 失败：DataStore Preferences 损坏恢复（单跑也失败）与小组件测试 `UncaughtExceptionsBeforeTest`（单跑通过、全套失败）。已确认 DataStore handler 会运行，但 Windows 主机上替换损坏文件的 `.tmp` rename 失败；尝试升至 1.3.0 仍失败，版本已恢复 1.2.1。全量 Android app 单测复现更新取消测试（期望取消 2 个请求、实得 0）和小组件 `UncaughtExceptionsBeforeTest`；两类联合筛选单跑通过，负载/顺序敏感原因未明。继续定位，不跳过测试或削弱断言。分享日志与更新取消的独立回归通过，FileProvider 仍需设备验收。详见 HANDOFF.md 第 6–7 节。
 - 基线恢复后再清理根壳 disabled 地图会话桥接及闲置高德参数；保留普通路线详情/对齐/追踪，不重复删除已完成的 Android 绑定。
 
 ## 明确不纳入本轮
