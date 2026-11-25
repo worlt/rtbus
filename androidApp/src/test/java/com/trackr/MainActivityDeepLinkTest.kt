@@ -137,6 +137,17 @@ class MainActivityDeepLinkTest {
     }
 
     @Test
+    fun launcherColdStart_hasOnlyRetainedTabs_withoutPlanningEntry() {
+        val activity = launch(launcherIntent())
+
+        composeTestRule.onNodeWithText("编辑").assertExists()
+        composeTestRule.onNodeWithText("我的").assertExists()
+        composeTestRule.onNodeWithText("路线").assertDoesNotExist()
+        assertTrue(openedLines.isEmpty())
+        assertNull(activity.pendingDeepLink)
+    }
+
+    @Test
     fun coldStart_withLineLink_opensLineDetail_andConsumesTheIntent() {
         val activity = launch(lineIntent())
 

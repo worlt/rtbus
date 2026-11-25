@@ -1,9 +1,7 @@
 package com.trackr
 
 import android.app.Application
-import com.trackr.core.domain.platform.MapSdkInitializer
 import com.trackr.data.local.StorageBackend
-import com.trackr.data.remote.amap.AmapSdkKeySync
 import com.trackr.data.repository.IRouteGroupRepository
 import com.trackr.data.repository.IScheduledReminderRepository
 import com.trackr.data.repository.ITransitRepository
@@ -24,15 +22,7 @@ class TrackrApp : Application() {
         startKoinOnce()
 
         // 打开本地存储（第 9 步：USE_NEW_STORE 开时先把旧 SharedPreferences 导入 Room / DataStore，只读不删）
-        val storage = get<StorageBackend>()
-
-        // 先只配置构建时 Key，不触碰高德 SDK；隐私说明同意后由 MainActivity 初始化。
-        get<MapSdkInitializer>().configureBuiltInKeys(BuildConfig.AMAP_ANDROID_KEY, BuildConfig.AMAP_WEB_KEY)
-        if (storage.amapKeys.privacyConsent.value == true) {
-            runCatching { get<MapSdkInitializer>().initialize(storage.amapKeys.androidKey.value) }
-        }
-        // 之后用户在「更多」页改 Android Key 时重新注入（已同意时）。
-        get<AmapSdkKeySync>().start()
+        get<StorageBackend>()
 
         // 三个仓库按原来的顺序在这里取一次（构建时读盘）
         get<ITransitRepository>()

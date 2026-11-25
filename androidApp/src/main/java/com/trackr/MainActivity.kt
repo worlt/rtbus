@@ -12,8 +12,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.trackr.app.TrackrRoot
 import com.trackr.core.navigation.deeplink.DeepLink
-import com.trackr.core.data.repository.AmapKeyRepository
-import com.trackr.core.domain.platform.MapSdkInitializer
 import com.trackr.core.domain.platform.TrackingController
 import com.trackr.deeplink.DeepLinkIntents
 import com.trackr.util.TransitCodeHelper
@@ -46,13 +44,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             TrackrRoot(
                 deepLink = pendingDeepLink,
-                onDeepLinkConsumed = { pendingDeepLink = null },
-                onAmapPrivacyAccepted = {
-                    val keys = get<AmapKeyRepository>()
-                    runCatching {
-                        get<MapSdkInitializer>().initialize(keys.androidKey.value)
-                    }
-                }
+                onDeepLinkConsumed = { pendingDeepLink = null }
             )
         }
     }

@@ -3,6 +3,16 @@ package com.trackr.di
 import android.app.Application
 import android.content.Context
 import androidx.lifecycle.SavedStateHandle
+import androidx.test.core.app.ApplicationProvider
+import com.trackr.TrackrApp
+import com.trackr.core.data.repository.RoutePlanRepository
+import com.trackr.data.local.StorageBackend
+import com.trackr.data.repository.IRouteGroupRepository
+import com.trackr.data.repository.IScheduledReminderRepository
+import com.trackr.data.repository.ITransitRepository
+import com.trackr.ui.screens.routedetail.RouteDetailViewModel
+import com.trackr.ui.screens.routeplan.RoutePlanViewModel
+import com.trackr.widget.FavoritesShortcutWidgetSync
 import com.trackr.core.model.DataSourceType
 import com.trackr.app.di.platformUiModule
 import com.trackr.app.di.appShellModule
@@ -17,7 +27,6 @@ import com.trackr.feature.bus.busModule
 import com.trackr.feature.favorites.favoritesModule
 import com.trackr.feature.line.lineModule
 import com.trackr.feature.me.meModule
-import com.trackr.feature.route.routeAndroidModule
 import com.trackr.feature.route.routeModule
 import com.trackr.feature.search.searchModule
 import com.trackr.feature.stop.stopModule
@@ -27,6 +36,7 @@ import io.ktor.client.HttpClientConfig
 import io.ktor.client.engine.HttpClientEngine
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -112,9 +122,6 @@ class KoinGraphVerifyTest {
     fun routeModule_verify() = verifyModule(routeModule)
 
     @Test
-    fun routeAndroidModule_verify() = verifyModule(routeAndroidModule)
-
-    @Test
     fun favoritesModule_verify() = verifyModule(favoritesModule)
 
     @Test
@@ -129,10 +136,31 @@ class KoinGraphVerifyTest {
         assertEquals(
             listOf(
                 appModule, platformBridgeModule, routeDataModule, appShellModule, busModule, searchModule, stopModule,
-                lineModule, routeModule, favoritesModule, meModule, routeAndroidModule, platformUiModule
+                lineModule, routeModule, favoritesModule, meModule, platformUiModule
             ),
             appModules
         )
+    }
+
+    /** 使用真实 Application 冷启动，而非只验证字节码编译。启动只读本地盘，不请求公交接口。 */
+    @OptIn(KoinInternalApi::class)
+    @Test
+    fun applicationStartsWithoutAmapBindings_andRetainsLocalServices() {
+        val app = ApplicationProvider.getApplicationContext<TrackrApp>()
+        val koin = GlobalContext.get()
+        assertTrue(app is TrackrApp)
+        assertNotNull(koin.get<StorageBackend>())
+        assertNotNull(koin.get<ITransitRepository>())
+        assertNotNull(koin.get<IScheduledReminderRepository>())
+        assertNotNull(koin.get<IRouteGroupRepository>())
+        assertNotNull(koin.get<FavoritesShortcutWidgetSync>())
+        assertNull(koin.getOrNull<RoutePlanRepository>())
+        assertNull(koin.getOrNull<RoutePlanViewModel>())
+        val types = appModules.flatMap { it.mappings.values }.map { it.beanDefinition.primaryType }
+        assertTrue("路线详情定义必须保留", RouteDetailViewModel::class in types)
+        assertTrue("应用 DI 不再包含 Android 高德 SDK 或 Key 同步", types.none {
+            it.qualifiedName.orEmpty().startsWith("com.trackr.data.remote.amap.")
+        })
     }
 
     /** 带参数的定义：按类型给一份样例参数 */

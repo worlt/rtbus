@@ -31,14 +31,14 @@
 - 已有 Fake/桩数据定向 JVM 测试：`:core:domain` 215、`:core:data` 41、`:core:navigation` 70、`:feature:bus` 53、`:feature:search` 30、`:feature:route` 4，合计 **413 项通过，0 失败**；未连接真实公交接口。
 
 尚未完成，不能误报：
-- 尚未拆除高德，未改业务查询/追踪逻辑。
+- 高德尚未彻底拆除：规划入口/应用 DI 和 Android 启动绑定已移除，地图/SDK/Key 与规划源码仍有残留；普通查询/追踪逻辑保留。
 - applicationId、源码包名/类名、Bundle ID、URL scheme、数据库/偏好文件名、签名配置和图标仍沿用工程现状；应用 ID 尚未独立，不能宣称能与原版并存。
 - 原版更新端点仍在代码中，尚未切断或替换。用户没有自己的远程仓库，这是正常的本地开发阶段，不阻止其他改造。
-- 当前品牌后、裁剪前版本的 Android debug 构建与 413 项定向 JVM 测试成功；并未单独构建原始快照。完整测试套件、release、真机和 iOS 验收尚未完成。
+- 裁剪前品牌版本的 Android debug 构建与 413 项定向 JVM 测试成功；并未单独构建原始快照。当前裁剪版本已执行完整 Android/JVM 主机测试（1,622 项，4 项失败，见第 6 节），不能称为全绿；release APK、真机和 iOS 验收仍未完成。
 
 ## 4. 环境和构建状态（续接先重新核对）
 
-- 用户已确认先补齐工具链、建立 Android 构建与保留功能测试基线，再解耦高德；本轮尚未改业务代码。
+- 工具链与 Android 构建/保留功能定向测试基线已建立；现在按边界小步移除高德，不重新搭建或降低依赖版本。
 - shell：PowerShell。读写文件显式 UTF-8；必要时进程内设置 PYTHONIOENCODING=utf-8。
 - 已安装并校验 Temurin **21.0.13.1+2-LTS**：`C:\E\dev-tools\jdk-21`。工程要求 toolchain 21，产物 Java 目标仍是 17；不要混淆。
 - 只在构建进程里指定 JDK 21，未改全局 JAVA_HOME / PATH；默认环境仍可能指向 JDK 17，裸 `java` 可能不可用。
@@ -49,12 +49,12 @@
 - JDK 21 下 Android debug 构建（335 个任务）和定向 JVM 测试（413 项）成功，见 `baseline.md`；品牌静态检查 6 项通过。
 - 旧 preflight 中主动停止的 daemon/PID 仅为历史记录，不要重用旧 PID 操作新进程。Windows 不能运行 iOS 模拟器测试，不据此移除 KMP/iOS。
 
-## 5. 明确的下一步
+## 5. 续接流程与更新约束
 
 1. 读根 AGENTS.md，再读本交接和 todo.md；按需查 plan.md 的依赖边界，不要从零重新询问已确定的范围。
 2. 在实际 Git 根执行 git status --short、git log -5 --oneline、git remote -v，保留用户现有改动。
 3. 工具链与 Android 构建 / 定向测试基线已完成；细节见 `baseline.md`。
-4. 已完成首个“拆分规划入口但保留普通路线详情和追踪”的边界增量；后续按本文件第 7 节继续拆 RoutePlanViewModel 依赖链。
+4. 入口/DI 与 Android 高德启动绑定的边界增量已完成；唯一明确的实施下一步见第 7 节，不重复已完成的删除。
 5. 更新机制保留。后续本地阶段可显式提示正式源未配置，以 MockEngine/本地 APK 夹具验证；不能编造仓库或回退原作者端点，不为测试取消 HTTPS、包名、版本和签名校验。正式远程源等用户确认后再接入。
 
 ## 6. 本轮增量（2026-11-25）
@@ -62,15 +62,29 @@
 - 已围绕 `feature/route` 与根 Compose 装配完成首个边界切分：Android/iOS 的 `routeEntries` 不再注册 `ScreenKey.RoutePlan`，普通 `ScreenKey.RouteDetail` 入口和共享 `RouteDetailViewModel` 保留。
 - 根 `TrackrRoot` 不再预取 `RoutePlanViewModel`，不再根据高德 Key 显示路线规划 tab，也不再显示高德隐私同意弹窗；平台地图壳以 disabled 方式保留，待后续删 SDK 时清理。
 - `routeDataModule` 不再提供 `RoutePlanRepository`，`routeModule` 不再提供 `RoutePlanViewModel`；路线详情、追踪、收藏继续使用 `RouteAlignmentService` / `RouteGroupSaver` 等共享能力。
-- Android `platformFeatureModules` 已不再装配 `routeAndroidModule`；普通路线详情不依赖高德 SDK/Key 绑定。高德类和地图会话仍保留在源码中，APK 当前仍包含高德 native 库。
-- `rememberVisibleTabs` 固定返回公交 / 我的，旧 `RoutePlan` 栈仍由 `Navigator.onTabsChanged` 清回首页，以避免恢复旧存档时触发不存在的规划入口。
-- 新增/调整导航边界测试：`:composeApp:testAndroidHostTest`（20 项通过）与 `:feature:route:testAndroidHostTest`（4 项通过）均通过；本轮再次执行 `:androidApp:assembleDebug` 成功（390 个任务，16 KB 对齐检查通过）；`git diff --check` 通过。
-- 未完成：RoutePlanViewModel、RoutePlanRepository、RouteAlignmentService、AmapRouteGateway、SDK/Key/地图资源仍在工程中；本轮不是高德彻底移除，也未构建 release/真机/iOS。
+- 已删除 `routeAndroidModule`、`AndroidAmapRouteGateway`、`AmapSdkTransitService`、Android Key/初始化适配器及仅供它们使用的 `AmapSdkKeyApplier` / `MapSdkInitializer` 平台接口；普通路线详情和共享对齐/追踪逻辑未删。
+- 已删除 `AmapSdkKeySync` 及对应专属测试；`TrackrApp` 不再取高德初始化器/Key 同步，`MainActivity` 不再传高德隐私初始化回调。原有存储、路线/提醒仓库及小组件同步启动顺序保留。
+- `KoinGraphVerifyTest` 已同步删除旧模块校验，并覆盖真实 `TrackrApp` 冷启动不依赖高德绑定、保留本地服务及路线详情定义、规划仓库/VM 不装配。
+- README 明确旧高德说明仅供清理参考，测试清单不再列已删除的 SDK 适配/Key 同步测试。
+- 修复全量 UI 测试实际暴露的冷启动崩溃：仅隐藏规划页签仍会让 decorator 解析隐藏栈并抛 `Unknown screen RoutePlan`。`TrackrNavApp` 现在只为公交/我的创建栈，旧 `RoutePlan` Key 继续可解码；旧当前页签回首页，其余栈按 Key 恢复。
+- 新增启动器冷启动仅保留公交/我的入口、旧 3 页签状态恢复为 2 页签时路线详情/我的栈不丢的回归测试。不要恢复规划 entry 来绕过此问题。
+- 删除 Android 绑定后、隐藏栈修复前的定向命令通过（不代表完整启动 UI 已通过）：`:androidApp:testDebugUnitTest --tests com.trackr.di.KoinGraphVerifyTest`、`:core:domain:testAndroidHostTest`、`:core:data:testAndroidHostTest`、`:core:navigation:testAndroidHostTest`、`:composeApp:testAndroidHostTest`、`:feature:route:testAndroidHostTest`、`:androidApp:assembleDebug`；BUILD SUCCESSFUL，445 个任务，1m 14s，16 KB 对齐检查通过。
+- 隐藏栈修复后执行 `test :androidApp:assembleDebug --continue --init-script build/rtbus-validation/diagnostic.init.gradle --no-daemon --console=plain --stacktrace`：完整主机测试 **1,622 项，1,618 通过，4 失败，0 error / skipped**；组合命令退出 1，636 个任务，4m 46s。不能把其中 APK 任务完成写成整个命令 BUILD SUCCESSFUL。
+- 本轮相关回归通过：MainActivityDeepLinkTest 7、TrackrAppNavigationTest 14、KoinGraphVerifyTest 15；`:core:navigation` 71（含旧规划页签恢复新增用例）、`:core:domain` 215、`:core:data` 218、`:composeApp` 20、`:feature:route` 71 均失败 0。`:androidApp:assembleDebug` 与 16 KB 检查任务完成；APK 仍含高德 native 库。
+- 全量剩余失败（涉及源码/测试本轮均未修改；改造前未跑过此全量，尚不能证明是既有问题或排除关联）：
+  1. `AndroidBoardingTraceLogTest.share_joinsOldAndCurrent_andOpensChooser`：`log.share()` 返回 false，需查分享/平台路径底层异常。
+  2. `GithubUpdateCheckerTest.checkForUpdates_whenCancelled_cancelsAllSourceRequests`：期望取消计数 2，实际 0，需查请求/引擎取消生命周期。
+  3. `FavoritesShortcutWidgetSyncTest.start_doesNotRefreshForCurrentValue`：`UncaughtExceptionsBeforeTest`，需查前序异步异常污染，不直接认定小组件业务回归。
+  4. `TrackrDataStoresTest.settings_corruptFile_isReplacedWithEmpty`：`CorruptionException: Unable to parse preferences proto.`，需查损坏恢复路径。
+- 本机日志（不入 Git）：`build/rtbus-validation/android-amap-bindings.log`（首轮定向）、`deep-link-diagnostic.log`（修复前单例复现）、`android-host-suite-after-fix.log`（修复后完整结果）、`suite-summary.json`（按 XML 汇总）。同目录诊断 init 脚本只将测试异常完整打印，不改变测试逻辑；无该脚本时可省略 `--init-script` 参数复现。环境与 wrapper 入口沿用第 4 节 / `baseline.md`。
+- 品牌静态检查 6 项及 `git diff --check` 通过；不据此代替以上测试结果。
+- 未完成：RoutePlanViewModel、RoutePlanRepository、混合职责的 RouteAlignmentService、AmapRouteGateway、Android/iOS 地图会话、SDK/Key/隐私存储和构建配置仍在工程中；APK 对齐日志仍列出 `libAMapSDK_MAP_v11_3_100.so` / `libapssdk.so`。本轮不是高德彻底移除，也未做 release APK/真机/iOS 验收。
 
-## 7. 明确的下一步
+## 7. 唯一明确的下一步
 
-1. 删除已无应用装配用途的 `routeAndroidModule` 及其 Android 高德 Key/SDK 绑定文件，先保留普通路线详情所需的共享对齐/追踪逻辑。
-2. 再清理 Android/iOS 地图会话、Amap Key/隐私存储和构建依赖，随后检查合并 Manifest、依赖图和 APK 是否不再包含高德组件。
+先独立运行 `:androidApp:testDebugUnitTest --tests com.trackr.data.diagnostics.AndroidBoardingTraceLogTest`，获取 `share()` 返回 false 的底层异常，区分平台测试环境与产品缺陷；再逐个隔离第 6 节其余失败并检查前序异步异常污染，先收口绿色完整主机测试基线。不得通过跳过测试、削弱断言/更新安全校验或移除保留功能来消除失败。
+
+基线恢复后再继续原定裁剪：从 `TrackrRoot` 的闲置高德参数和 `PlatformShell.android.kt` 的 disabled `ProvideAmapMapSession` 包装开始，连同 iOS 对应桥接和 `PlatformHostTest` 一起收敛；保留内容组合身份、普通路线详情、共享对齐与追踪。再分增量删规划源码、Amap Key/隐私存储和 SDK/Web 构建依赖，最终检查合并 Manifest、依赖图和 APK。
 
 ## 8. 记录维护
 

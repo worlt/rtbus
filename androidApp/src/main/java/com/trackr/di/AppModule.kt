@@ -34,7 +34,6 @@ import com.trackr.app.di.trackrModules
 import com.trackr.data.local.StorageBackend
 import com.trackr.data.location.AndroidLocationSource
 import com.trackr.data.location.AndroidMonotonicClock
-import com.trackr.data.remote.amap.AmapSdkKeySync
 import com.trackr.data.remote.update.AndroidAppUpdateInstaller
 import com.trackr.data.remote.update.GithubUpdateChecker
 import com.trackr.data.repository.IRouteGroupRepository
@@ -178,10 +177,6 @@ val appModule: Module = module {
             appScope = get(AppScopeQualifier)
         )
     }
-    // AmapSdkKeyApplier（把 Key 注入高德 SDK）第 17 步随 SDK 封装挪到 :feature:route 的 routeAndroidModule
-    // 用户改了 Android Key 就重新注入 SDK（第 11 步：Key 对话框在「更多」页，不再由规划页 VM 注入）
-    single { AmapSdkKeySync(get(), get(), get(AppScopeQualifier)) }
-
     // 原来每个 AboutViewModel 都新建一个检查器，这里保持 factory
     factory<UpdateChecker> { GithubUpdateChecker(get()) }
     // 应用内更新：下载安装包并调系统安装器，用自己的 HttpClient（不限下载总时长）

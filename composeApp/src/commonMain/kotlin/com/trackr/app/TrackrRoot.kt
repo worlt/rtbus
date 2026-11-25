@@ -42,6 +42,7 @@ import com.trackr.core.designsystem.theme.TrackrTheme
 import com.trackr.core.model.UiMode
 import com.trackr.core.navigation.Navigator
 import com.trackr.core.navigation.ScreenKey
+import com.trackr.core.navigation.TopLevel
 import com.trackr.core.navigation.TrackrTransitions
 import com.trackr.core.navigation.deeplink.DeepLink
 import com.trackr.core.navigation.scene.BottomSheetSceneStrategy
@@ -89,7 +90,7 @@ fun TrackrRoot(
             CompositionLocalProvider(LocalAppViewModelStoreOwner provides appViewModelStoreOwner) {
                 // 规划入口已移除；保留平台壳调用位，后续高德实现清理时可直接删除。
                 PlatformHost(enabled = false) {
-                    // 标准版 3 个页签各一条栈；长辈版一条栈、没有底栏（§8.4）。切换模式时新模式从首页开始（Q9）
+                    // 标准版公交 / 我的各一条栈；长辈版一条栈、没有底栏。切换模式时新模式从首页开始。
                     UiModeNavHost(
                         uiMode = shell.uiMode,
                         standard = {
@@ -125,8 +126,9 @@ private fun TrackrNavApp(
     deepLink: DeepLink?,
     onDeepLinkConsumed: () -> Unit
 ) {
-    // 3 个页签各一条返回栈 + 当前页签，跨进程重建恢复（:core:navigation，重构计划 §3.3）
-    val navigationState = rememberNavigationState()
+    // 只为保留的公交 / 我的创建栈；decorator 会解析全部栈，隐藏 RoutePlan 栈也会要求已删除的 entry。
+    // 旧版当前页签若是 RoutePlan，rememberNavigationState 会回到首页，其他栈按 Key 恢复。
+    val navigationState = rememberNavigationState(topLevel = TopLevel.visibleTabs(hasMapKey = false))
     val navigator = remember(navigationState) { Navigator(navigationState) }
 
     // 跨页共享的 ViewModel：首页和路线详情。
@@ -140,7 +142,7 @@ private fun TrackrNavApp(
     }
     koinViewModel<RouteDetailViewModel>(viewModelStoreOwner = appViewModelStoreOwner)
 
-    // 规划页已从应用入口移除；旧 RoutePlan 栈仍由 rememberVisibleTabs 交给 Navigator 清理。
+    // 规划页已从应用入口和栈集合移除；RoutePlan Key 仍保留在序列化配置中供旧状态解码。
     val visibleTabs = rememberVisibleTabs(navigator)
 
     // 收藏变化后同步桌面快捷方式与小组件：第 4 步起在应用级作用域里做（见 FavoritesShortcutWidgetSync）

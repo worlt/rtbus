@@ -165,6 +165,33 @@ class NavigationStateRestorationTest {
     }
 
     @Test
+    fun emulatedRestore_afterPlanningTabRemoved_keepsRetainedStacks_andReturnsHome() {
+        var tabs = TopLevel.tabs
+        val routeDetail = ScreenKey.RouteDetail(groupId = "saved-route")
+        val restorationTester = StateRestorationTester(composeTestRule)
+        restorationTester.setContent { Host(tabs) }
+
+        act {
+            navigator.open(routeDetail)
+            navigator.selectTab(ScreenKey.RoutePlan)
+            navigator.open(stop)
+            navigator.selectTab(ScreenKey.More)
+            navigator.open(ScreenKey.About)
+            navigator.selectTab(ScreenKey.RoutePlan)
+        }
+
+        tabs = TopLevel.visibleTabs(hasMapKey = false)
+        restorationTester.emulateSavedInstanceStateRestore()
+        composeTestRule.waitForIdle()
+
+        assertEquals(setOf(ScreenKey.Home, ScreenKey.More), state.stacks.keys)
+        assertEquals(ScreenKey.Home, state.topLevel)
+        assertEquals(routeDetail, state.currentKey)
+        assertEquals(listOf<NavKey>(ScreenKey.Home, routeDetail), state.stacks.getValue(ScreenKey.Home).toList())
+        assertEquals(listOf<NavKey>(ScreenKey.More, ScreenKey.About), state.stacks.getValue(ScreenKey.More).toList())
+    }
+
+    @Test
     fun emulatedRestore_keepsPageSaveableState() {
         val restorationTester = StateRestorationTester(composeTestRule)
         restorationTester.setContent { Host() }
