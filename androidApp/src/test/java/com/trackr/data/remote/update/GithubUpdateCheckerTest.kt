@@ -304,12 +304,13 @@ class GithubUpdateCheckerTest {
         val requested = java.util.concurrent.atomic.AtomicInteger(0)
         val cancelled = java.util.concurrent.atomic.AtomicInteger(0)
         val entered = CompletableDeferred<Unit>()
+        val allCancelled = CompletableDeferred<Unit>()
         val client = HttpClient(MockEngine { _ ->
-            if (requested.incrementAndGet() == 2) entered.complete(Unit)
             try {
+                if (requested.incrementAndGet() == 2) entered.complete(Unit)
                 awaitCancellation()
             } finally {
-                cancelled.incrementAndGet()
+                if (cancelled.incrementAndGet() == 2) allCancelled.complete(Unit)
             }
         })
         try {
@@ -321,6 +322,9 @@ class GithubUpdateCheckerTest {
             val job = launch(Dispatchers.Default) { checker.checkForUpdates(currentVersionCode = 2, currentVersionName = "0.0.2") }
             withTimeout(2_000L) { entered.await() }
             job.cancelAndJoin()
+            // Ktor engine handlers have their own lifecycle. Joining the caller guarantees
+            // cancellation propagation, not completion of both engine handlers' finally blocks.
+            withTimeout(2_000L) { allCancelled.await() }
 
             assertTrue(job.isCancelled)
             assertEquals(2, requested.get())
