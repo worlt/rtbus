@@ -5,14 +5,12 @@ import com.trackr.app.platform.*
 import com.trackr.core.data.local.*
 import com.trackr.core.data.provider.TransitProviderCoordinator
 import com.trackr.core.data.repository.*
-import com.trackr.core.data.route.WebAmapRouteGateway
 import com.trackr.core.database.createTrackrDatabase
 import com.trackr.core.datastore.*
 import com.trackr.core.domain.platform.*
 import com.trackr.core.network.provider.chelaile.ChelaileTransitProvider
 import com.trackr.core.network.provider.lenz.LenzTransitProvider
 import com.trackr.core.network.provider.mygolbs.MygolbsTransitProvider
-import com.trackr.core.network.remote.amap.AmapTransitApiClient
 import com.trackr.core.network.remote.chelaile.ChelaileApiClient
 import com.trackr.core.network.remote.lenz.LenzApiClient
 import com.trackr.core.network.remote.mygolbs.MygolbsApiClient
@@ -131,8 +129,6 @@ internal class IosAppRuntime(val module: Module, val resolveFavorite: (String) -
                             single<LocalMigrationFlags> { StoreMigrationFlags(store) }
                             single<AmapKeyRepository> { keys }
                             single { defaults }
-                            single { AmapTransitApiClient(http) }
-                            single<AmapRouteGateway> { WebAmapRouteGateway(get(), get()) }
                             single<UserLocationStore> { locationStore }
                             single<MonotonicClock> { IosMonotonicClock }
                             single { location }

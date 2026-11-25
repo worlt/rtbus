@@ -2,8 +2,6 @@ package com.trackr.core.data.repository
 
 import com.trackr.core.model.ThemeColors
 import com.trackr.core.domain.tracking.LocationCadence
-import com.trackr.core.model.AmapTipItem
-import com.trackr.core.model.AmapTransitSchemeResult
 import com.trackr.core.model.BusLineDetail
 import com.trackr.core.model.BusLineDirection
 import com.trackr.core.model.BusLineSummary
@@ -329,61 +327,4 @@ interface LocationRepository {
      * 提示要能说清是哪一层没开（`BusHomeViewModel` 的 `LocationIssue`）。
      */
     fun isSystemLocationEnabled(): Boolean
-}
-
-/**
- * 高德输入提示 / 公交算路通道。
- *
- * Android 实现（`:feature:route` 的 `AndroidAmapRouteGateway`）：SDK 优先，**只有 SDK 调用失败**才回落 Web 服务；
- * SDK 成功但结果为空时不再重复请求 Web。iOS 只走 Web（`WebAmapRouteGateway`）。单元测试可注入替身，避免发起真实请求。
- */
-interface AmapRouteGateway {
-    /** 是否至少配置了一条可用通道（Android Key 或 Web 服务 Key） */
-    fun isConfigured(): Boolean
-
-    /** @param location 当前位置 "lng,lat"（GCJ-02），可为空 */
-    suspend fun searchTips(keyword: String, cityName: String, location: String?): Result<List<AmapTipItem>>
-
-    /** @param cityd 跨城时的终点城市 adcode，同城传 null */
-    suspend fun planTransit(
-        originLngLat: String,
-        destinationLngLat: String,
-        originName: String,
-        destName: String,
-        cityName: String,
-        cityd: String?
-    ): Result<List<AmapTransitSchemeResult>>
-}
-
-/**
- * 路线规划：高德输入提示（LRU 64）、公交算路（LRU 16，键 = 城市 + 6 位小数坐标 + 15 分钟时间桶）、
- * 方案与实时线路对齐（命中备忘 24 小时 / 没命中 10 分钟，并发 4），后面是 [AmapRouteGateway]。
- *
- * 第 17 步从 `FavoritesGroupViewModel` 搬来（实现 `DefaultRoutePlanRepository`）；防抖、取消上一次、
- * 「我的位置」解析留在规划页的 ViewModel（重构计划 §2.5、§2.10）。都不抛异常，查不到就是空列表。
- */
-interface RoutePlanRepository {
-    /** 是否至少配置了一条高德通道（Android Key 或 Web Key） */
-    fun isConfigured(): Boolean
-
-    /**
-     * 输入提示：先查 LRU，再走高德，都没有结果时降级为本地站点搜索；非空才缓存。
-     * @param location 当前位置 "lng,lat"（GCJ-02），可为空
-     */
-    suspend fun searchTips(keyword: String, city: TransitCity, location: String?): List<AmapTipItem>
-
-    /**
-     * 补全缺少经纬度的起 / 终点：[useAmap] 时直接问高德（不经输入提示缓存），再查本地站点；都没有就原样返回。
-     */
-    suspend fun resolveLocation(tip: AmapTipItem, city: TransitCity, location: String?, useAmap: Boolean): AmapTipItem
-
-    /**
-     * 公交算路：缓存 → [useAmap] 时高德算路并与实时源对齐 → 本地直达 / 一次换乘兜底 → 注入起终点坐标；非空才缓存。
-     */
-    suspend fun planTransit(
-        origin: AmapTipItem,
-        destination: AmapTipItem,
-        city: TransitCity,
-        useAmap: Boolean
-    ): List<AmapTransitSchemeResult>
 }

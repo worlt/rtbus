@@ -25,7 +25,6 @@ import com.trackr.core.domain.tracking.TrackingEngine
 import com.trackr.core.network.provider.chelaile.ChelaileTransitProvider
 import com.trackr.core.network.provider.mygolbs.MygolbsTransitProvider
 import com.trackr.core.network.provider.lenz.LenzTransitProvider
-import com.trackr.core.network.remote.amap.AmapTransitApiClient
 import com.trackr.core.network.remote.chelaile.ChelaileApiClient
 import com.trackr.core.network.remote.common.createTrackrHttpClient
 import com.trackr.core.network.remote.mygolbs.MygolbsApiClient
@@ -86,7 +85,6 @@ val appModule: Module = module {
             lenzProvider = get<LenzTransitProvider>()
         )
     }
-    single { AmapTransitApiClient(get()) }
 
     // 本地存储（第 9 步）：按 USE_NEW_STORE 选新（Room + DataStore，打开时先导入旧数据）或旧（SharedPreferences）
     single { StorageBackend.open(androidContext(), get(AppScopeQualifier)) } onClose { it?.close() }

@@ -9,7 +9,7 @@
 - 用户只要求移除高德地图、起终点提示/公交算路、Key/初始化/SDK/相关专属配置。
 - 保留原有全国城市选择、城市切换、线路/站点搜索范围；不得做单城市版或添加城市/线路白名单。少量城市/线路只是可选验收样本，不是支持范围，也不是用户必须先提供的开工条件。
 - 保留乘车码、小组件、收藏/分组、追踪、一起等、到站/定时提醒、语音、通知/厂商适配、快捷方式、长辈版、主题和应用内更新等现有好用功能；不能以“精简”为由删除。
-- feature/route 现仅保留普通路线详情/追踪，规划页面、ViewModel 与 Android/iOS 地图实现已删除。RouteAlignmentService 的普通匹配、整组对齐、返程、缓存和追踪能力保留；独立的 AmapSchemeAlignmentService 与规划仓库仍待数据层增量清理，不能删除整个 feature/route 模块。RouteProjectionMath 等仍被公交解析/追踪使用的工具保留。
+- feature/route 现仅保留普通路线详情/追踪。规划页面、ViewModel、两端地图/桥接及规划专属仓库/网关/模型/Web 客户端均已删除。RouteAlignmentService 的普通匹配、整组对齐、返程和缓存、RouteGroupSaver 与追踪能力保留，不能删除整个 feature/route 模块。RouteProjectionMath / CoordTransform 等仍被公交解析/追踪使用的共享工具保留。
 - 不顺带换技术栈、重写数据库、合并所有模块、移除 KMP/iOS，或全局替换源码包名。
 
 ## 2. Git 和发布约定
@@ -31,10 +31,10 @@
 - 已有 Fake/桩数据定向 JVM 测试：`:core:domain` 215、`:core:data` 41、`:core:navigation` 70、`:feature:bus` 53、`:feature:search` 30、`:feature:route` 4，合计 **413 项通过，0 失败**；未连接真实公交接口。
 
 尚未完成，不能误报：
-- 高德尚未彻底拆除：规划入口/应用 DI、Android 启动绑定，以及 feature/route 规划页面和两端地图实现/桥接已删除；规划仓库/网关/模型、全局 SDK/Key 与配置仍有残留。普通查询/追踪逻辑保留。
+- 高德尚未彻底拆除：规划入口/DI、Android 启动绑定、规划 UI/地图及规划专属数据链和两端 Web 规划绑定已删除；全局 Android SDK、CocoaPods/链接、Key 设置页/仓库/存储、专属隐私及构建配置仍有残留。普通查询/路线详情/追踪保留，APK 仍含高德原生库。
 - applicationId、源码包名/类名、Bundle ID、URL scheme、数据库/偏好文件名、签名配置和图标仍沿用工程现状；应用 ID 尚未独立，不能宣称能与原版并存。
 - 原版更新端点仍在代码中，尚未切断或替换。用户没有自己的远程仓库，这是正常的本地开发阶段，不阻止其他改造。
-- 裁剪前品牌版本的 Android debug 构建与 413 项定向 JVM 测试成功；并未单独构建原始快照。当前裁剪版本完整 Android/JVM 主机测试全绿（1,580 项，0 失败/errors/跳过，见第 6 节最新增量）；release APK、真机和 iOS 验收仍未完成。
+- 裁剪前品牌版本的 Android debug 构建与 413 项定向 JVM 测试成功；并未单独构建原始快照。当前裁剪版本完整 Android/JVM 主机测试全绿（1,553 项，0 失败/errors/跳过，见第 6 节最新增量）；release APK、真机和 iOS 验收仍未完成。
 
 ## 4. 环境和构建状态（续接先重新核对）
 
@@ -104,9 +104,20 @@
 - debug APK 与 checkDebug16kbPageAlignment 通过（6 个 64 位共享库）。实际检查 APK 仍含 libAMapSDK_MAP_v11_3_100.so / libapssdk.so；Android app 的 SDK 依赖与 CocoaPods / Key / 全局配置尚未裁剪，不是高德彻底移除或 release 验收。未执行 release、真机或 iOS 构建/链接/模拟器测试。
 - 本机忽略目录 build/rtbus-validation/ 中的记录：route-ui-boundary-red.log、route-ui-preservation-baseline.log、route-ui-removal-modules.log、route-ui-removal-full-host.log、route-ui-removal-suite-summary.json。交接/待办、模块指南和 iOS 当前状态说明已同步；无 remote，不推送。
 
+### 本轮续接：删除规划专属数据链与闲置 Web 绑定
+- 删除 RoutePlanRepository / DefaultRoutePlanRepository、AmapRouteGateway / WebAmapRouteGateway、AmapSchemeAlignmentService 及其方案上限、AmapTransitApiClient / AmapLruCache、AmapTipItem / AmapTransitSchemeResult 和 FakeAmapRouteGateway。引用核查后仅删除退役规划链，不移除普通路线的数据层或共享模型。
+- iOS runtime 和 Android AppModule 均不再注册闲置高德 Web 客户端/网关；保留共用 HttpClient、公交 Provider、其他仓库以及本轮范围外的 Key/隐私装配。Koin 真实 Application 启动回归加强为实时查询、追踪、普通对齐、路线保存均可解析，并禁止装配高德 Web 客户端。
+- RouteAlignmentService 仅更新职责注释，普通匹配、整组对齐、返程、缓存实现未改；RouteGroupSaving、TrackingPoller、RouteProjectionMath / CoordTransform、共享路线/追踪模型、feature/route 和导航均与入场版本一致。保护性字节/差异核对见 route-data-preservation-check.json，不代替运行测试。
+- 删除 27 项退役规划专属测试：data 13 项，network 14 项。原 AmapFormatJvmTest 中 2 项通用定点格式化/URL 编码测试逐字保留并迁至 remote/common/NetworkTextJvmTest；通用 URL 脱敏测试保留全部断言，仅将高德夹具地址换成保留域 api.example.test。没有跳过或弱化保留功能测试。
+- 新增 test_route_data_boundary.py 的 3 项检查：共享数据层无规划类型/替身、网络层无规划客户端/缓存/端点、两端无 Web 规划绑定。删除前 3 项均失败，删除后通过。与原 3 项 feature 边界及 6 项品牌检查合计 12 项通过；只是静态边界，不是 iOS/设备验收。
+- 对应 5 个模块任务 :core:network:testAndroidHostTest、:core:data:testAndroidHostTest、:feature:route:testAndroidHostTest、:composeApp:testAndroidHostTest、:androidApp:testDebugUnitTest：BUILD SUCCESSFUL（3m 7s / 361 tasks），678 项，0 failures / errors / skipped；其中 network 111、data 219、route 14、compose 20、app 314。
+- 完整 test :androidApp:assembleDebug（其余参数沿用上一增量）：BUILD SUCCESSFUL（3m 14s / 636 tasks；52 executed / 584 up-to-date）。18 个模块任务的 JUnit XML 汇总 1,553 项，0 failures / errors / skipped；与上轮 1,580 项相差的 27 项均为上述专属测试，其他模块测试数不变。
+- debug APK 与 checkDebug16kbPageAlignment 通过（6 个 64 位共享库）；实际检查两个 ABI 的 APK 仍含 libAMapSDK_MAP_v11_3_100.so / libapssdk.so。全局 SDK/CocoaPods、Key/隐私与构建配置未清理，不是彻底移除高德、release 或真机/iOS 验收。未连接真实公交接口、无 remote、不推送。
+- 日志与汇总仍在忽略目录 build/rtbus-validation/：route-data-preservation-baseline.log、route-data-boundary-red.log、route-data-removal-modules.log、route-data-removal-module-summary.json、route-data-removal-full-host.log、route-data-removal-suite-summary.json、route-data-static-checks.log、route-data-preservation-check.json。git diff --check 通过；同步了 iOS 状态/路线图和测试文档中的退役能力记录。
+
 ## 7. 唯一明确的下一步
 
-删除仅服务高德规划的数据链：RoutePlanRepository / DefaultRoutePlanRepository、AmapSchemeAlignmentService、WebAmapRouteGateway 及对应接口/替身/专属模型和测试，移除 iOS runtime 中闲置的高德 Web 网关绑定。按引用图保留 RouteAlignmentService、RouteGroupSaver、普通路线详情/追踪及共享投影/坐标工具；旧导航 Key 继续保留解码兼容。此后再独立清理全局 Android SDK / CocoaPods、Key/隐私存储和构建配置。每个可编译增量先测对应模块、再跑完整主机套件及可用平台编译并本地提交。不配置 remote、不推送。
+移除全局 Android 高德 SDK 依赖与 iOS CocoaPods/链接残留，按引用图仅清理对应 SDK 专属构建/Manifest 配置与能力标志；用依赖图、合并 Manifest、APK 原生库清单和 16 KB 检查确认不再打包高德。普通公交定位、路线详情/追踪、共享投影工具及其他系统组件保留。不重复已完成的数据链删除；Key 设置页/仓库/存储、专属隐私和剩余配置随后独立清理。先测对应模块、再跑完整主机套件及可用平台构建并本地提交；不配置 remote、不推送。
 
 ## 8. 记录维护
 

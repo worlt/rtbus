@@ -6,7 +6,7 @@
 
 ## RTBus 本地裁剪状态（2026-11-25）
 
-高德规划页面与 Android/iOS 地图 UI、Swift 地图安装桥接已移除，普通路线详情与前台追踪保留。CocoaPods 高德依赖、Key/隐私存储及 iOS Web 网关仍待后续清理；下方既有运行/打包记录不能视为当前裁剪版本已通过 iOS 验收。本轮在 Windows 仅完成可用的 Android/主机验证，未执行 Xcode 构建或模拟器运行。
+高德规划页面、Android/iOS 地图 UI、Swift 地图安装桥接及规划专属仓库/网关/模型/Web 客户端均已移除，iOS runtime 不再注册 Web 规划网关。普通路线详情、收藏、前台追踪和共享投影/坐标工具保留。CocoaPods 高德依赖、Key/隐私存储及构建配置仍待后续清理；下方既有运行/打包记录不能视为当前裁剪版本已通过 iOS 验收。本轮在 Windows 仅完成可用的 Android/主机验证，未执行 Xcode 构建或模拟器运行。
 
 ## 在模拟器运行
 
@@ -73,13 +73,13 @@ ditto iosApp/DerivedData/Build/Products/Release-iphoneos/Trackr.app /tmp/trackr-
 
 ## 本机 Key 与签名
 
-将 `iosApp/Configuration/Local.xcconfig.example` 复制为 `Local.xcconfig`，按需填写 `AMAP_WEB_KEY`、`AMAP_IOS_KEY`、`DEVELOPMENT_TEAM`、`TRACKR_APP_GROUP`。该文件已被 Git 忽略；不要提交个人 Key、Team 或 provisioning profile。
+将 `iosApp/Configuration/Local.xcconfig.example` 复制为 `Local.xcconfig`，按需填写 `DEVELOPMENT_TEAM`、`TRACKR_APP_GROUP`。`AMAP_WEB_KEY`、`AMAP_IOS_KEY` 仍是待清理的旧配置，不是普通公交查询/路线详情的使用前提。该文件已被 Git 忽略；不要提交个人 Key、Team 或 provisioning profile。
 
-三个 Key 槽互不回落：Web Key 用于地点提示和规划；iOS Key 只给 iOS 地图；Android Key 不用于 iOS。高德 iOS Key 要绑定宿主 Bundle ID。只有 Web Key 时可规划；没有 iOS SDK 的模拟器不显示地图。授权撤回入口位于 iOS 高德 Key 设置页。
+三个 Key 槽及高德 Key 设置页/授权撤回仍留在代码中，等待独立的 Key/隐私清理增量；不能据此推断仍可规划或显示地图。当前 runtime 已无高德 Web 请求通道，普通路线详情与追踪不依赖这些 Key。
 
-真机需同时为 `Trackr` 和 `TrackrWidgets` 配置同一开发团队，并在开发者账户中给两个 Bundle ID 启用相同 App Group。更换 Bundle ID 时同时更新扩展 ID、高德绑定和 App Group。`CODE_SIGNING_ALLOWED=NO` 只验证构建，不能作为真机安装或 App Group 授权通过记录。
+真机需同时为 `Trackr` 和 `TrackrWidgets` 配置同一开发团队，并在开发者账户中给两个 Bundle ID 启用相同 App Group。更换 Bundle ID 时同时更新扩展 ID 和 App Group。`CODE_SIGNING_ALLOWED=NO` 只验证构建，不能作为真机安装或 App Group 授权通过记录。
 
-高德 `11.2.100` 的官方 Pod 提供 arm64 真机和 x86_64 模拟器切片，显式排除了 arm64 模拟器。项目保留真机 SDK 分支，arm64 模拟器不链接该二进制；没有伪造地图成功状态。地图实测需要带 iOS Key 的 iPhone。
+高德 `AMap3DMap 11.2.100` 的 CocoaPods 依赖及相关链接配置仍有残留，尚未完成清理。Swift 地图适配与安装桥接已删除，不再安排规划/地图功能验收；不能把依赖仍在或旧构建记录当作当前功能可用。
 
 ## 装配和存储
 
@@ -157,7 +157,7 @@ XCUITest 传入 `--offline-ui-test`，HTTP 发送被拦截，不访问真实接�
 ## 待设备验收检查表
 
 - [ ] iOS 17 实际安装运行；确认 `libicu.icudtl_dat.o` 的 18.5 构建版本警告对应的兼容性。未通过前不可声称已支持全部 iOS 17 设备。
-- [ ] 配置 Web/iOS Key 后验证地点提示、规划、保存与编辑路线、原生地图折线/站点/当前位置；切 Key、撤回授权及返回页面释放。
+- [ ] 对当前裁剪版本验证普通路线收藏/编辑、多程候选线与前台追踪；规划/原生地图已退役，不再安排相关 Key 验收。
 - [ ] 单线、一起等、多路线追踪：上车待选、换乘、停止、重复开始、离线恢复、进后台和进程重建。
 - [ ] 本地通知授权拒绝/撤回、声音、定时投递、重复日、跨时区、已过期一次性提醒、通知跳转。
 - [ ] 真机中文朗读、语音识别、定位精度/模糊定位/系统关闭、支付宝与云闪付跳转。

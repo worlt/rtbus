@@ -220,14 +220,14 @@ class BaseTransitApiClientTest {
     @Test
     fun testRedactUrls_removesQueryFromAnyUrlInText() {
         assertEquals(
-            "Request timeout has expired [url=https://restapi.amap.com/v3/assistant/inputtips, request_timeout=20000 ms]",
+            "Request timeout has expired [url=https://api.example.test/search, request_timeout=20000 ms]",
             NetworkErrors.redactUrls(
-                "Request timeout has expired [url=https://restapi.amap.com/v3/assistant/inputtips?keywords=a&key=SECRET, request_timeout=20000 ms]"
+                "Request timeout has expired [url=https://api.example.test/search?keywords=a&key=SECRET, request_timeout=20000 ms]"
             )
         )
         assertEquals(
-            "failed: https://restapi.amap.com/v3/direction/transit/integrated",
-            NetworkErrors.redactUrls("failed: https://restapi.amap.com/v3/direction/transit/integrated?origin=1,2&key=SECRET")
+            "failed: https://api.example.test/routes/transit",
+            NetworkErrors.redactUrls("failed: https://api.example.test/routes/transit?origin=1,2&key=SECRET")
         )
         assertEquals("no url here", NetworkErrors.redactUrls("no url here"))
     }

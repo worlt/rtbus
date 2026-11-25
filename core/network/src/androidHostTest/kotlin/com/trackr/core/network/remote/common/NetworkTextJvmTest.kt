@@ -1,30 +1,15 @@
-package com.trackr.core.network.remote.amap
+package com.trackr.core.network.remote.common
 
-import com.trackr.core.network.remote.common.formUrlEncode
-import com.trackr.core.network.remote.common.formatFixed
 import java.net.URLEncoder
 import java.util.Locale
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
 
 /**
  * commonMain 的定点格式化和 URL 编码在 JVM 上逐个对比原来的 `String.format(Locale.ROOT, …)` / `URLEncoder`。
  */
-class AmapFormatJvmTest {
-
-    @Test
-    fun formatLngLat_usesDotDecimalSeparatorRegardlessOfLocale() {
-        val previous = Locale.getDefault()
-        try {
-            Locale.setDefault(Locale.GERMANY)
-            assertEquals("120.100000,30.200000", AmapTransitApiClient.formatLngLat("120.1,30.2"))
-        } finally {
-            Locale.setDefault(previous)
-        }
-        assertNull(AmapTransitApiClient.formatLngLat("bad"))
-    }
+class NetworkTextJvmTest {
 
     @Test
     fun formatFixed_matchesStringFormat() {

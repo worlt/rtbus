@@ -1,6 +1,6 @@
 // 网络层：KMP（Android + iosArm64 + iosSimulatorArm64）。
-// Ktor 客户端（Android 用 OkHttp 引擎、iOS 用 Darwin 引擎）、车来了 / 掌上公交 / 高德 Web API、车来了加解密、
-// 两个数据源的 Provider，以及请求合并缓存 SingleFlightCache 和 LRU。重构计划 §2.2、§2.10。
+// Ktor 客户端（Android 用 OkHttp 引擎、iOS 用 Darwin 引擎）、车来了 / 掌上公交 Web API、车来了加解密、
+// 两个数据源的 Provider，以及请求合并缓存 SingleFlightCache。重构计划 §2.2、§2.10。
 plugins {
     alias(libs.plugins.trackr.kmp.library)
     alias(libs.plugins.kotlin.plugin.serialization)

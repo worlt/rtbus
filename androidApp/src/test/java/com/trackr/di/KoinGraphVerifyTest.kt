@@ -5,7 +5,10 @@ import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.test.core.app.ApplicationProvider
 import com.trackr.TrackrApp
-import com.trackr.core.data.repository.RoutePlanRepository
+import com.trackr.core.data.repository.RealtimeRepository
+import com.trackr.core.data.repository.TrackingRepository
+import com.trackr.core.data.route.RouteAlignmentService
+import com.trackr.core.data.route.RouteGroupSaver
 import com.trackr.data.local.StorageBackend
 import com.trackr.data.repository.IRouteGroupRepository
 import com.trackr.data.repository.IScheduledReminderRepository
@@ -156,10 +159,16 @@ class KoinGraphVerifyTest {
         assertNotNull(koin.get<IScheduledReminderRepository>())
         assertNotNull(koin.get<IRouteGroupRepository>())
         assertNotNull(koin.get<FavoritesShortcutWidgetSync>())
-        assertNull(koin.getOrNull<RoutePlanRepository>())
+        assertNotNull(koin.get<RealtimeRepository>())
+        assertNotNull(koin.get<TrackingRepository>())
+        assertNotNull(koin.get<RouteAlignmentService>())
+        assertNotNull(koin.get<RouteGroupSaver>())
         val types = appModules.flatMap { it.mappings.values }.map { it.beanDefinition.primaryType }
         assertTrue("应用 DI 不再包含规划页", types.none {
             it.qualifiedName.orEmpty().startsWith("com.trackr.ui.screens.routeplan.")
+        })
+        assertTrue("应用 DI 不再包含高德 Web 客户端", types.none {
+            it.qualifiedName.orEmpty().startsWith("com.trackr.core.network.remote.amap.")
         })
         assertTrue("路线详情定义必须保留", RouteDetailViewModel::class in types)
         assertTrue("应用 DI 不再包含 Android 高德 SDK 或 Key 同步", types.none {

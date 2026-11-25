@@ -4,17 +4,13 @@ import com.trackr.core.data.local.FavoritesSnapshot
 import com.trackr.core.data.local.FavoritesStore
 import com.trackr.core.data.local.FavoritesWrite
 import com.trackr.core.data.local.LocalMigrationFlags
-import com.trackr.core.data.repository.AmapRouteGateway
 import com.trackr.core.data.repository.DefaultFavoritesRepository
-import com.trackr.core.model.AmapTipItem
-import com.trackr.core.model.AmapTransitSchemeResult
 import com.trackr.core.model.CandidateLine
 import com.trackr.core.model.FavoriteGroup
 import com.trackr.core.model.GroupCategory
 import com.trackr.core.model.TransitGroup
 import com.trackr.data.repository.IRouteGroupRepository
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.EmptyCoroutineContext
@@ -118,45 +114,6 @@ class InMemoryRouteGroupRepository(
             block.startCoroutine(Continuation(EmptyCoroutineContext) { outcome = it })
             return checkNotNull(outcome) { "InMemoryRouteGroupRepository: 建仓库时挂起了" }.getOrThrow()
         }
-    }
-}
-
-/** 高德通道替身：记录请求，不发真实 HTTP / SDK 调用（原 FavoritesGroupViewModelTest 的私有 FakeAmapGateway） */
-class FakeAmapRouteGateway : AmapRouteGateway {
-    data class PlanCall(val originLngLat: String, val destLngLat: String, val destName: String, val cityd: String?)
-
-    var configured = true
-    val tipQueries = mutableListOf<String>()
-    var tipsProvider: (String) -> List<AmapTipItem> = { kw ->
-        listOf(AmapTipItem(name = "${kw}站", location = "120.100000,30.200000"))
-    }
-    val planCalls = mutableListOf<PlanCall>()
-    var planDelayMs = 0L
-    var planResult: (PlanCall) -> List<AmapTransitSchemeResult> = { emptyList() }
-
-    override fun isConfigured(): Boolean = configured
-
-    override suspend fun searchTips(
-        keyword: String,
-        cityName: String,
-        location: String?
-    ): Result<List<AmapTipItem>> {
-        tipQueries += keyword
-        return Result.success(tipsProvider(keyword))
-    }
-
-    override suspend fun planTransit(
-        originLngLat: String,
-        destinationLngLat: String,
-        originName: String,
-        destName: String,
-        cityName: String,
-        cityd: String?
-    ): Result<List<AmapTransitSchemeResult>> {
-        val call = PlanCall(originLngLat, destinationLngLat, destName, cityd)
-        planCalls += call
-        if (planDelayMs > 0) delay(planDelayMs)
-        return Result.success(planResult(call))
     }
 }
 
