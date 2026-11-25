@@ -2,8 +2,6 @@ package com.trackr.app.di
 
 import com.trackr.core.data.local.LocalMigrationFlags
 import com.trackr.core.data.repository.HomeCoordinates
-import com.trackr.core.data.repository.RoutePlanRepository
-import com.trackr.core.data.route.DefaultRoutePlanRepository
 import com.trackr.core.data.route.FavoriteGroupSelection
 import com.trackr.core.data.route.FavoritesGroupDataFix
 import com.trackr.core.data.route.RouteAlignmentService
@@ -21,13 +19,13 @@ import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 /**
- * 路线规划 / 收藏共用的数据层对象（第 17 步从 `FavoritesGroupViewModel` 拆出来，都是 `single`）：
- * 对齐备忘、算路 / 输入提示缓存跟着进程，规划页、路线、编辑收藏共用一份。
+ * 路线详情 / 收藏共用的数据层对象（第 17 步从 `FavoritesGroupViewModel` 拆出来，都是 `single`）：
+ * 对齐备忘、路线保存和数据修复跟着进程，路线详情、追踪和编辑收藏共用一份。
+ * 高德规划仓库已不再进入应用 DI；规划源码仍保留，待后续删除。
  * 迁移版本号 [LocalMigrationFlags] 由平台层提供（Android：存在设置里）。
  */
 val routeDataModule: Module = module {
     single { RouteAlignmentService(settings = get(), realtime = get(), coordinator = get()) }
-    single<RoutePlanRepository> { DefaultRoutePlanRepository(gateway = get(), alignment = get(), coordinator = get()) }
     single { FavoriteGroupSelection() }
     // 首页当前坐标，给搜索用（拆分前搜索直接读首页状态）
     single { HomeCoordinates() }

@@ -5,7 +5,6 @@ import androidx.navigation3.runtime.NavKey
 import com.trackr.core.navigation.TrackrNavigator
 import com.trackr.core.navigation.ScreenKey
 import com.trackr.ui.screens.routedetail.RouteDetailViewModel
-import com.trackr.ui.screens.routeplan.RoutePlanViewModel
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
@@ -19,22 +18,10 @@ import org.koin.dsl.module
 expect fun EntryProviderScope<NavKey>.routeEntries(navigator: TrackrNavigator)
 
 /**
- * 路线相关的 Koin 定义。规划 ViewModel 暂时保留以便本轮小步拆分和既有测试继续编译；
- * 应用根不再提前创建它，后续移除规划实现时一并删除。
+ * 路线详情、追踪和实时到站共用的 Koin 定义。规划 ViewModel 已不再进入应用 DI；
+ * 规划页面及其测试仍保留在源码中，便于后续分步删除高德专属实现。
  */
 val routeModule = module {
-    viewModel {
-        RoutePlanViewModel(
-            routePlan = get(),
-            settings = get(),
-            realtime = get(),
-            userLocationStore = get(),
-            groupRepository = get(),
-            groupSaver = get(),
-            amapKeys = get(),
-            locationRepository = get()
-        )
-    }
     viewModel {
         RouteDetailViewModel(
             groupRepository = get(),

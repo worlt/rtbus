@@ -19,7 +19,7 @@
 - [ ] 不改现有收藏/分组/提醒数据结构、不全局替换源码包名、不改技术栈。验收：无无关重构；验证：变更范围审查。
 
 ## 2. 拆分高德与保留功能
-- [~] 拆开路线规划和路线详情的导航及 ViewModel/DI 绑定。已完成首个边界增量：标准版/长辈版不再注册规划页 entry，普通路线详情 entry 保留；旧 RoutePlan Key 仅保留序列化兼容。规划 ViewModel/高德 DI 尚未删除。验证：`:composeApp:testAndroidHostTest` 20 项、`:feature:route:testAndroidHostTest` 4 项通过。
+- [~] 拆开路线规划和路线详情的导航及 ViewModel/DI 绑定。已完成入口与应用 DI 的首个边界增量：不再注册规划页 entry，普通路线详情 entry 保留；RoutePlanViewModel 与 RoutePlanRepository 不再进入应用 Koin DI，旧 RoutePlan Key 仅保留序列化兼容。规划源码/测试和高德平台 DI 尚未删除。
 - [ ] 拆分 RouteAlignmentService 等混合实现。验收：普通路线对齐/返程/追踪所需逻辑保留；验证：相关仓库和 ViewModel 测试。
 - [~] 清理根页面/启动流程的规划与高德引用。已停止根级规划 ViewModel 预取、隐私弹窗和规划 tab；平台壳固定 disabled，但高德平台模块/更新参数仍暂留，需后续完全移除。
 
