@@ -11,7 +11,6 @@ import com.trackr.data.repository.IRouteGroupRepository
 import com.trackr.data.repository.IScheduledReminderRepository
 import com.trackr.data.repository.ITransitRepository
 import com.trackr.ui.screens.routedetail.RouteDetailViewModel
-import com.trackr.ui.screens.routeplan.RoutePlanViewModel
 import com.trackr.widget.FavoritesShortcutWidgetSync
 import com.trackr.core.model.DataSourceType
 import com.trackr.app.di.platformUiModule
@@ -158,8 +157,10 @@ class KoinGraphVerifyTest {
         assertNotNull(koin.get<IRouteGroupRepository>())
         assertNotNull(koin.get<FavoritesShortcutWidgetSync>())
         assertNull(koin.getOrNull<RoutePlanRepository>())
-        assertNull(koin.getOrNull<RoutePlanViewModel>())
         val types = appModules.flatMap { it.mappings.values }.map { it.beanDefinition.primaryType }
+        assertTrue("应用 DI 不再包含规划页", types.none {
+            it.qualifiedName.orEmpty().startsWith("com.trackr.ui.screens.routeplan.")
+        })
         assertTrue("路线详情定义必须保留", RouteDetailViewModel::class in types)
         assertTrue("应用 DI 不再包含 Android 高德 SDK 或 Key 同步", types.none {
             it.qualifiedName.orEmpty().startsWith("com.trackr.data.remote.amap.")

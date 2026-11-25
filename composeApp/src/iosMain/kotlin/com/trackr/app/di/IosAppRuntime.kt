@@ -66,7 +66,7 @@ internal class IosAppRuntime(val module: Module, val resolveFavorite: (String) -
                         val history = DefaultSearchHistoryRepository.create(store, writer)
                         val favorites = DefaultFavoritesRepository.create(RoomFavoritesStore(db))
                         val defaults = AmapKeyDefaults(hasAndroidMapSdk = false,
-                            hasIosMapSdk = com.trackr.ui.screens.routeplan.map.isRouteMapSupported,
+                            hasIosMapSdk = false,
                             iosKey = (NSBundle.mainBundle.objectForInfoDictionaryKey("AmapIosKey") as? String).orEmpty(),
                             webKey = (NSBundle.mainBundle.objectForInfoDictionaryKey("AmapWebKey") as? String).orEmpty())
                         val keys = DefaultAmapKeyRepository.create(
@@ -100,12 +100,6 @@ internal class IosAppRuntime(val module: Module, val resolveFavorite: (String) -
                         val announcer = withContext(Dispatchers.Main) { IosAnnouncer() }
                         val controller = ForegroundTrackingController(tracking, realtime, settings, location, mainScope,
                             Clock.System, IosMonotonicClock, onEffect = notifications::alert)
-                        mainScope.launch {
-                            keys.privacyConsent.collect { consent ->
-                                // Do not touch the SDK until a privacy decision has actually been made.
-                                if (consent != null) com.trackr.ui.screens.routeplan.map.IosRouteMapBridge.privacy?.invoke(consent)
-                            }
-                        }
                         fun publish() = publishSnapshot(favorites.favoriteItems.value, tracking.sessions.value,
                             settings.isLiveNotificationEnabled.value && settings.showOnLockScreen.value, favoriteSnapshot.value, active)
                         mainScope.launch {

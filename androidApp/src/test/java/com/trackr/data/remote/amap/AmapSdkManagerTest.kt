@@ -11,7 +11,7 @@ import org.robolectric.RobolectricTestRunner
 
 /**
  * 高德 Key 本地持久化（[AmapKeyStorage]）。
- * SDK 封装（[AmapSdkManager]）的用例第 17 步随代码搬到 `:feature:route` 的 androidHostTest。
+ * 高德地图 SDK 封装及其专属测试已删除；这里仅保留尚未裁剪的 Key 存储迁移回归。
  */
 @RunWith(RobolectricTestRunner::class)
 class AmapSdkManagerTest {

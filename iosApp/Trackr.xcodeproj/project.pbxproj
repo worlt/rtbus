@@ -13,7 +13,6 @@
 		331A7EDE917AE6F9DB0AB3D4 /* SnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53DAE7336AD0E98EEFDEA1B2 /* SnapshotTests.swift */; };
 		5C99566BC07C41F749C380DA /* TrackrSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5410650B401FA89D4018806D /* TrackrSnapshot.swift */; };
 		A69CAB8EA211E0032777CEA1 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 95DBE9B81113CA857E26A350 /* Foundation.framework */; };
-		B46D0DE44874F8815B5A5BC0 /* NativeRouteMap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74AAC947BCBD7D24A59731C8 /* NativeRouteMap.swift */; };
 		BB4903773E23589DECECE9C8 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 95DBE9B81113CA857E26A350 /* Foundation.framework */; };
 		C3A7BBA64AD6A4A80204E03A /* TrackrWidgets.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = D3D744B01DE9E7D10FCB7E75 /* TrackrWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		CA15CF7684EE8A6B2E9B6400 /* TrackrWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7912B5B6B689965C49551BE /* TrackrWidgets.swift */; };
@@ -65,7 +64,6 @@
 		5A0E3808A9914AA431EA59A9 /* Pods-Trackr.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Trackr.debug.xcconfig"; path = "Target Support Files/Pods-Trackr/Pods-Trackr.debug.xcconfig"; sourceTree = "<group>"; };
 		5CBC3B1EAB4BCC754D985F63 /* TrackrTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TrackrTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		66A2F0D00D8EB559960F7E83 /* NativeSnapshots.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NativeSnapshots.swift; path = Trackr/NativeSnapshots.swift; sourceTree = "<group>"; };
-		74AAC947BCBD7D24A59731C8 /* NativeRouteMap.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NativeRouteMap.swift; path = Trackr/NativeRouteMap.swift; sourceTree = "<group>"; };
 		82437377B69DEC1D5BAF8D2A /* StartupTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = StartupTests.swift; path = TrackrUITests/StartupTests.swift; sourceTree = "<group>"; };
 		95DBE9B81113CA857E26A350 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		D3D744B01DE9E7D10FCB7E75 /* TrackrWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TrackrWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -122,7 +120,6 @@
 				E6962B901BA0B31A2C252648 /* Release.xcconfig */,
 				E03A687B6234FF42841E6E54 /* Pods */,
 				ACA6050357F3DFFEE990C4A1 /* Frameworks */,
-				74AAC947BCBD7D24A59731C8 /* NativeRouteMap.swift */,
 				66A2F0D00D8EB559960F7E83 /* NativeSnapshots.swift */,
 				5410650B401FA89D4018806D /* TrackrSnapshot.swift */,
 				F7912B5B6B689965C49551BE /* TrackrWidgets.swift */,
@@ -363,7 +360,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				00000000000000000000000D /* AppDelegate.swift in Sources */,
-				B46D0DE44874F8815B5A5BC0 /* NativeRouteMap.swift in Sources */,
 				2AC23DA4FB306CDA0CA7344A /* NativeSnapshots.swift in Sources */,
 				5C99566BC07C41F749C380DA /* TrackrSnapshot.swift in Sources */,
 			);

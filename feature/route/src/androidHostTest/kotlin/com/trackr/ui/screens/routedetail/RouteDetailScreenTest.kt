@@ -10,6 +10,9 @@ import androidx.compose.ui.test.performTextInput
 import com.trackr.core.designsystem.theme.TrackrTheme
 import com.trackr.core.model.CandidateLine
 import com.trackr.core.model.DataSourceType
+import com.trackr.core.model.GroupTrackingSessionState
+import com.trackr.core.model.LegPhase
+import com.trackr.core.model.TrackingSessionState
 import com.trackr.core.model.GroupCategory
 import com.trackr.core.model.TransitGroup
 import com.trackr.core.model.TransitLeg
@@ -63,12 +66,16 @@ class RouteDetailScreenTest {
         legs = listOf(leg1, leg2)
     )
 
-    private fun setContent(target: TransitGroup = group, selected: Map<String, String> = emptyMap()) {
+    private fun setContent(
+        target: TransitGroup = group,
+        selected: Map<String, String> = emptyMap(),
+        session: GroupTrackingSessionState? = null
+    ) {
         composeTestRule.setContent {
             TrackrTheme {
                 RouteDetailScreen(
                     group = target,
-                    activeSession = null,
+                    activeSession = session,
                     realtimeSummaries = emptyMap(),
                     candidateRealtimeMap = emptyMap(),
                     selectedLineKeys = selected,
@@ -106,6 +113,51 @@ class RouteDetailScreenTest {
 
         composeTestRule.onNodeWithText("开始追踪").performClick()
         assertTrue(events.contains(RouteDetailEvent.StartTracking))
+    }
+
+    @Test
+    fun waitingSession_canConfirmBoarding() {
+        setContent(session = GroupTrackingSessionState(groupId = group.id, totalLegs = 2))
+
+        composeTestRule.onNodeWithText("我上车了").performClick()
+
+        assertEquals(listOf(RouteDetailEvent.ConfirmBoarded), events)
+    }
+
+    @Test
+    fun onBoardSession_canAdvanceToNextLeg() {
+        setContent(session = GroupTrackingSessionState(
+            groupId = group.id,
+            totalLegs = 2,
+            trackingSessionState = TrackingSessionState(legPhase = LegPhase.ON_BOARD)
+        ))
+
+        composeTestRule.onNodeWithText("下一程").performClick()
+
+        assertEquals(listOf(RouteDetailEvent.NextLeg), events)
+    }
+
+    @Test
+    fun lastLegSession_canEndTracking() {
+        setContent(session = GroupTrackingSessionState(
+            groupId = group.id,
+            activeLegIndex = 1,
+            totalLegs = 2,
+            trackingSessionState = TrackingSessionState(legPhase = LegPhase.ON_BOARD)
+        ))
+
+        composeTestRule.onNodeWithText("结束追踪").performClick()
+
+        assertEquals(listOf(RouteDetailEvent.StopTracking), events)
+    }
+
+    @Test
+    fun anotherGroupsSession_doesNotReplaceStartTracking() {
+        setContent(session = GroupTrackingSessionState(groupId = "another-group", totalLegs = 2))
+
+        composeTestRule.onNodeWithText("开始追踪").performClick()
+
+        assertEquals(listOf(RouteDetailEvent.StartTracking), events)
     }
 
     @Test

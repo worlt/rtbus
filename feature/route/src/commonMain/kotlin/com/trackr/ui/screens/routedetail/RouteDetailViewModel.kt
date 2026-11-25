@@ -46,8 +46,7 @@ import kotlinx.coroutines.launch
  * 分组 ETA 刷新（路线变化后防抖 500 ms、新一轮取消旧一轮）、每程候选线的实时信息与「选中的线」、
  * 给某一程加候选线、开始 / 我上车了 / 下一程 / 结束追踪、临时追踪的路线。
  *
- * 第 17 步仍取 Activity 级的一个实例，收藏页和规划页共用（规划页「开始追踪」用的是收藏页卡片上选中的线，
- * 追踪提示也是同一个），和原来一样；第 22 步做路线详情页时改成按路线一个实例。
+ * 由应用级 ViewModelStoreOwner 保持共享实例，收藏入口和路线详情使用同一组选择与追踪状态。
  */
 @OptIn(FlowPreview::class)
 class RouteDetailViewModel(

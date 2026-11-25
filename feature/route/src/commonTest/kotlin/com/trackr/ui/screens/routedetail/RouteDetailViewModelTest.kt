@@ -2,8 +2,6 @@ package com.trackr.ui.screens.routedetail
 
 import com.trackr.core.data.repository.DefaultTrackingRepository
 import com.trackr.core.data.repository.InMemoryTrackingSessionStore
-import com.trackr.core.data.route.AmapSchemeAlignmentService
-import com.trackr.core.data.route.DefaultRoutePlanRepository
 import com.trackr.core.data.route.FavoriteGroupSelection
 import com.trackr.core.data.route.RouteAlignmentService
 import com.trackr.core.data.route.RouteGroupSaver
@@ -11,19 +9,17 @@ import com.trackr.core.model.BusLineDetail
 import com.trackr.core.model.BusLineDirection
 import com.trackr.core.model.CandidateLine
 import com.trackr.core.model.DataSourceType
+import com.trackr.core.model.GroupCategory
 import com.trackr.core.model.LiveBus
 import com.trackr.core.model.TrackingTarget
 import com.trackr.core.model.TransitCity
 import com.trackr.core.model.TransitGroup
 import com.trackr.core.model.TransitLeg
-import com.trackr.core.testing.FakeAmapRouteGateway
 import com.trackr.core.testing.FakeRealtimeRepository
 import com.trackr.core.testing.FakeSettingsRepository
 import com.trackr.core.testing.FakeTrackingController
-import com.trackr.core.testing.FakeUserLocationStore
 import com.trackr.core.testing.InMemoryRouteGroupRepository
 import com.trackr.core.testing.MainDispatcherHolder
-import com.trackr.ui.screens.routeplan.RoutePlanViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -41,7 +37,7 @@ import kotlin.test.assertTrue
 
 /**
  * 第 17 步：原 `FavoritesGroupViewModelTest`（:androidApp，Robolectric）里测候选线、分组 ETA、追踪的几条，
- * 搬到这里测 [RouteDetailViewModel]。临时追踪转收藏那条和规划页 [RoutePlanViewModel] 共用一个仓库，和应用里一样。
+ * 搬到这里测 [RouteDetailViewModel]。临时追踪转收藏直接调用共享 [RouteGroupSaver]，不依赖规划页。
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class RouteDetailViewModelTest {
@@ -88,19 +84,6 @@ class RouteDetailViewModelTest {
         trackingController = trackingController,
         ioDispatcher = main.dispatcher,
         enableAutoRefresh = false
-    )
-
-    private fun createPlanViewModel(): RoutePlanViewModel = RoutePlanViewModel(
-        routePlan = DefaultRoutePlanRepository(
-            gateway = FakeAmapRouteGateway(),
-            schemeAlignment = AmapSchemeAlignmentService(realtime, ioDispatcher = main.dispatcher),
-            ioDispatcher = main.dispatcher
-        ),
-        settings = settings,
-        realtime = realtime,
-        userLocationStore = FakeUserLocationStore(),
-        groupRepository = groupRepository,
-        groupSaver = groupSaver
     )
 
     /** 两路车的实时状态：[nearLineId] 在第 4 站（距候车站 5 还有 1 站），[farLineId] 在第 1 站（还有 4 站） */
@@ -275,8 +258,6 @@ class RouteDetailViewModelTest {
     @Test
     fun startGroupTracking_temporaryScheme_isNotSaved_andShowsAsTemporaryUntilFavorited() = runTest(main.dispatcher) {
         val viewModel = createViewModel()
-        // 原来同一个 FavoritesGroupViewModel 上的「收藏」，现在是规划页的（共用一个仓库）
-        val planViewModel = createPlanViewModel()
         testScheduler.runCurrent()
 
         val plannedGroup = TransitGroup(
@@ -303,7 +284,7 @@ class RouteDetailViewModelTest {
         assertEquals("planned_temp", viewModel.temporaryTrackingGroup.value?.id)
 
         // 点"收藏"后存进仓库，不再算临时
-        planViewModel.addPlannedSchemeAsFavorite(group = plannedGroup)
+        groupSaver.saveAsFavorite(plannedGroup, customGroupId = null, category = GroupCategory.CUSTOM, customName = null)
         testScheduler.advanceUntilIdle()
         assertTrue(viewModel.groups.value.any { it.id == "planned_temp" })
         assertNull(viewModel.temporaryTrackingGroup.value)

@@ -4,6 +4,10 @@
 
 完整适配范围、阶段状态和后续验收要求见 [iOS 完整适配路线图](ios-roadmap.md)。本页保留构建步骤与已有运行记录。
 
+## RTBus 本地裁剪状态（2026-11-25）
+
+高德规划页面与 Android/iOS 地图 UI、Swift 地图安装桥接已移除，普通路线详情与前台追踪保留。CocoaPods 高德依赖、Key/隐私存储及 iOS Web 网关仍待后续清理；下方既有运行/打包记录不能视为当前裁剪版本已通过 iOS 验收。本轮在 Windows 仅完成可用的 Android/主机验证，未执行 Xcode 构建或模拟器运行。
+
 ## 在模拟器运行
 
 需要 macOS、完整 Xcode（含 iOS Simulator runtime）、JDK，以及项目现有的 Gradle / Android SDK 环境。本工程提供 `iosArm64` 和 `iosSimulatorArm64`，模拟器使用 Apple Silicon。
@@ -56,7 +60,7 @@ ditto iosApp/DerivedData/Build/Products/Release-iphoneos/Trackr.app /tmp/trackr-
 - Core Location 的前台定位、原生权限申请、跳系统设置，以及与共享层一致的单调时钟。
 - Room 保存收藏、路线、搜索历史和站表缓存；DataStore 保存设置与高德 Key。
 - `trackr://` 链接由共享 `DeepLinkParser` 校验后交给根导航，支持冷启动和运行中打开。
-- 路线页复用共享 CMP 页面。配置高德 Web Key 并同意隐私说明后可使用 Web 算路；未配置时遵循现有规则隐藏路线页签。真机接入 CocoaPods 高德地图 SDK；官方包没有 arm64 模拟器切片，Apple Silicon 模拟器仅使用 Web 规划。
+- 普通路线详情复用共享 CMP 页面，保留多程候选线、收藏和追踪。高德规划与地图页面已从 RTBus 删除，不再提供 Web 算路入口。
 
 首次没有收藏、定位尚未授权时显示现有空态，不注入演示数据。搜索历史、收藏、城市和主题在重启后保留。
 

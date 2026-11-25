@@ -9,7 +9,7 @@
 - 用户只要求移除高德地图、起终点提示/公交算路、Key/初始化/SDK/相关专属配置。
 - 保留原有全国城市选择、城市切换、线路/站点搜索范围；不得做单城市版或添加城市/线路白名单。少量城市/线路只是可选验收样本，不是支持范围，也不是用户必须先提供的开工条件。
 - 保留乘车码、小组件、收藏/分组、追踪、一起等、到站/定时提醒、语音、通知/厂商适配、快捷方式、长辈版、主题和应用内更新等现有好用功能；不能以“精简”为由删除。
-- feature/route 同时含高德规划和普通路线详情/追踪。RouteAlignmentService 已拆出独立的 AmapSchemeAlignmentService；清理时继续保留普通匹配、整组对齐、返程、缓存和追踪能力，不能直接删除整个模块。RouteProjectionMath 等仍被公交解析/追踪使用的工具保留。
+- feature/route 现仅保留普通路线详情/追踪，规划页面、ViewModel 与 Android/iOS 地图实现已删除。RouteAlignmentService 的普通匹配、整组对齐、返程、缓存和追踪能力保留；独立的 AmapSchemeAlignmentService 与规划仓库仍待数据层增量清理，不能删除整个 feature/route 模块。RouteProjectionMath 等仍被公交解析/追踪使用的工具保留。
 - 不顺带换技术栈、重写数据库、合并所有模块、移除 KMP/iOS，或全局替换源码包名。
 
 ## 2. Git 和发布约定
@@ -31,10 +31,10 @@
 - 已有 Fake/桩数据定向 JVM 测试：`:core:domain` 215、`:core:data` 41、`:core:navigation` 70、`:feature:bus` 53、`:feature:search` 30、`:feature:route` 4，合计 **413 项通过，0 失败**；未连接真实公交接口。
 
 尚未完成，不能误报：
-- 高德尚未彻底拆除：规划入口/应用 DI 和 Android 启动绑定已移除，地图/SDK/Key 与规划源码仍有残留；普通查询/追踪逻辑保留。
+- 高德尚未彻底拆除：规划入口/应用 DI、Android 启动绑定，以及 feature/route 规划页面和两端地图实现/桥接已删除；规划仓库/网关/模型、全局 SDK/Key 与配置仍有残留。普通查询/追踪逻辑保留。
 - applicationId、源码包名/类名、Bundle ID、URL scheme、数据库/偏好文件名、签名配置和图标仍沿用工程现状；应用 ID 尚未独立，不能宣称能与原版并存。
 - 原版更新端点仍在代码中，尚未切断或替换。用户没有自己的远程仓库，这是正常的本地开发阶段，不阻止其他改造。
-- 裁剪前品牌版本的 Android debug 构建与 413 项定向 JVM 测试成功；并未单独构建原始快照。当前裁剪版本完整 Android/JVM 主机测试已恢复全绿（1,623 项，0 失败/跳过，见第 6 节）；release APK、真机和 iOS 验收仍未完成。
+- 裁剪前品牌版本的 Android debug 构建与 413 项定向 JVM 测试成功；并未单独构建原始快照。当前裁剪版本完整 Android/JVM 主机测试全绿（1,580 项，0 失败/errors/跳过，见第 6 节最新增量）；release APK、真机和 iOS 验收仍未完成。
 
 ## 4. 环境和构建状态（续接先重新核对）
 
@@ -94,9 +94,19 @@
 - 本轮日志位于忽略目录 `build/rtbus-validation/`：`alignment-split-green.log`、`alignment-split-preservation-red.log`、`alignment-split-modules.log`、`alignment-split-full-host.log`。未执行 iOS 构建、release 或真机验收。
 - 尚未完成：规划界面/仓库/模型、feature/route 内部 Android/iOS 地图实现、SDK/Key/隐私存储与 iOS runtime/构建配置仍有残留；release / 真机 / iOS 验收未完成。
 
+### 本轮续接：删除规划页面与两端地图实现
+- 删除 feature/route 中规划 Route/Screen/VM/UiState、输入控制台、方案面板、收藏弹窗、地图几何/UI、Android 地图会话/SDK 管理器和 iOS RouteMap actual；同步删除 61 项仅服务退役能力的专属测试和 27 条专属资源。模块不再直接依赖高德 SDK 或 core:network，保留普通路线 entry、Screen/VM、实时匹配、整组对齐、返程、缓存与追踪。
+- 移除 Swift NativeRouteMap、AppDelegate 地图安装、Xcode source/file 引用及 installIosMap 桥接；IosNativeBridge 的快照/实时活动安装保留。iOS runtime 不再订阅高德 SDK 隐私回调，hasIosMapSdk=false；Web 网关与 Key 仓库仍留待下一数据层/配置增量。CocoaPods 依赖尚未删除。
+- 新增 4 项普通路线详情追踪 UI 回归：等车确认上车、乘车切下一程、末程结束追踪、其他路线会话隔离。删除前 9 项详情 UI 测试先通过；临时追踪转收藏的既有 VM 回归保留断言，改为直接调用原共享 RouteGroupSaver，不再通过规划 VM 装配。
+- 新增 `.github/scripts/test_route_feature_boundary.py` 的 3 项静态边界检查。删除前失败（规划/SDK 源码、依赖及 iOS 桥接仍存在），删除后全通过；只验证源码边界，不代替运行测试。6 项品牌静态检查及 git diff --check 通过。
+- 对应 4 个模块任务 `:core:data:testAndroidHostTest :feature:route:testAndroidHostTest :composeApp:testAndroidHostTest :androidApp:testDebugUnitTest`：BUILD SUCCESSFUL（2m 15s / 347 tasks），共 580 项，0 failures / errors / skipped；其中 data 232、route 14（9 UI + 4 VM + 1 线路详情 Key）、compose 20、app 314。
+- 完整 `test :androidApp:assembleDebug --continue --init-script build/rtbus-validation/diagnostic.init.gradle --no-daemon --console=plain --stacktrace`：BUILD SUCCESSFUL（32s / 636 tasks；25 executed / 611 up-to-date）。当前 XML 汇总 **1,580 项，0 failures / errors / skipped**；由 1,637 减去 61 项退役能力测试、加上 4 项普通追踪回归得到，并非跳过或放宽测试。
+- debug APK 与 checkDebug16kbPageAlignment 通过（6 个 64 位共享库）。实际检查 APK 仍含 libAMapSDK_MAP_v11_3_100.so / libapssdk.so；Android app 的 SDK 依赖与 CocoaPods / Key / 全局配置尚未裁剪，不是高德彻底移除或 release 验收。未执行 release、真机或 iOS 构建/链接/模拟器测试。
+- 本机忽略目录 build/rtbus-validation/ 中的记录：route-ui-boundary-red.log、route-ui-preservation-baseline.log、route-ui-removal-modules.log、route-ui-removal-full-host.log、route-ui-removal-suite-summary.json。交接/待办、模块指南和 iOS 当前状态说明已同步；无 remote，不推送。
+
 ## 7. 唯一明确的下一步
 
-继续删除高德专属规划与地图实现：从 feature/route 中移除规划页面、ViewModel、地图 UI / Android 与 iOS 装配，并删掉仅服务规划的仓库/接口/SDK 绑定；按引用图确认模型、共享投影/坐标工具及普通路线详情/追踪继续保留。每个小增量先跑对应模块测试，再运行完整主机套件及可用平台编译，最后本地提交。不删除整个 feature/route，不移除 KMP/iOS，不配置 remote、不推送。
+删除仅服务高德规划的数据链：RoutePlanRepository / DefaultRoutePlanRepository、AmapSchemeAlignmentService、WebAmapRouteGateway 及对应接口/替身/专属模型和测试，移除 iOS runtime 中闲置的高德 Web 网关绑定。按引用图保留 RouteAlignmentService、RouteGroupSaver、普通路线详情/追踪及共享投影/坐标工具；旧导航 Key 继续保留解码兼容。此后再独立清理全局 Android SDK / CocoaPods、Key/隐私存储和构建配置。每个可编译增量先测对应模块、再跑完整主机套件及可用平台编译并本地提交。不配置 remote、不推送。
 
 ## 8. 记录维护
 

@@ -1,7 +1,7 @@
 # RTBus 实施任务（按用户收窄范围持续实施）
 
 范围：只移除高德地图/算路/配置，其他好用功能保留；应用内更新改为维护者自己的来源。
-上一版“删除乘车码/小组件/后台追踪/提醒/安装更新”的待办作废。保留原有全国城市切换和搜索范围，验收样本不是城市/线路白名单。当前已建立本地源码快照和 Android 构建/定向测试基线，完成品牌显示名称调整、规划入口/DI 与 Android 高德启动绑定裁剪；高德彻底移除及完整产品验收仍待实施。
+上一版“删除乘车码/小组件/后台追踪/提醒/安装更新”的待办作废。保留原有全国城市切换和搜索范围，验收样本不是城市/线路白名单。当前已建立本地源码快照和 Android 构建/定向测试基线，完成品牌显示名称调整、规划入口/DI、Android 高德启动绑定及 feature/route 规划与地图 UI 裁剪；高德规划数据链、全局 SDK/Key/配置和完整产品验收仍待实施。
 每项实施再拆成约 1–5 个文件的提交；共享模型/DI/数据库修改串行进行。详细依据及验收见 plan.md。
 
 ## 0. 基线与发布约束
@@ -10,7 +10,7 @@
 - [ ] 记录原工程编译、测试及现有功能基线。验收：无“未运行却称通过”；验证：日志和功能清单。
   - [x] 补齐并校验 JDK 21、SDK Platform 37.0、AGP 实际选用的 Build Tools 36.0.0；wrapper 在 JDK 21 下启动成功。可复现环境见 baseline.md。
   - [x] Android debug 构建成功（335 个 Gradle 任务；16 KB native 检查通过），保留功能定向 JVM 测试 413 项通过、0 失败。详情及 APK 哈希见 baseline.md。静态品牌检查 6 项通过，不代替业务基线。
-  - [x] 当前裁剪版本主机测试恢复全绿：1,623 项，0 失败/errors/跳过；包含新增 Application 终止回归。DataStore 损坏恢复、更新取消和小组件异步污染已修复；debug APK 与 16 KB 检查通过。并非 release/真机/iOS 验收；详见 HANDOFF.md 与 test-recovery.md。
+  - [x] 当前裁剪版本主机测试全绿：1,580 项，0 失败/errors/跳过（原 1,637 项减去 61 项退役能力测试，加 4 项追踪 UI 回归）；包含新增 Application 终止回归。DataStore 损坏恢复、更新取消和小组件异步污染已修复；debug APK 与 16 KB 检查通过。并非 release/真机/iOS 验收；详见 HANDOFF.md 与 test-recovery.md。
 - [ ] 保留原 LICENSE，核实实际复用代码与依赖 notices；发布前确认公交数据源适用许可。验收：来源范围明确；验证：许可/来源台账。
 
 ## 1. 独立身份，不重构无关功能
@@ -20,14 +20,14 @@
 - [ ] 不改现有收藏/分组/提醒数据结构、不全局替换源码包名、不改技术栈。验收：无无关重构；验证：变更范围审查。
 
 ## 2. 拆分高德与保留功能
-- [~] 拆开路线规划和路线详情的导航及 ViewModel/DI 绑定。已完成入口与应用 DI 的首个边界增量：不再注册规划页 entry，普通路线详情 entry 保留；RoutePlanViewModel 与 RoutePlanRepository 不再进入应用 Koin DI，旧 RoutePlan Key 仅保留序列化兼容；根导航只创建公交/我的栈，避免隐藏规划栈触发 Unknown screen 崩溃，并补冷启动/旧规划状态恢复回归。`routeAndroidModule` 及 Android SDK 算路/Key 绑定已删除；规划源码/测试、地图会话与 SDK 依赖尚未删除。
+- [x] 拆开路线规划和路线详情的导航及 ViewModel/DI 绑定。规划 entry、VM 和地图实现已删除；普通路线详情 entry / VM 保留；RoutePlanRepository 不进入应用共享 DI，旧 RoutePlan Key 仅保留序列化兼容，公交/我的两栈及旧规划状态恢复回归保留。规划数据链另见第 3 节。
 - [x] 拆分 RouteAlignmentService 混合实现。规划方案对齐移至独立 AmapSchemeAlignmentService；普通路线匹配、整组对齐、返程、缓存保持原服务，并补充两侧专项测试。core:data / feature:route 测试及完整 1,637 项主机套件通过；详见 HANDOFF.md。
-- [~] 清理根页面/启动流程的规划与高德引用。已停止根级规划 ViewModel 预取、隐私弹窗和规划 tab；Android 启动初始化、隐私初始化回调及 Key 同步已删除；根壳闲置高德回调与 disabled 地图包装已移除，common/Android/iOS Host 签名同步；主题/系统栏/组合身份及路线详情回归通过。feature 内地图与 iOS runtime 高德装配仍待清理。
+- [~] 清理根页面/启动流程的规划与高德引用。已停止根级规划 ViewModel 预取、隐私弹窗和规划 tab；Android 启动初始化、隐私初始化回调及 Key 同步已删除；根壳闲置高德回调与 disabled 地图包装已移除，common/Android/iOS Host 签名同步；主题/系统栏/组合身份及路线详情回归通过。feature 内地图与 iOS 原生地图安装/隐私回调已删除；iOS runtime 高德 Web/Key 装配仍待清理。
 
 ## 3. 删除高德专属实现
-- [~] 移除地图、高德算路/输入提示和高德专属动作。已删除 `routeAndroidModule`、AndroidAmapRouteGateway、AmapSdkTransitService 及专属测试/适配器；普通路线详情保留，地图、共享规划源码和 SDK 仍待删除。验收：无空按钮/失效入口，公交文字站序仍正常；验证：UI 回归。
+- [~] 移除地图、高德算路/输入提示和高德专属动作。feature/route 规划页/VM、两端地图 UI/桥接、Android SDK 管理器及专属测试/资源已删除，模块不再直接依赖高德 SDK 或 core:network；普通路线详情保留并补 4 项追踪 UI 回归。规划仓库、网关、专属模型及全局 SDK 仍待删除。验收：无空按钮/失效入口，公交文字站序仍正常；验证：UI 回归。
 - [~] 移除高德 Key 页/存储/同步/初始化及专属隐私流程。Android Key 同步与启动初始化已删除，Key 页/存储及平台地图隐私实现待清理。验收：不再要求高德同意或 Key；验证：启动、设置、备份规则测试。
-- [ ] 移除 SDK/Web 客户端及无人引用的网关、构建变量/镜像/Manifest 声明。验收：release 无高德依赖/组件；验证：依赖图、合并 Manifest 和 APK。
+- [~] 移除 SDK/Web 客户端及无人引用的网关、构建变量/镜像/Manifest 声明。feature/route SDK 依赖已移除，Android app SDK / CocoaPods 与全局配置仍保留。验收：release 无高德依赖/组件；验证：依赖图、合并 Manifest 和 APK。
 - [ ] 同步受影响的平台引用、资源、文档与测试。验收：无因粗删模块破坏 KMP 编译；验证：可用平台编译任务和静态引用检查。
 
 ## 4. 保留应用内更新，改成自己的
@@ -45,8 +45,8 @@
 - [ ] 更新许可、隐私、README、截图和 CI，完成 release 构建。验收：声明匹配实际功能，结果有日志；验证：发布检查表。
 
 ## 唯一明确的下一步
-- 主机套件 1,623 项及额外 app 314 项重复运行已全绿；根壳闲置参数/disabled 地图包装与 common/Android/iOS 签名已收敛，定向 57 项及 debug APK/16 KB 检查通过。最终根壳裁剪后的全套记录见 HANDOFF.md。
-- 继续按薄切片删除高德专属规划与地图实现：移除 feature/route 规划页面、ViewModel、地图 UI / Android 与 iOS 装配，以及仅服务规划的仓库/接口/SDK 绑定；保留普通路线详情、实时匹配、返程、追踪和共享投影工具。完整主机套件当前 1,637 项全绿，但 release/真机/iOS 验收未完成；不重复根壳和 Android 绑定裁剪。
+- 删除高德规划专属数据链（RoutePlanRepository / DefaultRoutePlanRepository、AmapSchemeAlignmentService、WebAmapRouteGateway 及其接口、替身、专属模型/测试）并移除 iOS runtime 闲置的高德 Web 网关绑定；按引用图保留普通路线详情、实时匹配、整组对齐、返程、缓存、追踪和共享投影工具。
+- 规划 UI / 两端地图实现与桥接已完成删除，不重复根壳/Android 启动绑定裁剪；全局 Android SDK、CocoaPods、Key/隐私存储与配置随后独立清理。对应模块 580 项、完整主机套件 1,580 项及 debug/16 KB 构建均通过；3 项边界与 6 项品牌静态检查通过。日志与细节见 HANDOFF.md；release/真机/iOS 验收未完成，无 remote、不推送。
 
 ## 明确不纳入本轮
 - 不合并所有模块、不删除 iOS/KMP、不重写存储、不删辅助功能，也不接入另一地图平台。只有用户另行明确要求才重新评审。
