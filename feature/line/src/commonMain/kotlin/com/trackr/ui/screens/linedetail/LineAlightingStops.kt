@@ -31,8 +31,9 @@ internal data class BoardingBusOption(
 internal fun LineDetailUiState.boardingBusOptions(): List<BoardingBusOption> {
     val target = selectedStop?.order?.takeIf { it > 0 }
     val stops = static?.stops.orEmpty()
-    val etaMatchesTarget = target != null && live?.etaTargetOrder == target
-    val options = live?.buses.orEmpty().asSequence()
+    val snapshot = liveForBoarding ?: return emptyList()
+    val etaMatchesTarget = target != null && snapshot.etaTargetOrder == target
+    val options = snapshot.buses.asSequence()
         .filter { bus -> bus.busId.isNotBlank() && stops.any { it.isFutureAlightingStop(bus) } }
         .distinctBy { it.busId }
         .map { bus ->

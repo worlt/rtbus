@@ -311,7 +311,7 @@ fun LineDetailScreen(
                     isTracking = state.isTrackingThisStop || state.followedTracking != null,
                     isOnboard = state.followedTracking?.isOnboard == true,
                     canTrack = state.selectedStop != null && state.live != null,
-                    canBoard = !state.isSwitchingDirection && state.live?.buses.orEmpty().any { bus ->
+                    canBoard = state.liveForBoarding?.buses.orEmpty().any { bus ->
                         bus.busId.isNotBlank() && (state.followedBusId == null || bus.busId == state.followedBusId) &&
                             static.stops.any { it.isFutureAlightingStop(bus) }
                     },
@@ -509,7 +509,7 @@ fun LineDetailScreen(
 
     if (state.isBoardingBusPickerOpen) {
         val target = state.selectedStop?.takeIf { it.order > 0 }
-        val buses = remember(state.live, static?.stops, target, state.sortBoardingByArrival) { state.boardingBusOptions() }
+        val buses = remember(state.liveForBoarding, static?.stops, target, state.sortBoardingByArrival) { state.boardingBusOptions() }
         AlertDialog(
             onDismissRequest = { onEvent(LineDetailEvent.DismissAlightingPicker) },
             title = { Text(stringResource(LineRes.string.line_boarding_title)) },
@@ -563,7 +563,7 @@ fun LineDetailScreen(
     }
 
     state.boardingBusId?.let { busId ->
-        val bus = state.live?.buses?.firstOrNull { it.busId == busId }
+        val bus = state.liveForBoarding?.buses?.firstOrNull { it.busId == busId }
         val destinations = static?.stops.orEmpty().filter { bus != null && it.isFutureAlightingStop(bus) }
             .distinctBy { it.alightingKey }
         val currentDestination = state.followedTracking?.takeIf { it.isOnboard && it.pinnedBusId == busId }

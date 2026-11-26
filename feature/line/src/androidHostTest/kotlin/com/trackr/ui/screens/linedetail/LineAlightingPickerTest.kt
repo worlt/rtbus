@@ -91,6 +91,28 @@ class LineAlightingPickerTest {
         assertEquals(LineDetailEvent.StartAlightingReminder(stops[2]), event)
     }
 
+    @Test fun failedSnapshotDisablesOpenDestinationDialogUntilNewSnapshot() {
+        val current = mutableStateOf(state())
+        compose.setContent { TrackrTheme { LineDetailScreen(current.value, {}) } }
+        compose.onNodeWithTag("alight_stop_3").performClick()
+        compose.onNodeWithTag("btn_start_alighting").assertIsEnabled()
+        compose.runOnIdle { current.value = current.value.copy(invalidBoardingSnapshotThrough = 0L) }
+        compose.onNodeWithTag("alight_stop_3").assertDoesNotExist()
+        compose.onNodeWithTag("btn_start_alighting").assertIsNotEnabled()
+        compose.runOnIdle { current.value = current.value.copy(live = current.value.live!!.copy(updatedAtMillis = 1L)) }
+        compose.onNodeWithTag("btn_start_alighting").assertIsEnabled()
+    }
+
+    @Test fun failedSnapshotRemovesVehicleChoicesEvenWhenSortAndBusListAreUnchanged() {
+        val current = mutableStateOf(state().copy(boardingBusId = null, followedBusId = null,
+            panelMode = PanelMode.STATION_CARD, isBoardingBusPickerOpen = true))
+        compose.setContent { TrackrTheme { LineDetailScreen(current.value, {}) } }
+        compose.onNodeWithTag("boarding_bus_b").assertExists()
+        compose.runOnIdle { current.value = current.value.copy(invalidBoardingSnapshotThrough = 0L) }
+        compose.onNodeWithTag("boarding_bus_b").assertDoesNotExist()
+        compose.onNodeWithText("取消").performClick()
+    }
+
     @Test fun vehiclePassingSelectedDestinationInvalidatesConfirmation() {
         val current = mutableStateOf(state())
         compose.setContent { TrackrTheme { LineDetailScreen(current.value, {}) } }

@@ -749,6 +749,57 @@ class LineDetailViewModelTest {
     }
 
     @Test
+    fun failedRefreshBlocksAlightingUntilNewVehicleDataArrives() = runTest(main.dispatcher) {
+        val good = fakeRepository.lineDetailResult!!.getOrThrow()
+        val repo = CountingLineRepository(fakeRepository.realtime)
+        val page = createViewModel(targetOrder = 2, realtime = repo)
+        testScheduler.runCurrent()
+        page.selectBusToFollow(buses.single())
+        assertTrue(page.startTrackingFollowedBus())
+        val waiting = trackingRepository.sessions.value.single().sessionId
+        page.openAlightingPicker()
+        fakeRepository.lineDetailResult = Result.failure(IllegalStateException("offline"))
+        page.refreshNow(); testScheduler.runCurrent()
+        assertTrue(page.uiState.value.errorMessage!!.contains("offline"))
+        assertFalse(page.startAlightingReminder(stops[2]))
+        val retry = CompletableDeferred<Unit>()
+        repo.gate = retry
+        fakeRepository.lineDetailResult = Result.success(good) // 同一份缓存快照，不是新位置
+        page.refreshNow(); testScheduler.runCurrent()
+        assertFalse(page.startAlightingReminder(stops[2]))
+        retry.complete(Unit); testScheduler.runCurrent()
+        assertFalse(page.startAlightingReminder(stops[2]))
+        assertEquals(waiting, trackingRepository.sessions.value.single().sessionId)
+        fakeRepository.lineDetailResult = Result.success(good.copy(updatedAtMillis = good.updatedAtMillis + 1))
+        page.refreshNow(); testScheduler.runCurrent()
+        assertTrue(page.startAlightingReminder(stops[2]))
+        assertTrue(trackingRepository.sessions.value.single().state.isAlightingReminder)
+    }
+
+    @Test
+    fun lateSuccessFromBeforeFailureCannotReenableOldBoardingData() = runTest(main.dispatcher) {
+        val good = fakeRepository.lineDetailResult!!.getOrThrow()
+        val repo = CountingLineRepository(fakeRepository.realtime)
+        val page = createViewModel(targetOrder = 2, realtime = repo)
+        testScheduler.runCurrent()
+        page.selectBusToFollow(buses.single())
+        page.openAlightingPicker()
+        val late = CompletableDeferred<Unit>()
+        repo.lineGates[forwardDirection.lineId] = late
+        fakeRepository.lineDetailResult = Result.success(good.copy(updatedAtMillis = good.updatedAtMillis + 100))
+        page.refreshNow(); testScheduler.runCurrent()
+        repo.lineGates.clear()
+        fakeRepository.lineDetailResult = Result.failure(IllegalStateException("offline"))
+        page.refreshNow(); testScheduler.runCurrent()
+        late.complete(Unit); testScheduler.runCurrent()
+        assertFalse(page.startAlightingReminder(stops[2]))
+        assertTrue(trackingController.started.isEmpty())
+        page.dismissAlightingPicker()
+        page.openAlightingPicker()
+        assertNull(page.uiState.value.boardingBusId)
+    }
+
+    @Test
     fun alightingPickerLocksSameBusAndReplacesWaitingReminderOnlyAfterSuccess() = runTest(main.dispatcher) {
         val viewModel = createViewModel(targetOrder = 2)
         testScheduler.runCurrent()

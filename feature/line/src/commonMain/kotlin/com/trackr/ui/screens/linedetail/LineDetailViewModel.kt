@@ -128,6 +128,8 @@ data class LineDetailUiState(
     val isSwitchingDirection: Boolean = false,
     val static: LineStatic? = null,
     val live: LineLive? = null,
+    /** 刷新失败时最后已知的位置时间；在本方向收到更新的快照前，只能浏览旧位置。 */
+    val invalidBoardingSnapshotThrough: Long? = null,
     val selectedStop: BusStop? = null,
     val panelMode: PanelMode = PanelMode.STATION_CARD,
     val followedBusId: String? = null,
@@ -160,6 +162,11 @@ data class LineDetailUiState(
     val trackingSession: TrackingSessionState = TrackingSessionState(),
     val userMessages: List<LineUserMessage> = emptyList()
 ) {
+    internal val liveForBoarding: LineLive?
+        get() = live?.takeIf { snapshot ->
+            !isSwitchingDirection && (invalidBoardingSnapshotThrough == null || snapshot.updatedAtMillis > invalidBoardingSnapshotThrough)
+        }
+
     /** 正在追踪的就是这条线的这个候车站 */
     val isTrackingThisStop: Boolean
         get() = trackingSession.isActive &&
@@ -259,6 +266,9 @@ class LineDetailViewModel(
 
     /** 进行中的线路请求数（含手动刷新、选站、轮询） */
     private val activeLoads = AtomicInt(0)
+    // viewModelScope（主线程）内分配并接收结果；较晚发起的请求已返回时，旧响应不再覆盖它。
+    private var nextDetailRequest = 0L
+    private var lastHandledDetailRequest = 0L
 
     private val lastMessageId = AtomicLong(0L)
 
@@ -562,7 +572,7 @@ class LineDetailViewModel(
         val state = _uiState.value
         if (state.followedBusId != null) {
             openDestinationPicker(state.followedBusId)
-        } else if (state.live?.buses.orEmpty().any { bus ->
+        } else if (state.liveForBoarding?.buses.orEmpty().any { bus ->
                 bus.busId.isNotBlank() && state.static?.stops.orEmpty().any { it.isFutureAlightingStop(bus) }
             }) {
             _uiState.update { it.copy(isBoardingBusPickerOpen = true, boardingBusId = null) }
@@ -580,7 +590,7 @@ class LineDetailViewModel(
 
     private fun openDestinationPicker(busId: String) {
         val state = _uiState.value
-        val bus = state.live?.buses?.firstOrNull { it.busId == busId && it.busId.isNotBlank() }
+        val bus = state.liveForBoarding?.buses?.firstOrNull { it.busId == busId && it.busId.isNotBlank() }
         if (bus == null) {
             postMessage("这辆车暂时没有实时数据，请刷新后重试")
             return
@@ -600,7 +610,7 @@ class LineDetailViewModel(
     fun startAlightingReminder(destination: BusStop): Boolean {
         val state = _uiState.value
         val static = state.static ?: return false
-        val bus = state.live?.buses?.firstOrNull { it.busId == state.boardingBusId }
+        val bus = state.liveForBoarding?.buses?.firstOrNull { it.busId == state.boardingBusId }
         if (bus == null) {
             postMessage("这辆车暂时没有实时数据，请刷新后重试")
             return false
@@ -666,6 +676,7 @@ class LineDetailViewModel(
      * 挂起执行一次线路详情请求并更新 UI 状态
      */
     private suspend fun fetchLineDetail(isInitial: Boolean = false, targetOrderOverride: Int? = null) {
+        val requestId = ++nextDetailRequest
         activeLoads.incrementAndFetch()
         lastRefreshAtMillis = clockMillis()
         try {
@@ -694,16 +705,16 @@ class LineDetailViewModel(
 
             result.onSuccess { fetched ->
                 // 请求期间换了向：这份是旧方向的数据，按站序套到新方向会选错站
-                if (requestLineId != currentLineId) {
-                    _uiState.update { it.copy(isRefreshing = false) }
-                    return@onSuccess
-                }
+                if (requestId < lastHandledDetailRequest || requestLineId != currentLineId) return@onSuccess
                 // 入口带了站名：按站名找候车站，这个方向没有（或上车站在下车站后面）就换反向找
                 val byName = if (isInitial && !userPickedStop && hasEntryStopName) {
                     resolveEntryDirection(fetched, currentCity)
                 } else {
                     null
                 }
+                // 找入口站可能还要挂起请求反向线路，再核对一次。
+                if (requestId < lastHandledDetailRequest || requestLineId != currentLineId) return@onSuccess
+                lastHandledDetailRequest = requestId
                 if (byName != null && byName.first.line.lineId != requestLineId) {
                     currentLineId = byName.first.line.lineId
                     currentSource = byName.first.line.source
@@ -740,10 +751,13 @@ class LineDetailViewModel(
                     fetchLineDetail(isInitial = false, targetOrderOverride = targetStop.order)
                 }
             }.onFailure { ex ->
+                if (requestId < lastHandledDetailRequest || requestLineId != currentLineId) return@onFailure
+                lastHandledDetailRequest = requestId
                 _uiState.update {
                     it.copy(
                         isLoading = false,
                         isRefreshing = false,
+                        invalidBoardingSnapshotThrough = it.live?.let { live -> maxOf(it.invalidBoardingSnapshotThrough ?: live.updatedAtMillis, live.updatedAtMillis) },
                         errorMessage = "获取实时公交数据失败：${ex.message ?: "网络异常"}"
                     )
                 }
@@ -802,6 +816,9 @@ class LineDetailViewModel(
         currentDetail = detail
         val newStatic = LineStatic(detail.line, detail.reverseDirection, detail.stops)
         _uiState.update {
+            val previousLine = it.static?.line
+            val sameDirection = previousLine?.lineId == detail.line.lineId && previousLine.direction == detail.line.direction &&
+                previousLine.source == detail.line.source
             val static = if (it.static == newStatic) it.static else newStatic
             val live = LineLive(
                 buses = detail.buses,
@@ -817,6 +834,7 @@ class LineDetailViewModel(
                 isRefreshing = false,
                 static = static,
                 live = if (it.live == live) it.live else live,
+                invalidBoardingSnapshotThrough = if (sameDirection) it.invalidBoardingSnapshotThrough else null,
                 selectedStop = targetStop,
                 errorMessage = null
             )
