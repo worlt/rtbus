@@ -88,8 +88,7 @@ class ForegroundTrackingController(
     }
 
     private fun expireAndResume() {
-        repository.sessions.value.filter { TrackingEngine.isTrackingExpired(it, clock.now().toEpochMilliseconds()) }
-            .forEach { repository.stop(it.sessionId) }
+        repository.sessions.value.forEach { repository.discardIfExpired(it) }
         repository.resumeAll()
     }
 

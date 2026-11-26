@@ -11,6 +11,7 @@ import com.trackr.core.model.TransitLeg
 import com.trackr.core.model.UserFix
 import com.trackr.core.model.WatchLine
 import com.trackr.core.testing.FakeClock
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
@@ -168,6 +169,7 @@ class TrackingRepositoryTest {
 
         val second = newRepo()
         second.awaitLoaded()
+        assertEquals(ExpiredAlightingReminder("49路", "上海体育馆"), second.expiredAlightingReminders.first())
         assertEquals(listOf(waiting.sessionId), second.sessions.value.map { it.sessionId })
         second.flush()
         assertEquals(listOf(waiting.sessionId), store.read().map { it.sessionId })

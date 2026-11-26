@@ -220,6 +220,13 @@ class BusHomeViewModel(
             }
         }
 
+        viewModelScope.launch {
+            trackingRepository.expiredAlightingReminders.collect { expired ->
+                val trip = listOf(expired.lineName, expired.stopName).filter { it.isNotBlank() }.joinToString(" · ")
+                addMessage((if (trip.isEmpty()) "" else "$trip：") + "未能确认到站，已清除过期的下车提醒。")
+            }
+        }
+
         // 观察当前引擎运行模式
         viewModelScope.launch {
             settings.engineMode.collect { mode ->

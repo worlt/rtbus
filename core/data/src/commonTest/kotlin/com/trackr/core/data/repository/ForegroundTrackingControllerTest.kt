@@ -1,5 +1,6 @@
 package com.trackr.core.data.repository
 
+import kotlinx.coroutines.flow.first
 import com.trackr.core.model.*
 import com.trackr.core.testing.*
 import kotlinx.coroutines.*
@@ -90,6 +91,7 @@ class ForegroundTrackingControllerTest {
         assertEquals(listOf("L1"), f.realtime.lineDetailCalls)
         f.clock.advanceBy(1.hours)
         pending.complete(Unit); runCurrent()
+        assertEquals(target.targetStopName, f.repo.expiredAlightingReminders.first().stopName)
         assertTrue(f.repo.sessions.value.isEmpty())
         assertTrue(f.effects.isEmpty())
     }

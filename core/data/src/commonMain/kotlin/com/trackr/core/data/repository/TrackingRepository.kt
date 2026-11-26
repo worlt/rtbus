@@ -14,6 +14,8 @@ import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -147,6 +149,12 @@ interface TrackingRepository {
     /** 回到前台或重启服务前，从内存和存储中移除已过期的指定车下车提醒。 */
     fun discardExpiredAlightingReminders()
 
+    /** 按当前时间及代际重新核对，只返回实际被清理的那一份。 */
+    fun discardIfExpired(session: TrackingSession): TrackingSession?
+
+    /** 一次性首页提示；冷启动读盘可能早于首页订阅。 */
+    val expiredAlightingReminders: Flow<ExpiredAlightingReminder>
+
     /** 等盘里的会话读完（服务被系统重建时先等它） */
     suspend fun awaitLoaded()
 
@@ -155,6 +163,8 @@ interface TrackingRepository {
         const val MAX_SESSIONS: Int = 4
     }
 }
+
+data class ExpiredAlightingReminder(val lineName: String, val stopName: String)
 
 /** 会话怎么落盘（新存储：DataStore `tracking_session.json`；旧存储：只在内存里） */
 interface TrackingSessionStore {
@@ -231,6 +241,9 @@ class DefaultTrackingRepository @OptIn(ExperimentalUuidApi::class) constructor(
     private val _userFixes = MutableSharedFlow<UserFix>(extraBufferCapacity = 8, onBufferOverflow = BufferOverflow.DROP_OLDEST)
     override val userFixes: Flow<UserFix> = _userFixes.asSharedFlow()
 
+    private val expiryNotices = Channel<ExpiredAlightingReminder>(TrackingRepository.MAX_SESSIONS, BufferOverflow.DROP_OLDEST)
+    override val expiredAlightingReminders = expiryNotices.receiveAsFlow()
+
     private val loaded = CompletableDeferred<Unit>()
 
     init {
@@ -246,10 +259,11 @@ class DefaultTrackingRepository @OptIn(ExperimentalUuidApi::class) constructor(
                 if (stored.isNotEmpty() && !touched && _sessions.value.isEmpty()) {
                     // 进程被杀后读回：先标成中断，服务接上后再清掉；太久没更新的直接扔
                     val now = nowMillis()
-                    val fresh = stored.filter { session ->
+                    val (fresh, discarded) = stored.partition { session ->
                         now - session.state.updatedAtMillis <= MAX_RESUME_AGE_MILLIS && !session.isExpiredAlighting(now)
                     }
-                    publish(fresh.map { it.copy(interrupted = true) }, persist = fresh.size != stored.size)
+                    publish(fresh.map { it.copy(interrupted = true) }, persist = discarded.isNotEmpty())
+                    discarded.forEach(::reportExpiry)
                 }
             }
             loaded.complete(Unit)
@@ -316,16 +330,30 @@ class DefaultTrackingRepository @OptIn(ExperimentalUuidApi::class) constructor(
 
     override fun discardExpiredAlightingReminders() = synchronized(lock) {
         val now = nowMillis()
-        removeMatching { it.isExpiredAlighting(now) }
+        removeMatching { it.isExpiredAlighting(now) }.forEach(::reportExpiry)
+    }
+
+    override fun discardIfExpired(session: TrackingSession): TrackingSession? = synchronized(lock) {
+        val latest = _sessions.value.firstOrNull { it.sessionId == session.sessionId } ?: return@synchronized null
+        if (latest.generation != session.generation || !TrackingEngine.isTrackingExpired(latest, nowMillis())) return@synchronized null
+        removeMatching { it.sessionId == latest.sessionId }
+        reportExpiry(latest)
+        latest
+    }
+
+    private fun reportExpiry(session: TrackingSession) {
+        if (session.state.isAlightingReminder) {
+            expiryNotices.trySend(ExpiredAlightingReminder(session.state.lineName, session.state.targetStopName))
+        }
     }
 
     private fun TrackingSession.isExpiredAlighting(now: Long): Boolean =
         state.isAlightingReminder && TrackingEngine.isTrackingExpired(this, now)
 
     /** 持锁调用；按会话清理，不影响同时追的其他车，也不让迟到的轮询写回。 */
-    private fun removeMatching(predicate: (TrackingSession) -> Boolean) {
+    private fun removeMatching(predicate: (TrackingSession) -> Boolean): List<TrackingSession> {
         val (removed, remaining) = _sessions.value.partition(predicate)
-        if (removed.isEmpty()) return
+        if (removed.isEmpty()) return emptyList()
         nextGeneration()
         for (gone in removed) {
             lastBuses.remove(gone.sessionId)
@@ -333,6 +361,7 @@ class DefaultTrackingRepository @OptIn(ExperimentalUuidApi::class) constructor(
         }
         if (remaining.isEmpty()) userFix = null
         publish(remaining)
+        return removed
     }
 
     override fun restore(failed: TrackingSession, previous: TrackingSession?) {

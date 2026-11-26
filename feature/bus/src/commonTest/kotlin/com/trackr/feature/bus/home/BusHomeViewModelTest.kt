@@ -103,6 +103,29 @@ class BusHomeViewModelTest {
         main.reset()
     }
 
+    @Test
+    fun expiryBeforeHomeOpens_showsTripOnce_withoutReportingArrivalOrManualStops() = runTest(main.dispatcher) {
+        val clock = FakeClock()
+        trackingRepository = DefaultTrackingRepository(InMemoryTrackingSessionStore(), backgroundScope, clock)
+        trackingController = FakeTrackingController(trackingRepository)
+        trackingRepository.awaitLoaded()
+        val ride = TrackingTarget.SingleLine(cityId = "sh", lineId = "L1", lineName = "49路", targetOrder = 3,
+            targetStopName = "体育馆", pinnedBusId = "mine")
+        trackingRepository.start(ride)
+        trackingRepository.stop()
+        trackingRepository.start(ride)
+        clock.advanceBy(1_800_000.milliseconds)
+        trackingRepository.discardExpiredAlightingReminders()
+        val vm = createViewModel()
+        testScheduler.runCurrent()
+        val notice = vm.uiState.value.userMessages.single()
+        assertEquals("49路 · 体育馆：未能确认到站，已清除过期的下车提醒。", notice.text)
+        vm.onMessageShown(notice.id)
+        trackingRepository.discardExpiredAlightingReminders()
+        testScheduler.runCurrent()
+        assertTrue(vm.uiState.value.userMessages.isEmpty())
+    }
+
     private fun createViewModel(
         enableAutoPolling: Boolean = false,
         elapsedRealtimeMillis: (() -> Long)? = null,
