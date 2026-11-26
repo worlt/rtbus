@@ -83,8 +83,7 @@ class ScheduledReminderReceiverTest {
         fake.setVibrationAlerts(true)
         ScheduledReminderReceiver().handleReminderTrigger(app, reminder.id)
         assertTrue(shadowOf(vibrator).isVibrating)
-        assertEquals(android.os.VibrationAttributes.USAGE_ALARM,
-            (shadowOf(vibrator).getVibrationAttributesFromLastVibration() as android.os.VibrationAttributes).usage)
+        com.trackr.service.assertNavigationVibrationAttributes(vibrator)
         vibrator.cancel()
         fake.setVibrationAlerts(false)
         ScheduledReminderReceiver().handleReminderTrigger(app, reminder.id)

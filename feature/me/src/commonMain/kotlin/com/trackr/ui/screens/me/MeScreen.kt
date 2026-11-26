@@ -3,6 +3,9 @@
 package com.trackr.ui.screens.me
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -31,7 +34,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LargeTopAppBar
+import com.trackr.ui.components.common.CollapsingTitleBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.RadioButton
@@ -88,6 +91,11 @@ import com.trackr.feature.me.resources.me_export_boarding_trace
 import com.trackr.feature.me.resources.me_export_boarding_trace_desc
 import com.trackr.feature.me.resources.me_vibration_alerts
 import com.trackr.feature.me.resources.me_vibration_alerts_desc
+import com.trackr.feature.me.resources.me_test_vibration
+import com.trackr.feature.me.resources.me_test_vibration_desc
+import com.trackr.feature.me.resources.me_test_vibration_result
+import com.trackr.feature.me.resources.me_test_vibration_close
+import com.trackr.feature.me.resources.me_alert_channel_settings
 import com.trackr.feature.me.resources.me_voice_alerts
 import com.trackr.feature.me.resources.me_voice_alerts_desc
 import com.trackr.feature.me.resources.me_data_source
@@ -158,9 +166,8 @@ fun MeScreen(
         contentWindowInsets = WindowInsets.safeDrawing,
         snackbarHost = { MeMessageHost(state.userMessages, Modifier.padding(bottom = LocalBottomBarHeight.current)) { onEvent(MeEvent.MessageShown(it)) } },
         topBar = {
-            LargeTopAppBar(
+            CollapsingTitleBar(
                 modifier = Modifier.testTag("me_top_bar"),
-                expandedHeight = 120.dp,
                 scrollBehavior = scrollBehavior,
                 title = { Text(text = stringResource(MeRes.string.me_title), fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -280,6 +287,14 @@ fun MeScreen(
                         checked = state.vibrationAlerts,
                         onCheckedChange = { onEvent(MeEvent.SetVibrationAlerts(it)) }
                     )
+                    if (state.canTestVibration) {
+                        GroupDivider()
+                        SettingRow(
+                            title = stringResource(MeRes.string.me_test_vibration),
+                            subtitle = stringResource(MeRes.string.me_test_vibration_desc),
+                            onClick = { onEvent(MeEvent.TestVibration) }
+                        )
+                    }
                     GroupDivider()
                     SettingRow(
                         title = stringResource(MeRes.string.me_reminders),
@@ -368,6 +383,32 @@ fun MeScreen(
                 }
             }
         }
+    }
+
+    state.vibrationTestResult?.let { report ->
+        AlertDialog(
+            onDismissRequest = { onEvent(MeEvent.DismissVibrationTest) },
+            title = { Text(stringResource(MeRes.string.me_test_vibration_result)) },
+            text = {
+                SelectionContainer {
+                    Text(
+                        text = report,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.verticalScroll(rememberScrollState())
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { onEvent(MeEvent.DismissVibrationTest) }) {
+                    Text(stringResource(MeRes.string.me_test_vibration_close))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { onEvent(MeEvent.OpenAlertChannelSettings) }) {
+                    Text(stringResource(MeRes.string.me_alert_channel_settings))
+                }
+            }
+        )
     }
 
     val liveUpdateStatus = state.liveUpdate

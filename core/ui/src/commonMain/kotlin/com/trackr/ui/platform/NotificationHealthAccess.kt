@@ -18,6 +18,12 @@ interface NotificationHealthAccess {
 
     /** 打开「公交到站与进站强提醒」渠道的设置页；渠道不存在时退到应用通知设置 */
     fun openAlertChannelSettings()
+
+    /** Only platforms with explicit haptic diagnostics expose the test action. */
+    val supportsVibrationTest: Boolean get() = false
+
+    /** Returns a human-readable request result, never a claim that the motor actually moved. */
+    fun testVibration(): String? = null
 }
 
 /**

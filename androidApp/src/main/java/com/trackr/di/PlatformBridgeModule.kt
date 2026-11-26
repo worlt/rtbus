@@ -54,7 +54,9 @@ val platformBridgeModule: Module = module {
     single<LiveUpdateAccess> { AndroidLiveUpdateAccess(androidContext(), get()) }
     // 「我的」页的通知可靠性体检：通知权限 / 到站强提醒渠道 / 追踪进度渠道
     single<NotificationHealthAccess> {
-        AndroidNotificationHealthAccess(androidContext(), { get<ITransitRepository>().vibrationAlerts.value })
+        AndroidNotificationHealthAccess(androidContext(),
+            { get<ITransitRepository>().vibrationAlerts.value },
+            { get<ArrivalAlertNotifier>().ensureNotificationChannel(androidContext()) })
     }
     single<UserLocationStore> { TransitUserLocationStore(get()) }
     // 判上车的判定记录（issue #49）：追踪服务写、「我的」页导出
@@ -172,7 +174,8 @@ class AndroidLiveUpdateAccess(
  */
 class AndroidNotificationHealthAccess(
     context: Context,
-    private val vibrationEnabled: () -> Boolean = { true }
+    private val vibrationEnabled: () -> Boolean = { true },
+    private val ensureAlertChannel: () -> Unit = {}
 ) : NotificationHealthAccess {
     private val appContext: Context = context.applicationContext ?: context
 
@@ -193,6 +196,14 @@ class AndroidNotificationHealthAccess(
             alertChannelAudible = alert == null || alert.importance >= NotificationManager.IMPORTANCE_HIGH,
             liveChannelOff = live != null && live.importance == NotificationManager.IMPORTANCE_NONE
         )
+    }
+
+    override val supportsVibrationTest: Boolean get() = true
+
+    override fun testVibration(): String {
+        ensureAlertChannel()
+        return com.trackr.service.ReminderVibration.test(appContext,
+            ArrivalAlertNotifier.CHANNEL_ID_ALERT, vibrationEnabled())
     }
 
     override fun openAlertChannelSettings() {

@@ -153,13 +153,20 @@ class BusHomeScreenTest {
             }
         }
         val expanded = headerHeight()
-        assertTrue("缩短展开区，保留大标题", expanded in 120.dp..152.dp)
+        assertTrue("缩短展开区，保留大标题", expanded in 80.dp..112.dp)
+        val expandedHeader = composeTestRule.onNodeWithTag(BusHomeTags.TOP_BAR).getUnclippedBoundsInRoot()
+        val expandedTitle = composeTestRule.onNodeWithTag(BusHomeTags.CITY_TITLE).getUnclippedBoundsInRoot()
+        // Remove any host status inset before comparing the visible title spacing.
+        val titleTopGap = expandedTitle.top - expandedHeader.top - (expanded - 80.dp)
+        val titleBottomGap = composeTestRule.onNodeWithTag(BusHomeTags.SEARCH).getUnclippedBoundsInRoot().top - expandedTitle.bottom
+        assertTrue("展开标题上下留白应接近：$titleTopGap / $titleBottomGap",
+            kotlin.math.abs((titleTopGap - titleBottomGap).value) <= 12f)
         assertSearchGap()
         capture("original-home-expanded-dark.png")
         repeat(2) { cycle ->
             composeTestRule.onNodeWithTag(BusHomeTags.LIST).performTouchInput { swipeUp() }
             composeTestRule.onNodeWithTag(BusHomeTags.LIST).performScrollToIndex(0)
-            assertEquals("上滑仍保留原版收起过渡", 56f, (expanded - headerHeight()).value, 1f)
+            assertEquals("上滑仍保留原版收起过渡", 16f, (expanded - headerHeight()).value, 1f)
             assertSearchGap()
             if (cycle == 0) capture("original-home-collapsed-dark.png")
             composeTestRule.onNodeWithTag(BusHomeTags.LIST).performTouchInput { swipeDown() }

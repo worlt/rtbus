@@ -20,7 +20,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LargeTopAppBar
+import com.trackr.ui.components.common.CollapsingTitleBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -232,9 +232,8 @@ private fun BusHomeTopBar(
     onCityClick: () -> Unit,
     scrollBehavior: TopAppBarScrollBehavior
 ) {
-    LargeTopAppBar(
+    CollapsingTitleBar(
         modifier = Modifier.testTag(BusHomeTags.TOP_BAR),
-        expandedHeight = 120.dp,
         scrollBehavior = scrollBehavior,
         title = {
             Surface(

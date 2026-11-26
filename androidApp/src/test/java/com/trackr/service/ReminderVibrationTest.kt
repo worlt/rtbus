@@ -4,7 +4,6 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.media.AudioManager
-import android.os.VibrationAttributes
 import android.os.VibrationEffect
 import android.os.Vibrator
 import androidx.test.core.app.ApplicationProvider
@@ -34,18 +33,25 @@ class ReminderVibrationTest {
         manager.createNotificationChannel(NotificationChannel(channelId, "Test", NotificationManager.IMPORTANCE_HIGH).apply {
             enableVibration(true)
         })
+        audio.setStreamVolume(AudioManager.STREAM_RING, 5, 0)
         vibrator.cancel()
     }
 
     private fun trigger(posted: Boolean = true, enabled: Boolean = true) = ReminderVibration.vibrate(
         context, channelId, enabled, VibrationEffect.createOneShot(800, VibrationEffect.DEFAULT_AMPLITUDE), posted)
 
-    @Test fun silentPostedReminderUsesAlarmUsage() {
+    @Test fun silentPostedReminderRetainsNavigationAudioAttributes() {
         audio.ringerMode = AudioManager.RINGER_MODE_SILENT
         trigger()
         assertTrue(shadowOf(vibrator).isVibrating)
-        assertEquals(VibrationAttributes.USAGE_ALARM,
-            (shadowOf(vibrator).getVibrationAttributesFromLastVibration() as VibrationAttributes).usage)
+        assertNavigationVibrationAttributes(vibrator)
+    }
+
+    @Test fun vendorSilentWithNormalReportedModeAndZeroRingVolumeStillRequestsVibration() {
+        audio.ringerMode = AudioManager.RINGER_MODE_NORMAL
+        audio.setStreamVolume(AudioManager.STREAM_RING, 0, 0)
+        trigger()
+        assertTrue(shadowOf(vibrator).isVibrating)
     }
 
     @Test fun normalAndVibratePostedNotificationsDoNotVibrateTwice() {
@@ -56,12 +62,11 @@ class ReminderVibrationTest {
         }
     }
 
-    @Test fun liveUpdateFallbackStillUsesNotificationUsageWhenNotSilent() {
+    @Test fun liveUpdateFallbackAlsoUsesNavigationGuidanceWhenNotSilent() {
         audio.ringerMode = AudioManager.RINGER_MODE_NORMAL
         trigger(posted = false)
         assertTrue(shadowOf(vibrator).isVibrating)
-        assertEquals(VibrationAttributes.USAGE_NOTIFICATION,
-            (shadowOf(vibrator).getVibrationAttributesFromLastVibration() as VibrationAttributes).usage)
+        assertNavigationVibrationAttributes(vibrator)
     }
 
     @Test fun everyActiveDndModeBlocksSilentManualVibration() {
@@ -102,6 +107,28 @@ class ReminderVibrationTest {
         val channel = manager.getNotificationChannel(channelId)
         channel.importance = NotificationManager.IMPORTANCE_NONE
         trigger()
+        assertFalse(shadowOf(vibrator).isVibrating)
+    }
+
+    @Test fun testReportDistinguishesRequestedFeedbackFromPhysicalVibration() {
+        audio.ringerMode = AudioManager.RINGER_MODE_SILENT
+        val report = ReminderVibration.test(context, channelId, enabled = true)
+        assertTrue(shadowOf(vibrator).isVibrating)
+        assertTrue(report.contains("导航引导兼容版 v2"))
+        assertTrue(report.contains("铃声模式：静音"))
+        assertTrue(report.contains("请求结果：REQUESTED"))
+        assertTrue(report.contains("以手机是否实际震动为准"))
+    }
+
+    @Test fun testReportNamesTheBlockingSettingWithoutVibrating() {
+        assertTrue(ReminderVibration.test(context, channelId, enabled = false).contains("请求结果：SWITCH_OFF"))
+        assertFalse(shadowOf(vibrator).isVibrating)
+        manager.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_PRIORITY)
+        assertTrue(ReminderVibration.test(context, channelId, enabled = true).contains("请求结果：DND"))
+        assertFalse(shadowOf(vibrator).isVibrating)
+        manager.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL)
+        manager.getNotificationChannel(channelId).enableVibration(false)
+        assertTrue(ReminderVibration.test(context, channelId, enabled = true).contains("请求结果：CHANNEL_VIBRATION_OFF"))
         assertFalse(shadowOf(vibrator).isVibrating)
     }
 

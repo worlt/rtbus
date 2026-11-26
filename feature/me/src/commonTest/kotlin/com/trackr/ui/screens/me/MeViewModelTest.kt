@@ -12,6 +12,8 @@ import com.trackr.core.testing.FakeLocationSource
 import com.trackr.core.testing.FakeSettingsRepository
 import com.trackr.core.testing.MainDispatcherHolder
 import com.trackr.data.repository.FakeScheduledReminderRepository
+import com.trackr.ui.platform.NotificationHealthAccess
+import com.trackr.ui.platform.NotificationHealth
 import com.trackr.ui.platform.LiveUpdateAccess
 import com.trackr.ui.platform.LiveUpdateStatus
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -52,7 +54,8 @@ class MeViewModelTest {
         liveUpdateAccess: LiveUpdateAccess? = liveUpdate,
         versionName: String? = "0.0.3",
         boardingTrace: BoardingTraceLog? = null,
-        locationSource: LocationSource? = null
+        locationSource: LocationSource? = null,
+        notificationHealthAccess: NotificationHealthAccess? = null
     ) = MeViewModel(
         settings = settings,
         reminderRepository = reminders,
@@ -60,7 +63,8 @@ class MeViewModelTest {
         liveUpdateAccess = liveUpdateAccess,
         versionName = versionName,
         boardingTrace = boardingTrace,
-        locationSource = locationSource
+        locationSource = locationSource,
+        notificationHealthAccess = notificationHealthAccess
     )
 
     /** 假的判定记录：[shareResult] 是分享面板开没开成 */
@@ -95,6 +99,35 @@ class MeViewModelTest {
         testScheduler.advanceUntilIdle()
         assertEquals(2, trace.shares)
         assertTrue(viewModel.uiState.value.userMessages.isEmpty())
+    }
+
+    @Test
+    fun vibrationTestIsPlatformGatedAndItsReportCanBeDismissed() = runTest(main.dispatcher) {
+        val unavailable = createViewModel()
+        unavailable.onEvent(MeEvent.TestVibration)
+        testScheduler.advanceUntilIdle()
+        assertFalse(unavailable.uiState.value.canTestVibration)
+        assertNull(unavailable.uiState.value.vibrationTestResult)
+        var calls = 0
+        val access = object : NotificationHealthAccess {
+            override val supportsVibrationTest = true
+            override fun status() = NotificationHealth()
+            override fun openAlertChannelSettings() = Unit
+            override fun testVibration(): String {
+                calls++
+                return "请求结果：SWITCH_OFF"
+            }
+        }
+        val viewModel = createViewModel(notificationHealthAccess = access)
+        testScheduler.advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.canTestVibration)
+        viewModel.onEvent(MeEvent.TestVibration)
+        testScheduler.advanceUntilIdle()
+        assertEquals(1, calls)
+        assertEquals("请求结果：SWITCH_OFF", viewModel.uiState.value.vibrationTestResult)
+        viewModel.onEvent(MeEvent.DismissVibrationTest)
+        testScheduler.advanceUntilIdle()
+        assertNull(viewModel.uiState.value.vibrationTestResult)
     }
 
     @Test

@@ -407,8 +407,7 @@ class ArrivalAlertManagerTest {
         alertsWithLockScreen { true }.triggerArrivedAlert(app, activeTrackingState(0))
         assertNotNull(shadowOf(notificationManager).getNotification(ArrivalAlertNotifier.NOTIFICATION_ID_ARRIVED))
         assertTrue("静音时已发布通知也要单独请求提醒震动", shadow.isVibrating)
-        val attributes = shadow.getVibrationAttributesFromLastVibration() as android.os.VibrationAttributes
-        assertEquals(android.os.VibrationAttributes.USAGE_ALARM, attributes.usage)
+        assertNavigationVibrationAttributes(vibrator)
     }
 
     @Test

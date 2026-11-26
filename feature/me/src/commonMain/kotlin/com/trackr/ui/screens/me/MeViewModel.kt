@@ -47,6 +47,8 @@ data class MeUiState(
     val canExportBoardingTrace: Boolean = false,
     val voiceAlerts: Boolean = false,
     val vibrationAlerts: Boolean = true,
+    val canTestVibration: Boolean = false,
+    val vibrationTestResult: String? = null,
     val alertThresholdStops: Int = 2,
     val reminders: List<ScheduledReminder> = emptyList(),
     val remindersSubtitle: String? = null,
@@ -74,6 +76,8 @@ sealed interface MeEvent {
     data object ExportBoardingTrace : MeEvent
     data class SetVoiceAlerts(val enabled: Boolean) : MeEvent
     data class SetVibrationAlerts(val enabled: Boolean) : MeEvent
+    data object TestVibration : MeEvent
+    data object DismissVibrationTest : MeEvent
     data class SetAlertThresholdStops(val stops: Int) : MeEvent
     data class ToggleReminder(val id: String, val enabled: Boolean) : MeEvent
     data class SetLiveNotificationEnabled(val enabled: Boolean) : MeEvent
@@ -108,6 +112,8 @@ class MeViewModel(
     private val boardingTrace: BoardingTraceLog? = null,
     private val locationSource: LocationSource? = null
 ) : ViewModel() {
+
+    private val vibrationTestResult = MutableStateFlow<String?>(null)
 
     private val liveUpdateStatus = MutableStateFlow(liveUpdateAccess?.status())
 
@@ -144,7 +150,7 @@ class MeViewModel(
         notices.messages
     ) { part, reminders, platform, messages ->
         buildState(part, reminders, platform, messages)
-    }.stateIn(
+    }.combine(vibrationTestResult) { state, result -> state.copy(vibrationTestResult = result) }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.Eagerly,
         initialValue = buildState(
@@ -188,6 +194,14 @@ class MeViewModel(
             }
             is MeEvent.SetVoiceAlerts -> settings.setVoiceAlerts(event.enabled)
             is MeEvent.SetVibrationAlerts -> settings.setVibrationAlerts(event.enabled)
+            MeEvent.TestVibration -> {
+                val access = notificationHealthAccess
+                if (access != null && access.supportsVibrationTest) {
+                    vibrationTestResult.value = runCatching { access.testVibration() }
+                        .getOrElse { "无法完成震动测试，请重新打开应用后重试。" }
+                }
+            }
+            MeEvent.DismissVibrationTest -> vibrationTestResult.value = null
             is MeEvent.ToggleReminder -> viewModelScope.launch {
                 try {
                     reminderRepository.toggleReminder(event.id, event.enabled)
@@ -234,6 +248,7 @@ class MeViewModel(
         canExportBoardingTrace = boardingTrace != null,
         voiceAlerts = part.voiceAlerts,
         vibrationAlerts = part.vibrationAlerts,
+        canTestVibration = notificationHealthAccess?.supportsVibrationTest == true,
         alertThresholdStops = part.alertThresholdStops,
         reminders = reminders,
         remindersSubtitle = remindersRowSubtitle(reminders),
