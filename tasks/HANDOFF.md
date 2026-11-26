@@ -2,7 +2,7 @@
 
 更新日期：2026-11-26。用途：新任务恢复项目状态；不是完整对话副本。以实际 Git、代码和验证结果为准，发现记录过时先核对再更新。
 
-最新续接：v6 修复离开应用后重新打开仍恢复过期下车提醒。见文末 v6 小节和第 7 节；v4 到站震动、v5 详情已有用户正向反馈。
+最新续接：v7 增加下车提醒过期清理提示，标准和长辈首页默认预览前三条收藏。见文末 v7 小节及第 7 节。
 
 ## 1. 当前项目与不可扩大范围
 
@@ -266,9 +266,20 @@
 | `RTBus-20261126-expiry-v6-arm64-debug.apk` | `DA005ABB577FEA5F5CF140A48A2D7686EA74824E9E93C07168EACB75F0FA4671` |
 | `RTBus-20261126-expiry-v6-arm32-debug.apk` | `9E6AF0939162B0DAE318AECE911EFEDD029EAA0507A95D9A7D15705E45EF3231` |
 
+### 本轮：首页过期提示与收藏前三条 v7（2026-11-26）
+
+- 仓库在冷启动读盘、回前台清理或轮询实际移除过期下车提醒时产生提示，首页显示线路、下车站及未确认到站的原因。提示不修改会话持久化格式；不将手动结束或正常到站误报为过期，不改通知、震动或播报设置。
+- 标准和长辈首页均按原顺序保留前 3 条，4 条以上点带数量的标题可展开、再点收起。筛选与编辑保留，折叠不改收藏和排序。
+- `test :androidApp:assembleDebug` 成功：18 模块 1,642 项主机测试，0 失败/错误/跳过；26 项静态检查通过。双 ABI 调试 APK 已核验包名、签名（与 v6 一致）及 ZIP 对齐。无 adb 设备，未做真机验收。日志 `build/rtbus-validation/home-v7-final.log`、`home-v7-audit-summary.json`。
+
+| v7 安装包（位于 `build/rtbus-validation/`） | SHA-256 |
+| --- | --- |
+| `RTBus-20261126-home-v7-arm32-debug.apk` | `38BD3543E31281C6C855EE8005283201E049D36D41E3B0C8F1CF7CEC0137EABF` |
+| `RTBus-20261126-home-v7-arm64-debug.apk` | `4DEB0F0EF6A1D87D367B967F8E039EE7AECFD4ACA2AA5C6C05B5EFFC10F6FB76` |
+
 ## 7. 唯一明确的下一步
 
-覆盖安装 v6，按 boarding-feedback-acceptance.md 第 5 节的 v6 小节在手机上验证：短暂退出仍能回到原车，长期失联后旧卡不再恢复。不需要重测马达；release 签名与 iOS 实机验收仍独立待办。无 remote，不推送。
+覆盖安装 v7，按 boarding-feedback-acceptance.md 第 5 节 v7 小节验证清理提示与收藏展开/收起。release 签名与 iOS 实机验收仍独立待办。无 remote，不推送。
 
 ## 8. 记录维护
 

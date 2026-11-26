@@ -34,8 +34,9 @@
     <string name="bus_favorites_show_all_cities">显示全部城市</string>
     <string name="bus_favorites_all_cities">全部城市</string>
     <string name="bus_favorites_current_city_only">仅本市</string>
-    <string name="bus_favorites_expand">展开全部（还有 %1$s 条）</string>
-    <string name="bus_favorites_collapse">收起</string>
+    <string name="bus_favorites_counted_title">%1$s（%2$d）</string>
+    <string name="bus_favorites_expand">展开收藏</string>
+    <string name="bus_favorites_collapse">收起收藏</string>
     <string name="bus_favorites_all">全部</string>
     <string name="bus_nearby_title">附近</string>
     <string name="bus_nearby_empty">附近 1 公里内没找到公交站</string>

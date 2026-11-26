@@ -5,6 +5,7 @@ import androidx.compose.ui.test.DeviceConfigurationOverride
 import androidx.compose.ui.test.FontScale
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -203,6 +204,17 @@ class ElderBusHomeScreenTest {
         }
         composeTestRule.onNodeWithText("设置").assertIsDisplayed()
         composeTestRule.onNodeWithText("出示乘车码").assertIsDisplayed()
+    }
+
+    @Test
+    fun manyFavoritesPreviewThree_andHeaderRequestsExpansion() {
+        val items = (1..5).map { FavoriteItem.Stop(fav.copy(id = "f$it"), groupId = null, sortOrder = it) }
+        setContent(BusHomeMapper.derive(BusHomeUiState(), stateOf().copy(favoriteItems = items)))
+        composeTestRule.onNodeWithText("我常坐的车（5）").performClick()
+        assertEquals(listOf(BusHomeEvent.ToggleFavoritesExpanded), events)
+        composeTestRule.onNodeWithTag(ElderBusHomeTags.LIST).performScrollToNode(hasTestTag(ElderBusHomeTags.favorite(items[2].key)))
+        composeTestRule.onNodeWithTag(ElderBusHomeTags.favorite(items[2].key)).assertIsDisplayed()
+        composeTestRule.onNodeWithTag(ElderBusHomeTags.favorite(items[3].key)).assertDoesNotExist()
     }
 
     @Test

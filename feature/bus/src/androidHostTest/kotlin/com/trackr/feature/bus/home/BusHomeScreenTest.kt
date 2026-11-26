@@ -20,6 +20,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import com.trackr.core.designsystem.theme.TrackrTheme
 import com.trackr.core.model.BusLineDirection
@@ -434,38 +435,53 @@ class BusHomeScreenTest {
     }
 
     @Test
-    fun favorites_collapsesOverFourItems_andExpandsOnToggle() {
+    fun favorites_previewsThreeInOrder_andCanExpandAndCollapse() {
         val items = (1..6).map { i ->
             val stop = fav.copy(id = "f$i", lineId = "l$i", lineName = "L$i", targetStopName = "站$i")
             FavoriteItem.Stop(stop, groupId = null, sortOrder = i)
         }
         val collapsed = BusHomeMapper.derive(
             BusHomeUiState(),
-            BusHomeUiState(currentCity = shenzhen, favoriteItems = items, isFavoritesExpanded = false)
+            BusHomeUiState(currentCity = shenzhen, favoriteItems = items)
         )
         val stateHolder = mutableStateOf(collapsed)
         composeTestRule.setContent {
             TrackrTheme {
-                BusHomeScreen(state = stateHolder.value, onEvent = { events += it })
+                BusHomeScreen(state = stateHolder.value, onEvent = {
+                    events += it
+                    if (it == BusHomeEvent.ToggleFavoritesExpanded) stateHolder.value = collapsed.copy(isFavoritesExpanded = !stateHolder.value.isFavoritesExpanded)
+                })
             }
         }
 
-        // 默认只显示前 4 条 + 底部展开按钮
-        composeTestRule.onNodeWithTag(BusHomeTags.favoriteRow(items[0].key)).assertIsDisplayed()
-        composeTestRule.onNodeWithTag(BusHomeTags.LIST).performScrollToNode(hasText("展开全部（还有 2 条）"))
-        composeTestRule.onNodeWithTag(BusHomeTags.favoriteRow(items[3].key)).assertIsDisplayed()
-        assertEquals(0, composeTestRule.onAllNodesWithTag(BusHomeTags.favoriteRow(items[4].key)).fetchSemanticsNodes().size)
-        composeTestRule.onNodeWithText("展开全部（还有 2 条）").assertIsDisplayed()
-        composeTestRule.onNodeWithTag(BusHomeTags.FAVORITES_EXPAND_TOGGLE).performClick()
-        assertEquals(listOf<BusHomeEvent>(BusHomeEvent.ToggleFavoritesExpanded), events)
+        val list = composeTestRule.onNodeWithTag(BusHomeTags.LIST)
+        val toggle = composeTestRule.onNodeWithTag(BusHomeTags.FAVORITES_EXPAND_TOGGLE)
+        composeTestRule.onNodeWithText("收藏（6）").assertIsDisplayed()
+        list.performScrollToNode(hasText("站3上车"))
+        composeTestRule.onNodeWithTag(BusHomeTags.favoriteRow(items[2].key)).assertIsDisplayed()
+        composeTestRule.onNodeWithTag(BusHomeTags.favoriteRow(items[3].key)).assertDoesNotExist()
+        list.performScrollToNode(hasText("收藏（6）"))
+        toggle.performClick()
+        list.performScrollToNode(hasText("站6上车"))
+        composeTestRule.onNodeWithTag(BusHomeTags.favoriteRow(items.last().key)).assertIsDisplayed()
+        list.performScrollToNode(hasText("收藏（6）"))
+        toggle.performClick()
+        list.performScrollToNode(hasText("站3上车"))
+        composeTestRule.onNodeWithTag(BusHomeTags.favoriteRow(items[2].key)).assertIsDisplayed()
+        composeTestRule.onNodeWithTag(BusHomeTags.favoriteRow(items[3].key)).assertDoesNotExist()
+        assertEquals(listOf(BusHomeEvent.ToggleFavoritesExpanded, BusHomeEvent.ToggleFavoritesExpanded), events)
+    }
 
-        // 展开后全部 6 条可见，按钮变为「收起」
-        stateHolder.value = collapsed.copy(isFavoritesExpanded = true)
-        composeTestRule.waitForIdle()
-        composeTestRule.onNodeWithTag(BusHomeTags.LIST).performScrollToNode(hasText("收起"))
-        composeTestRule.onNodeWithText("收起").assertIsDisplayed()
-        composeTestRule.onNodeWithTag(BusHomeTags.LIST).performScrollToNode(hasText("站6上车"))
-        composeTestRule.onNodeWithTag(BusHomeTags.favoriteRow(items[5].key)).assertIsDisplayed()
+    @Test
+    fun exactlyThreeFavorites_allVisibleWithoutToggle() {
+        val items = (1..3).map { FavoriteItem.Stop(fav.copy(id = "f$it"), groupId = null, sortOrder = it) }
+        setContent(BusHomeMapper.derive(BusHomeUiState(), BusHomeUiState(currentCity = shenzhen, favoriteItems = items)))
+        items.forEach {
+            val tag = BusHomeTags.favoriteRow(it.key)
+            composeTestRule.onNodeWithTag(BusHomeTags.LIST).performScrollToNode(hasTestTag(tag))
+            composeTestRule.onNodeWithTag(tag).assertIsDisplayed()
+        }
+        composeTestRule.onNodeWithTag(BusHomeTags.FAVORITES_EXPAND_TOGGLE).assertDoesNotExist()
     }
 
     @Test

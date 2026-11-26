@@ -1,6 +1,7 @@
 package com.trackr.feature.bus.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -38,7 +40,9 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -57,6 +61,7 @@ import com.trackr.feature.bus.resources.bus_favorites_all
 import com.trackr.feature.bus.resources.bus_favorites_all_cities
 import com.trackr.feature.bus.resources.bus_favorites_city_empty
 import com.trackr.feature.bus.resources.bus_favorites_collapse
+import com.trackr.feature.bus.resources.bus_favorites_counted_title
 import com.trackr.feature.bus.resources.bus_favorites_current_city_only
 import com.trackr.feature.bus.resources.bus_favorites_empty
 import com.trackr.feature.bus.resources.bus_favorites_expand
@@ -73,40 +78,34 @@ import com.trackr.ui.icons.TrackrIcons
 import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.resources.vectorResource
 
-/** 收藏栏折叠时默认显示的行数（issue #61）；超过此数量才折叠并显示底部「展开全部 / 收起」 */
-internal const val COLLAPSED_FAVORITES_LIMIT = 4
+private const val FAVORITES_PREVIEW_LIMIT = 3
 
-/**
- * 「收藏」：车和路线一个列表（§4.3：key = `stop_x` / `route_x`，contentType 两种）；
- * 有分组时上面一排 chips（全部 + 各分组），右上角「全部城市 / 仅本市」筛选（有跨城收藏或已开启时出现）+「编辑」；
- * 超过 [COLLAPSED_FAVORITES_LIMIT] 条时默认折叠，底部点「展开全部 / 收起」（issue #61）。
- */
+internal fun List<FavoriteRowUi>.visibleFavorites(expanded: Boolean): List<FavoriteRowUi> =
+    if (expanded || size <= FAVORITES_PREVIEW_LIMIT) this else take(FAVORITES_PREVIEW_LIMIT)
+
 internal fun LazyListScope.favoritesSection(state: BusHomeUiState, onEvent: (BusHomeEvent) -> Unit) {
     val hasAny = state.favoriteItems.isNotEmpty() || state.favoriteGroups.isNotEmpty()
     val showCityFilter = state.favoritesCurrentCityOnly || state.hasOtherCityFavorites
 
+    val count = state.favoriteRows.size
+    val expanded = state.isFavoritesExpanded
     item(key = "fav_header", contentType = "section_header") {
-        SectionHeader(
-            title = stringResource(BusRes.string.bus_favorites_title),
-            trailing = if (hasAny || showCityFilter) {
-                {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (showCityFilter) {
-                            FavoritesCityFilterToggle(
-                                currentCityOnly = state.favoritesCurrentCityOnly,
-                                onChange = { onEvent(BusHomeEvent.SetFavoritesCurrentCityOnly(it)) }
-                            )
-                        }
-                        if (hasAny) {
-                            TextButton(
-                                onClick = { onEvent(BusHomeEvent.EditFavorites) },
-                                modifier = Modifier.testTag(BusHomeTags.EDIT_FAVORITES)
-                            ) { Text(stringResource(Res.string.action_edit)) }
-                        }
-                    }
-                }
-            } else null
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = TrackrTheme.dimens.screenPadding + 4.dp,
+                end = TrackrTheme.dimens.spaceXs, top = TrackrTheme.dimens.spaceM),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            FavoritesTitle(stringResource(BusRes.string.bus_favorites_title), count, expanded,
+                onToggle = { onEvent(BusHomeEvent.ToggleFavoritesExpanded) }, modifier = Modifier.weight(1f))
+            if (showCityFilter) {
+                FavoritesCityFilterToggle(currentCityOnly = state.favoritesCurrentCityOnly,
+                    onChange = { onEvent(BusHomeEvent.SetFavoritesCurrentCityOnly(it)) })
+            }
+            if (hasAny) {
+                TextButton(onClick = { onEvent(BusHomeEvent.EditFavorites) },
+                    modifier = Modifier.testTag(BusHomeTags.EDIT_FAVORITES)) { Text(stringResource(Res.string.action_edit)) }
+            }
+        }
     }
 
     if (state.favoriteGroups.isNotEmpty()) {
@@ -141,16 +140,8 @@ internal fun LazyListScope.favoritesSection(state: BusHomeUiState, onEvent: (Bus
             )
         }
     } else {
-        val totalCount = state.favoriteRows.size
-        val canCollapse = totalCount > COLLAPSED_FAVORITES_LIMIT
-        val visibleRows = if (canCollapse && !state.isFavoritesExpanded) {
-            state.favoriteRows.take(COLLAPSED_FAVORITES_LIMIT)
-        } else {
-            state.favoriteRows
-        }
-
         items(
-            items = visibleRows,
+            items = state.favoriteRows.visibleFavorites(expanded),
             key = { it.key },
             contentType = {
                 when (it) {
@@ -164,16 +155,6 @@ internal fun LazyListScope.favoritesSection(state: BusHomeUiState, onEvent: (Bus
                 is FavoriteRowUi.Stop -> FavoriteStopRow(row, onClick = { onEvent(BusHomeEvent.OpenLine(row.open)) })
                 is FavoriteRowUi.Route -> FavoriteRouteRow(row, onClick = { onEvent(BusHomeEvent.OpenRoute(row.routeId)) })
                 is FavoriteRowUi.Station -> FavoriteStationRow(row, onClick = { onEvent(BusHomeEvent.OpenStop(row.open)) })
-            }
-        }
-
-        if (canCollapse) {
-            item(key = "fav_expand_toggle", contentType = "fav_expand_toggle") {
-                FavoritesExpandToggle(
-                    expanded = state.isFavoritesExpanded,
-                    hiddenCount = totalCount - COLLAPSED_FAVORITES_LIMIT,
-                    onClick = { onEvent(BusHomeEvent.ToggleFavoritesExpanded) }
-                )
             }
         }
     }
@@ -241,42 +222,29 @@ private fun CityFilterOption(label: String, selected: Boolean, tag: String, onCl
     )
 }
 
-/** 收藏栏底部「展开全部（还有 N 条） ⌄」/「收起 ⌃」轻按钮 */
+/** 标题就是开关。收起后无需越过列表才能重新展开，空列表仍可使用原来的引导和筛选。 */
 @Composable
-private fun FavoritesExpandToggle(
+internal fun FavoritesTitle(
+    title: String,
+    count: Int,
     expanded: Boolean,
-    hiddenCount: Int,
-    onClick: () -> Unit
+    onToggle: () -> Unit,
+    modifier: Modifier = Modifier,
+    style: TextStyle = MaterialTheme.typography.titleMedium
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = TrackrTheme.dimens.screenPadding),
-        contentAlignment = Alignment.Center
+    if (count <= FAVORITES_PREVIEW_LIMIT) {
+        Text(title, modifier = modifier, style = style)
+        return
+    }
+    val action = stringResource(if (expanded) BusRes.string.bus_favorites_collapse else BusRes.string.bus_favorites_expand)
+    Row(
+        modifier = modifier.clickable(role = Role.Button, onClickLabel = action, onClick = onToggle)
+            .heightIn(min = TrackrTheme.dimens.minTouchTarget).testTag(BusHomeTags.FAVORITES_EXPAND_TOGGLE),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        TextButton(
-            onClick = onClick,
-            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-            modifier = Modifier.testTag(BusHomeTags.FAVORITES_EXPAND_TOGGLE)
-        ) {
-            Text(
-                text = if (expanded) {
-                    stringResource(BusRes.string.bus_favorites_collapse)
-                } else {
-                    stringResource(BusRes.string.bus_favorites_expand, hiddenCount)
-                },
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Icon(
-                imageVector = vectorResource(Res.drawable.ic_arrow_drop_down),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier
-                    .size(20.dp)
-                    .rotate(if (expanded) 180f else 0f)
-            )
-        }
+        Text(stringResource(BusRes.string.bus_favorites_counted_title, title, count), style = style)
+        Icon(vectorResource(Res.drawable.ic_arrow_drop_down), contentDescription = null,
+            modifier = Modifier.size(20.dp).rotate(if (expanded) 0f else -90f))
     }
 }
 

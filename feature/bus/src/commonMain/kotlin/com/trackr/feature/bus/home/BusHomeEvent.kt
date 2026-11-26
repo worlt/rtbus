@@ -30,7 +30,7 @@ sealed interface BusHomeEvent {
     /** 「收藏」标题旁的按城市筛选：全部城市 ↔ 仅本市（issue #61） */
     data class SetFavoritesCurrentCityOnly(val enabled: Boolean) : BusHomeEvent
 
-    /** 「收藏」列表底部的展开 / 收起（issue #61） */
+    /** 「收藏」标题的展开 / 收起（issue #61） */
     data object ToggleFavoritesExpanded : BusHomeEvent
 
     /** 定位提示里的「去开启」：跳系统位置信息页（总开关 / 定位模式在那里） */

@@ -53,6 +53,8 @@ import com.trackr.feature.bus.citypicker.CityPickerBottomSheet
 import com.trackr.feature.bus.home.BusHomeEvent
 import com.trackr.feature.bus.home.BusHomeMapper
 import com.trackr.feature.bus.home.BusHomeUiState
+import com.trackr.feature.bus.home.visibleFavorites
+import com.trackr.feature.bus.home.FavoritesTitle
 import com.trackr.feature.bus.home.FavoriteRowUi
 import com.trackr.feature.bus.home.StationStatus
 import com.trackr.feature.bus.home.LocationIssue
@@ -178,7 +180,7 @@ fun ElderBusHomeScreen(
                 }
             }
 
-            elderFavorites(rows = favorites, onEvent = onEvent)
+            elderFavorites(rows = favorites, expanded = state.isFavoritesExpanded, onEvent = onEvent)
 
             elderNearby(state = state, onEvent = onEvent)
         }
@@ -373,9 +375,11 @@ private fun ElderSectionTitle(text: String) {
 }
 
 /** 「我常坐的车」：一张卡一辆车（路线也一张卡）。没收藏时一句话教怎么收藏 */
-private fun LazyListScope.elderFavorites(rows: List<FavoriteRowUi>, onEvent: (BusHomeEvent) -> Unit) {
+private fun LazyListScope.elderFavorites(rows: List<FavoriteRowUi>, expanded: Boolean, onEvent: (BusHomeEvent) -> Unit) {
     item(key = "fav_title", contentType = "section_title") {
-        ElderSectionTitle(stringResource(BusRes.string.bus_elder_favorites_title))
+        FavoritesTitle(stringResource(BusRes.string.bus_elder_favorites_title), rows.size, expanded,
+            onToggle = { onEvent(BusHomeEvent.ToggleFavoritesExpanded) }, modifier = Modifier.fillMaxWidth(),
+            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
     }
     if (rows.isEmpty()) {
         item(key = "fav_empty", contentType = "empty_hint") {
@@ -388,7 +392,7 @@ private fun LazyListScope.elderFavorites(rows: List<FavoriteRowUi>, onEvent: (Bu
         return
     }
     items(
-        items = rows,
+        items = rows.visibleFavorites(expanded),
         key = { it.key },
         contentType = {
             when (it) {
