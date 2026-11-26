@@ -1,5 +1,6 @@
 package com.trackr.core.data.repository
 
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import com.trackr.core.model.*
 import com.trackr.core.testing.*
@@ -133,6 +134,131 @@ class ForegroundTrackingControllerTest {
         assertTrue(f.repo.sessions.value.single().refreshFailed)
         assertEquals(fresh, f.repo.sessions.value.single().lastRealtimeAtMillis)
     }
+
+    @Test fun manualRefreshWakesTwoRidesButNotAnOrdinaryTrackingSession() = runTest {
+        val f = Fixture(this)
+        f.realtime.lineDetailResult = Result.failure(IllegalStateException("offline"))
+        f.controller.setActive(true); runCurrent()
+        assertTrue(f.controller.start(target.copy(pinnedBusId = "A")))
+        assertTrue(f.controller.start(target.copy(pinnedBusId = "B")))
+        assertTrue(f.controller.start(target.copy(lineId = "L2")))
+        runCurrent()
+        assertEquals(3, f.realtime.lineDetailCalls.size)
+        advanceTimeBy(7_000); f.clock.advanceBy(7.seconds)
+        f.realtime.lineDetailsMap["L1"] = rideDetail("A", "B")
+        repeat(8) { f.repo.requestAlightingRefresh() }
+        runCurrent()
+        assertEquals(4, f.realtime.lineDetailCalls.count { it == "L1" })
+        assertEquals(1, f.realtime.lineDetailCalls.count { it == "L2" })
+        assertEquals(listOf("A", "B"), f.repo.sessions.value.filter { !it.refreshFailed }.map { it.state.currentBusId })
+        assertEquals(2, f.repo.sessions.value.count { it.alightingBusPosition != null })
+        assertTrue(f.effects.isEmpty())
+    }
+
+    @Test fun manualRefreshDuringRequestDoesNotStartOrQueueADuplicate() = runTest {
+        val f = Fixture(this)
+        val pending = CompletableDeferred<Unit>()
+        f.realtime.lineDetailHook = { pending.await() }
+        f.realtime.lineDetailsMap["L1"] = rideDetail("A")
+        f.controller.setActive(true); runCurrent()
+        assertTrue(f.controller.start(target.copy(pinnedBusId = "A"))); runCurrent()
+        repeat(4) { f.repo.requestAlightingRefresh() }
+        runCurrent()
+        assertEquals(1, f.realtime.lineDetailCalls.size)
+        pending.complete(Unit); runCurrent()
+        advanceTimeBy(5_000); f.clock.advanceBy(5.seconds); runCurrent()
+        assertEquals(1, f.realtime.lineDetailCalls.size)
+    }
+
+    @Test fun networkRecoveryDuringFailedRequestIsNotLostAndDoesNotWakeHealthyRide() = runTest {
+        val f = Fixture(this)
+        val recovery = MutableStateFlow(0L)
+        val pending = CompletableDeferred<Unit>()
+        f.realtime.lineDetailHook = {
+            if (f.realtime.lineDetailCalls.size == 1) {
+                pending.await()
+                throw IllegalStateException("request started when offline")
+            }
+        }
+        f.realtime.lineDetailsMap["L1"] = rideDetail("A")
+        f.repo.awaitLoaded()
+        val session = checkNotNull(f.repo.start(target.copy(pinnedBusId = "A")))
+        val poller = TrackingPoller(f.repo, f.realtime, f.settings, f.clock, f.clock,
+            locationEnabled = { false }, serviceFix = { null }, onEffect = { _, _ -> error("Unexpected alert") },
+            requestDispatcher = StandardTestDispatcher(testScheduler), networkRecovery = recovery)
+        backgroundScope.launch { poller.run(session.sessionId, session.generation) }
+        runCurrent()
+        advanceTimeBy(7_000); f.clock.advanceBy(7.seconds)
+        recovery.value++
+        pending.complete(Unit); runCurrent()
+        assertEquals(2, f.realtime.lineDetailCalls.size)
+        assertFalse(f.repo.sessions.value.single().refreshFailed)
+        assertNotNull(f.repo.sessions.value.single().alightingBusPosition)
+        recovery.value++; runCurrent()
+        assertEquals(2, f.realtime.lineDetailCalls.size)
+    }
+
+    @Test fun reconnectionWakesOnlyWaitingRideWithMissingVehicle() = runTest {
+        val f = Fixture(this)
+        val recovery = MutableStateFlow(0L)
+        f.realtime.lineDetailsMap["L1"] = rideDetail("B")
+        f.repo.awaitLoaded()
+        val session = checkNotNull(f.repo.start(target.copy(pinnedBusId = "A")))
+        val poller = TrackingPoller(f.repo, f.realtime, f.settings, f.clock, f.clock,
+            locationEnabled = { false }, serviceFix = { null }, onEffect = { _, _ -> error("Unexpected alert") },
+            requestDispatcher = StandardTestDispatcher(testScheduler), networkRecovery = recovery)
+        backgroundScope.launch { poller.run(session.sessionId, session.generation) }
+        runCurrent()
+        assertNull(f.repo.sessions.value.single().alightingBusPosition)
+        assertFalse(f.repo.sessions.value.single().refreshFailed)
+        advanceTimeBy(7_000); f.clock.advanceBy(7.seconds)
+        f.realtime.lineDetailsMap["L1"] = rideDetail("A", "B")
+        recovery.value++; runCurrent()
+        assertEquals(2, f.realtime.lineDetailCalls.size)
+        assertEquals("A", f.repo.sessions.value.single().state.currentBusId)
+        assertNotNull(f.repo.sessions.value.single().alightingBusPosition)
+    }
+
+    @Test fun repeatedManualRefreshRespectsShortCacheAndDoesNotRetryAgainByItself() = runTest {
+        val f = Fixture(this)
+        f.realtime.lineDetailsMap["L1"] = rideDetail("A")
+        f.controller.setActive(true); runCurrent()
+        assertTrue(f.controller.start(target.copy(pinnedBusId = "A"))); runCurrent()
+        repeat(4) { f.repo.requestAlightingRefresh() }
+        runCurrent()
+        advanceTimeBy(1_999); runCurrent()
+        assertEquals(1, f.realtime.lineDetailCalls.size)
+        f.clock.advanceBy(2.seconds)
+        advanceTimeBy(1); runCurrent()
+        assertEquals(2, f.realtime.lineDetailCalls.size)
+        advanceTimeBy(2_000); f.clock.advanceBy(2.seconds); runCurrent()
+        assertEquals(2, f.realtime.lineDetailCalls.size)
+    }
+
+    @Test fun aFailedRecoveryRetryFallsBackToBackoffWithoutLooping() = runTest {
+        val f = Fixture(this)
+        val recovery = MutableStateFlow(0L)
+        f.realtime.lineDetailResult = Result.failure(IllegalStateException("provider still unavailable"))
+        f.repo.awaitLoaded()
+        val session = checkNotNull(f.repo.start(target.copy(pinnedBusId = "A")))
+        val poller = TrackingPoller(f.repo, f.realtime, f.settings, f.clock, f.clock,
+            locationEnabled = { false }, serviceFix = { null }, onEffect = { _, _ -> error("Unexpected alert") },
+            requestDispatcher = StandardTestDispatcher(testScheduler), networkRecovery = recovery)
+        backgroundScope.launch { poller.run(session.sessionId, session.generation) }
+        runCurrent()
+        recovery.value++; runCurrent()
+        assertEquals(2, f.realtime.lineDetailCalls.size)
+        assertTrue(f.repo.sessions.value.single().refreshFailed)
+        assertNull(f.repo.sessions.value.single().alightingBusPosition)
+        advanceTimeBy(39_999); runCurrent()
+        assertEquals(2, f.realtime.lineDetailCalls.size)
+        advanceTimeBy(1); runCurrent()
+        assertEquals(3, f.realtime.lineDetailCalls.size)
+    }
+
+    private fun rideDetail(vararg ids: String) = BusLineDetail(
+        line = BusLineDirection(lineId = "L1", name = "1路", startStop = "始", endStop = "终"),
+        stops = emptyList(), buses = ids.map { LiveBus(it, it, order = 1, nextStopName = "下一站") })
 
     @Test fun closeBeforeDiskLoadDoesNotStartWorkers() = runTest {
         val f = Fixture(this)

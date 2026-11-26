@@ -271,7 +271,10 @@ class BusHomeViewModel(
     /** 页面事件（导航类在 [BusHomeRoute] 里处理，到不了这里） */
     fun onEvent(event: BusHomeEvent) {
         when (event) {
-            BusHomeEvent.Refresh -> refresh()
+            BusHomeEvent.Refresh -> {
+                trackingRepository.requestAlightingRefresh()
+                refresh()
+            }
             BusHomeEvent.RetryLocation -> refreshLocationAndNearby()
             is BusHomeEvent.SetNearbySortByArrival -> settings.setSortLinesByArrival(event.enabled)
             is BusHomeEvent.SetFavoritesCurrentCityOnly -> settings.setFavoritesCurrentCityOnly(event.enabled)

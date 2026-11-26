@@ -10,6 +10,7 @@ import com.trackr.core.domain.tracking.TrackingEngine
 import com.trackr.core.model.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.firstOrNull
@@ -32,7 +33,9 @@ class TrackingPoller(
     /** 判上车的判定记录（issue #49）；默认不记 */
     private val boardingTrace: BoardingTraceLog = NoBoardingTraceLog,
     /** 判定记录里的定位来源诊断（issue #49）；平台不给就不记 */
-    private val locationDiagnostics: () -> LocationDiagnostics? = { null }
+    private val locationDiagnostics: () -> LocationDiagnostics? = { null },
+    /** 已验证网络变为可用的代数；用于补上请求执行中收到的重连通知。 */
+    private val networkRecovery: StateFlow<Long>? = null
 ) {
     private val watchPoller = WatchTogetherPoller(realtime)
 
@@ -55,6 +58,7 @@ class TrackingPoller(
                 onExpired(expired)
                 return
             }
+            val networkAtRequestStart = networkRecovery?.value
             val target = session.watchTarget
             val plan = TrackingEngine.watchPollPlan(session)
             val result: Result<(TrackingSession) -> TrackingEngine.Result> = try {
@@ -155,7 +159,7 @@ class TrackingPoller(
             val interval = TrackingEngine.pollingIntervalMillis(next.state, failures, operating, tier)
             // 取定位时定位一来就轮询（失败退避期间不跟，免得越失败打得越勤）
             val followFixes = tier != LocationCadence.Tier.OFF && failures == 0
-            shared = awaitNextRound(next, interval, followFixes)
+            shared = awaitNextRound(next, interval, followFixes, networkAtRequestStart)
         }
     }
 
@@ -180,6 +184,8 @@ class TrackingPoller(
         class Shared(val update: LineDetailUpdate) : Wake
         /** 来了一个新定位：马上拉一次车的数据 */
         data object Fix : Wake
+        /** 用户下拉，或网络刚恢复：走同一个会话的下一轮，不另开并发请求。 */
+        data object Retry : Wake
     }
 
     /**
@@ -191,7 +197,12 @@ class TrackingPoller(
      *   就提前用那一份刷新：通知和页面看到的是同一份数据，也不多打请求（issue #41「通知和应用内数据不一致」）。
      *   离上一轮不到 [MIN_SHARED_GAP_MS] 的不要，免得几个页面一起刷时通知跳得太勤。
      */
-    private suspend fun awaitNextRound(session: TrackingSession, interval: Long, followFixes: Boolean): LineDetailUpdate? {
+    private suspend fun awaitNextRound(
+        session: TrackingSession,
+        interval: Long,
+        followFixes: Boolean,
+        networkAtRequestStart: Long?
+    ): LineDetailUpdate? {
         val startedAt = monotonicClock.elapsedMillis()
         fun waited() = monotonicClock.elapsedMillis() - startedAt
         val sharedWakes: Flow<Wake> = if (session.watchTarget == null) {
@@ -206,10 +217,25 @@ class TrackingPoller(
         } else {
             emptyFlow()
         }
+        val manualWakes: Flow<Unit> = if (session.state.isAlightingReminder) tracking.alightingRefreshRequests else emptyFlow()
+        val recoveryWakes: Flow<Unit> = if (session.state.isAlightingReminder &&
+            (session.refreshFailed || session.state.missingBusPolls > 0)
+        ) {
+            networkRecovery?.filter { it != networkAtRequestStart }?.map { Unit } ?: emptyFlow()
+        } else emptyFlow()
+        suspend fun afterShortCache(): Wake {
+            // 让刚完成的线路短缓存过期，避免重放同一条快照或连续打接口。
+            delay((DefaultRealtimeRepository.LINE_DETAIL_CACHE_TTL_MS - waited()).coerceAtLeast(0L))
+            return Wake.Retry
+        }
+        val retryWakes = merge(
+            manualWakes.map { afterShortCache() },
+            recoveryWakes.map { if (session.refreshFailed) Wake.Retry else afterShortCache() }
+        )
         val timeout = if (followFixes) interval + interval / 2 else interval
         val wake = withTimeoutOrNull(timeout) {
-            // 两路都没有（流结束了）：照常等满这一轮
-            merge(sharedWakes, fixWakes).firstOrNull() ?: awaitCancellation()
+            // 没有可用的信号（流结束了）：照常等满这一轮。
+            merge(sharedWakes, fixWakes, retryWakes).firstOrNull() ?: awaitCancellation()
         }
         return (wake as? Wake.Shared)?.update
     }

@@ -36,6 +36,7 @@ import com.trackr.core.testing.FakeUserLocationStore
 import com.trackr.core.testing.MainDispatcherHolder
 import com.trackr.ui.components.elder.TTS_UNAVAILABLE_MESSAGE
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
@@ -125,6 +126,21 @@ class BusHomeViewModelTest {
         trackingRepository.discardExpiredAlightingReminders()
         testScheduler.runCurrent()
         assertTrue(vm.uiState.value.userMessages.isEmpty())
+    }
+
+    @Test
+    fun onlyExplicitHomeRefreshRequestsAnImmediateRidePoll() = runTest(main.dispatcher) {
+        val vm = createViewModel()
+        var requests = 0
+        backgroundScope.launch { trackingRepository.alightingRefreshRequests.collect { requests++ } }
+        testScheduler.runCurrent()
+        assertEquals(0, requests)
+        vm.onEvent(BusHomeEvent.RetryLocation)
+        testScheduler.runCurrent()
+        assertEquals(0, requests)
+        vm.onEvent(BusHomeEvent.Refresh)
+        testScheduler.runCurrent()
+        assertEquals(1, requests)
     }
 
     private fun createViewModel(

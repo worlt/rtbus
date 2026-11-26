@@ -65,6 +65,10 @@ interface TrackingRepository {
     val userFixes: Flow<UserFix>
         get() = emptyFlow()
 
+    /** 首页下拉只唤醒正在等下一轮的下车提醒。不缓存信号，不为正在取数的会话排队。 */
+    val alightingRefreshRequests: Flow<Unit>
+    fun requestAlightingRefresh()
+
     /** 一份会话的当前快照；没有这一份时返回 null */
     fun sessionById(sessionId: String): TrackingSession?
 
@@ -240,6 +244,14 @@ class DefaultTrackingRepository @OptIn(ExperimentalUuidApi::class) constructor(
 
     private val _userFixes = MutableSharedFlow<UserFix>(extraBufferCapacity = 8, onBufferOverflow = BufferOverflow.DROP_OLDEST)
     override val userFixes: Flow<UserFix> = _userFixes.asSharedFlow()
+
+    private val _alightingRefreshRequests = MutableSharedFlow<Unit>(
+        extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+    override val alightingRefreshRequests = _alightingRefreshRequests.asSharedFlow()
+    override fun requestAlightingRefresh() {
+        _alightingRefreshRequests.tryEmit(Unit)
+    }
 
     private val expiryNotices = Channel<ExpiredAlightingReminder>(TrackingRepository.MAX_SESSIONS, BufferOverflow.DROP_OLDEST)
     override val expiredAlightingReminders = expiryNotices.receiveAsFlow()

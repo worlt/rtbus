@@ -160,13 +160,13 @@ iosApp/              Xcode 宿主（UIKit 薄壳）和 TrackrWidgets 扩展
 ./gradlew jacocoTestReport
 ```
 
-### 本轮可安装的 Android 测试包（v11）
+### 本轮可安装的 Android 测试包（v12）
 
-多数安卓手机用 **[RTBus v11 · 64 位测试包](build/rtbus-validation/RTBus-20261126-home-plate-v11-arm64-debug.apk)**。只有不支持 64 位的旧机才用 [32 位测试包](build/rtbus-validation/RTBus-20261126-home-plate-v11-arm32-debug.apk)。这些是本机的构建副本，不是远程下载地址；安装到已有同签名「实时公交.D」上，不用先卸载。
+多数安卓手机用 **[RTBus v12 · 64 位测试包](build/rtbus-validation/RTBus-20261126-tracking-refresh-v12-arm64-debug.apk)**。只有不支持 64 位的旧机才用 [32 位测试包](build/rtbus-validation/RTBus-20261126-tracking-refresh-v12-arm32-debug.apk)。这些是本机的构建副本，不是远程下载地址；安装到已有同签名「实时公交.D」上，不用先卸载。
 
-v11 在首页「我已上车」追踪卡增加指定车辆的车牌/车号，保留预计下车时间和「停靠」或「下一站」。失联时保留可用车号和已建立的提醒，不显示旧站名。v9 的同站双车隔离与断网防误开修复仍在，无需逐版安装。
+v12：安卓恢复可用网络时，对刷新失败或暂时缺车的「我已上车」追踪提前补查；标准版首页下拉也会请求追踪更新。不把附近轮询常驻后台，不变更提醒判定；上游未返回对应车辆时仍显示无位置。保留 v11 车牌/车号、车辆站名及 v9 的同站双车隔离和断网防误开。
 
-版本仍为 0.1.13 / code 21；用 v11 文件名和[交接记录](tasks/HANDOFF.md)里的 SHA-256 核对。诊断页的「到站反馈：确认到站与主动引导 v4」只表示震动机制版本，不能用来区分测试包。[提醒验收清单](tasks/boarding-feedback-acceptance.md)第 5 节有首页车牌复测和重连排查步骤。
+版本仍为 0.1.13 / code 21；用 v12 文件名和[交接记录](tasks/HANDOFF.md)里的 SHA-256 核对。诊断页的「到站反馈：确认到站与主动引导 v4」只表示震动机制版本，不能用来区分测试包。[提醒验收清单](tasks/boarding-feedback-acceptance.md)第 5 节有重连与下拉复测步骤。
 
 ### 发布 Release
 

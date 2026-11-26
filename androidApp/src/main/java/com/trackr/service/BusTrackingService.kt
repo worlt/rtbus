@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.location.LocationManager
+import android.net.ConnectivityManager
 import android.os.Build
 import android.util.Log
 import androidx.annotation.VisibleForTesting
@@ -111,13 +112,15 @@ class BusTrackingService : LifecycleService() {
         val boardingNotice: String? = null
     )
 
+    private val networkRecovery by lazy { TrackingNetworkRecovery(getSystemService(ConnectivityManager::class.java)) }
+
     /** 一起等的取数（同一个实时仓库，条数不影响请求数） */
     private val poller by lazy {
         TrackingPoller(trackingRepository, repository, settings, clock, monotonicClock,
             locationEnabled = { locationTrackingAllowed && locationSource.hasPrecisePermission() },
             serviceFix = { serviceFix }, onEffect = ::runEffect,
             onExpired = { arrivalAlerts.triggerTrackingExpired(this, it.state) }, requestDispatcher = Dispatchers.IO,
-            boardingTrace = boardingTrace, locationDiagnostics = ::locationDiagnostics)
+            boardingTrace = boardingTrace, locationDiagnostics = ::locationDiagnostics, networkRecovery = networkRecovery.recoveries)
     }
 
     /**
@@ -217,6 +220,7 @@ class BusTrackingService : LifecycleService() {
 
     override fun onCreate() {
         super.onCreate()
+        networkRecovery.start()
         // 用 Dispatchers.Main（不是 lifecycleScope 默认的 Main.immediate）：仓库在锁里发出变化，
         // 这里排到下一轮再处理，不在仓库的锁里跑服务的代码
         lifecycleScope.launch(Dispatchers.Main) {
@@ -948,6 +952,7 @@ class BusTrackingService : LifecycleService() {
     }
 
     override fun onDestroy() {
+        networkRecovery.close()
         runCatching { ProcessLifecycleOwner.get().lifecycle.removeObserver(appForegroundObserver) }
         workers.values.forEach { it.job?.cancel() }
         workers.clear()
