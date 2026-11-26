@@ -213,6 +213,20 @@ class LineDetailViewModelTest {
     }
 
     @Test
+    fun boardingSort_readsAndUpdatesSharedArrivalPreference() = runTest(main.dispatcher) {
+        fakeRepository.settings.setSortLinesByArrival(true)
+        val vm = createViewModel()
+        assertTrue(vm.uiState.value.sortBoardingByArrival)
+        vm.setBoardingSortByArrival(false)
+        testScheduler.runCurrent()
+        assertFalse(fakeRepository.settings.sortLinesByArrival.value)
+        assertFalse(vm.uiState.value.sortBoardingByArrival)
+        fakeRepository.settings.setSortLinesByArrival(true)
+        testScheduler.runCurrent()
+        assertTrue(vm.uiState.value.sortBoardingByArrival)
+    }
+
+    @Test
     fun railMode_followsGlobalSetting() = runTest(main.dispatcher) {
         val viewModel = createViewModel()
         testScheduler.runCurrent()

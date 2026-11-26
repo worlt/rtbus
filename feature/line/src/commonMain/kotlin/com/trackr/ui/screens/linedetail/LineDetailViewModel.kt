@@ -87,7 +87,9 @@ data class LineLive(
     val statusDescription: String = "",
     val nextDepartureFromStart: String? = null,
     val updatedAtMillis: Long = 0L,
-    val fallbackNextDeparture: String? = null
+    val fallbackNextDeparture: String? = null,
+    /** 这一批 ETA 对应的请求站序；切站期间不能拿旧站的 ETA 排新站的车。 */
+    val etaTargetOrder: Int = 0
 )
 
 /**
@@ -132,6 +134,7 @@ data class LineDetailUiState(
     /** 下车站选择期间固定车辆身份，刷新不改变所选车辆。 */
     val boardingBusId: String? = null,
     val isBoardingBusPickerOpen: Boolean = false,
+    val sortBoardingByArrival: Boolean = false,
     /** 单车跟随时返回到哪一级：从车辆列表进来回列表，从走向条点车进来回站点卡 */
     val followBackTo: PanelMode = PanelMode.STATION_CARD,
     val timetable: LineTimetable? = null,
@@ -225,6 +228,7 @@ class LineDetailViewModel(
         LineDetailUiState(
             supportsAutoStartReminders = reminderRepository.supportsAutoStart,
             lineNameHint = lineNameHint,
+            sortBoardingByArrival = settings.sortLinesByArrival.value,
             // 按站名定站时站序要等站表回来才知道，先不滚
             entryStopOrder = initialTargetOrder?.takeIf { it > 0 && entryBoardStopName.isBlank() }
         )
@@ -307,6 +311,11 @@ class LineDetailViewModel(
         viewModelScope.launch {
             settings.preferredTransitCodeProvider.collectLatest { provider ->
                 _uiState.update { it.copy(preferredTransitCodeProvider = provider) }
+            }
+        }
+        viewModelScope.launch {
+            settings.sortLinesByArrival.collectLatest { enabled ->
+                _uiState.update { it.copy(sortBoardingByArrival = enabled) }
             }
         }
         // 底栏的「乘车码」圆钮和首页悬浮按钮共用一个开关（用 NFC 的人两边都不用看它）
@@ -555,6 +564,8 @@ class LineDetailViewModel(
         }
     }
 
+    fun setBoardingSortByArrival(enabled: Boolean) = settings.setSortLinesByArrival(enabled)
+
     fun selectBoardingBus(busId: String) {
         if (!_uiState.value.isBoardingBusPickerOpen) return
         openDestinationPicker(busId)
@@ -787,6 +798,7 @@ class LineDetailViewModel(
             val static = if (it.static == newStatic) it.static else newStatic
             val live = LineLive(
                 buses = detail.buses,
+                etaTargetOrder = detail.targetOrder,
                 operatingState = detail.operatingState,
                 statusDescription = detail.statusDescription,
                 nextDepartureFromStart = detail.nextDepartureFromStart,

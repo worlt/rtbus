@@ -11,6 +11,8 @@ import com.trackr.core.designsystem.theme.TrackrTheme
 import com.trackr.core.model.BusLineDirection
 import com.trackr.core.model.BusStop
 import com.trackr.core.model.LiveBus
+import com.trackr.ui.components.sort.LineSortToggleTags
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -46,6 +48,28 @@ class LineAlightingPickerTest {
         compose.onNodeWithTag("boarding_bus_terminal").assertDoesNotExist()
         compose.onNodeWithTag("boarding_bus_two").performClick()
         assertEquals(LineDetailEvent.SelectBoardingBus("two"), event)
+    }
+
+    @Test fun sortMenuReordersCandidatesWithoutPicking_andTapUsesTheVisibleBusId() {
+        val current = mutableStateOf(state().copy(boardingBusId = null, followedBusId = null,
+            panelMode = PanelMode.STATION_CARD, isBoardingBusPickerOpen = true,
+            live = LineLive(listOf(LiveBus("slow", "慢车", 1, etaSeconds = 150),
+                LiveBus("fast", "快车", 1, etaSeconds = 65)), etaTargetOrder = 2)))
+        val events = mutableListOf<LineDetailEvent>()
+        compose.setContent { TrackrTheme { LineDetailScreen(current.value, { event ->
+            events += event
+            if (event is LineDetailEvent.SetBoardingSortByArrival) current.value = current.value.copy(sortBoardingByArrival = event.enabled)
+        }) } }
+        fun top(id: String) = compose.onNodeWithTag("boarding_bus_$id").fetchSemanticsNode().boundsInRoot.top
+        assertTrue(top("slow") < top("fast"))
+        compose.onNodeWithTag(LineSortToggleTags.TRIGGER).performClick()
+        compose.onNodeWithTag(LineSortToggleTags.BY_ARRIVAL).performClick()
+        assertTrue(top("fast") < top("slow"))
+        compose.onNodeWithTag("boarding_bus_fast").performClick()
+        assertEquals(listOf(LineDetailEvent.SetBoardingSortByArrival(true), LineDetailEvent.SelectBoardingBus("fast")), events)
+        compose.onNodeWithTag(LineSortToggleTags.TRIGGER).performClick()
+        compose.onNodeWithTag(LineSortToggleTags.DEFAULT).performClick()
+        assertTrue(top("slow") < top("fast"))
     }
 
     @Test fun cancellingVehicleSelectionStartsNothing() {

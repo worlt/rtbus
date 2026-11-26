@@ -2,7 +2,7 @@
 
 更新日期：2026-11-26。用途：新任务恢复项目状态；不是完整对话副本。以实际 Git、代码和验证结果为准，发现记录过时先核对再更新。
 
-最新续接：v7 增加下车提醒过期清理提示，标准和长辈首页默认预览前三条收藏。见文末 v7 小节及第 7 节。
+最新续接：v8 在「我已上车」选车弹窗增加「先到的在前」排序。见文末 v8 小节及第 7 节。
 
 ## 1. 当前项目与不可扩大范围
 
@@ -277,9 +277,20 @@
 | `RTBus-20261126-home-v7-arm32-debug.apk` | `38BD3543E31281C6C855EE8005283201E049D36D41E3B0C8F1CF7CEC0137EABF` |
 | `RTBus-20261126-home-v7-arm64-debug.apk` | `4DEB0F0EF6A1D87D367B967F8E039EE7AECFD4ACA2AA5C6C05B5EFFC10F6FB76` |
 
+### 本轮：「我已上车」车辆按到站先后排序 v8（2026-11-26）
+
+- 多辆可选车时，弹窗标明当前候车站，可切换数据源原顺序或「先到的在前」。沿用首页/站点页已持久化的排序偏好；不改变下车站列表，不因排序创建提醒。
+- 本站停靠优先，只用与此站匹配的预测秒数；无预测时按剩余站数估先后。已过站但仍有后续站可选的车保留在末尾，按 busId 选中。新增规则、弹窗交互和偏好同步测试。
+- `test :androidApp:assembleDebug`：18 模块 1,645 项主机测试，0 失败/错误/跳过；26 项静态检查通过。双 ABI 包名、签名（与 v7 一致）、DEX 和 16 KB 对齐核验通过。无 adb 设备，v8 未做真机验收。证据：`build/rtbus-validation/boarding-v8-final.log` 与 `boarding-v8-audit-summary.json`。
+
+| v8 安装包（位于 `build/rtbus-validation/`） | SHA-256 |
+| --- | --- |
+| `RTBus-20261126-boarding-v8-arm32-debug.apk` | `119C6945C6D6F8366334B44F24D5DA9AB2E973C33761FE18E8A9DD7B918316DC` |
+| `RTBus-20261126-boarding-v8-arm64-debug.apk` | `3F218BFB75156D12A648B346F1652B39A9BD32A48114C7CEBBD4A5D6B9BDFA38` |
+
 ## 7. 唯一明确的下一步
 
-覆盖安装 v7，按 boarding-feedback-acceptance.md 第 5 节 v7 小节验证清理提示与收藏展开/收起。release 签名与 iOS 实机验收仍独立待办。无 remote，不推送。
+覆盖安装 v8，按 boarding-feedback-acceptance.md 第 5 节 v8 小节验证实际车辆排序、切回默认和按车牌选择下车提醒。release 签名与 iOS 实机验收仍独立待办。无 remote，不推送。
 
 ## 8. 记录维护
 

@@ -117,6 +117,8 @@
     <string name="line_station_expand_card">展开卡片</string>
     <string name="line_rail_condition">响应</string>
     <string name="line_rail_arrived">到站</string>
+    <string name="line_boarding_sort_stop">候车站：%1$s</string>
+    <string name="line_boarding_stops_away">还有 %1$s 站</string>
     <string name="line_boarding_title">选择你乘坐的车辆</string>
     <string name="line_boarding_hint">请核对车牌或自编号，选择实际乘坐的车，再设置下车站。</string>
     <string name="line_boarding_progress">当前位置：%1$s 附近</string>

@@ -110,6 +110,13 @@ import com.trackr.feature.line.resources.Res as LineRes
 import com.trackr.feature.line.resources.line_alight_change
 import com.trackr.feature.line.resources.line_alight_resume
 import com.trackr.feature.line.resources.line_alight_boarded
+import com.trackr.ui.components.sort.LineSortToggle
+import com.trackr.core.domain.math.RouteProjectionMath
+import com.trackr.feature.line.resources.line_boarding_sort_stop
+import com.trackr.feature.line.resources.line_boarding_stops_away
+import com.trackr.feature.line.resources.line_list_passed_stop
+import com.trackr.feature.line.resources.line_list_entering
+import com.trackr.feature.line.resources.line_arrived
 import com.trackr.feature.line.resources.line_boarding_title
 import com.trackr.feature.line.resources.line_boarding_hint
 import com.trackr.feature.line.resources.line_boarding_progress
@@ -180,6 +187,7 @@ sealed interface LineDetailEvent {
     data class ResumeRide(val sessionId: String) : LineDetailEvent
     /** 单车卡只发起候车追踪，结束操作统一留在固定底栏。 */
     data object StartTrackingFollowedBus : LineDetailEvent
+    data class SetBoardingSortByArrival(val enabled: Boolean) : LineDetailEvent
     data class SelectBoardingBus(val busId: String) : LineDetailEvent
     data object OpenAlightingPicker : LineDetailEvent
     data object DismissAlightingPicker : LineDetailEvent
@@ -500,18 +508,25 @@ fun LineDetailScreen(
     }
 
     if (state.isBoardingBusPickerOpen) {
-        val buses = state.live?.buses.orEmpty().filter { bus ->
-            bus.busId.isNotBlank() && static?.stops.orEmpty().any { it.isFutureAlightingStop(bus) }
-        }.distinctBy { it.busId }
+        val target = state.selectedStop?.takeIf { it.order > 0 }
+        val buses = remember(state.live, static?.stops, target, state.sortBoardingByArrival) { state.boardingBusOptions() }
         AlertDialog(
             onDismissRequest = { onEvent(LineDetailEvent.DismissAlightingPicker) },
             title = { Text(stringResource(LineRes.string.line_boarding_title)) },
             text = {
                 Column {
                     Text(stringResource(LineRes.string.line_boarding_hint))
+                    if (buses.size > 1 && target != null) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(stringResource(LineRes.string.line_boarding_sort_stop, target.name),
+                                modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                            LineSortToggle(state.sortBoardingByArrival, onChange = { onEvent(LineDetailEvent.SetBoardingSortByArrival(it)) })
+                        }
+                    }
                     if (buses.isEmpty()) Text(stringResource(LineRes.string.line_alight_no_stops))
                     LazyColumn(Modifier.heightIn(max = 320.dp)) {
-                        items(buses, key = { it.busId }) { bus ->
+                        items(buses, key = { it.bus.busId }) { option ->
+                            val bus = option.bus
                             TextButton(
                                 onClick = { onEvent(LineDetailEvent.SelectBoardingBus(bus.busId)) },
                                 modifier = Modifier.fillMaxWidth().testTag("boarding_bus_" + bus.busId)
@@ -521,6 +536,17 @@ fun LineDetailScreen(
                                         fontWeight = FontWeight.Bold)
                                     val stopName = static?.stops?.firstOrNull { it.order == bus.order }?.name ?: bus.order.toString()
                                     Text(stringResource(LineRes.string.line_boarding_progress, stopName))
+                                    if (state.sortBoardingByArrival && target != null && buses.size > 1) {
+                                        val arrival = when {
+                                            option.passed -> stringResource(LineRes.string.line_list_passed_stop)
+                                            option.stoppedHere -> stringResource(LineRes.string.line_arrived)
+                                            option.eta != null -> RouteProjectionMath.formatEtaText(option.eta)
+                                            option.stopsAway == 0 -> stringResource(LineRes.string.line_list_entering)
+                                            option.stopsAway != null -> stringResource(LineRes.string.line_boarding_stops_away, option.stopsAway)
+                                            else -> null
+                                        }
+                                        if (arrival != null) Text(arrival, style = MaterialTheme.typography.bodySmall)
+                                    }
                                 }
                             }
                         }

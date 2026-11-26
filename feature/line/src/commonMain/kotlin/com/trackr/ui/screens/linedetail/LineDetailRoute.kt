@@ -68,6 +68,7 @@ fun LineDetailRoute(
                         viewModel.startTrackingSelectedStop()
                     }
                 }
+                is LineDetailEvent.SetBoardingSortByArrival -> viewModel.setBoardingSortByArrival(event.enabled)
                 is LineDetailEvent.SelectBoardingBus -> viewModel.selectBoardingBus(event.busId)
                 LineDetailEvent.OpenAlightingPicker -> viewModel.openAlightingPicker()
                 LineDetailEvent.DismissAlightingPicker -> viewModel.dismissAlightingPicker()
