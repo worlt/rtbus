@@ -392,9 +392,16 @@ class LineDetailViewModel(
         val chosen = when {
             restore != null -> restore
             mayRestoreRide && entrySessionId != null -> entry // 已结束的首页卡不能结束其他任务
-            else -> candidates.firstOrNull { (_, state) -> state.isPinnedBus && state.pinnedBusId == page.followedBusId }
-                ?: candidates.firstOrNull { it.second.targetOrder == page.selectedStop?.order }
-                ?: candidates.firstOrNull()
+            else -> {
+                // 单车页不操作别的指定车；总览有多个同站下车任务也不能随便结束第一辆。
+                val relevant = candidates.filter { (_, state) ->
+                    page.followedBusId == null || !state.isPinnedBus || state.pinnedBusId == page.followedBusId
+                }
+                val atStop = relevant.filter { it.second.targetOrder == page.selectedStop?.order }
+                relevant.firstOrNull { it.second.isPinnedBus && it.second.pinnedBusId == page.followedBusId }
+                    ?: atStop.firstOrNull { !it.second.isPinnedBus }
+                    ?: atStop.singleOrNull() ?: relevant.singleOrNull()
+            }
         }
         val state = chosen?.second ?: TrackingSessionState()
         val destination = restore?.second?.destinationIn(page.static?.stops.orEmpty())

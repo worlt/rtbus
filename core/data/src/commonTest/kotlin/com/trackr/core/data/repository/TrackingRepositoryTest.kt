@@ -697,6 +697,22 @@ class TrackingRepositoryTest {
     }
 
     @Test
+    fun changingDestinationToAnotherVehiclesStopPreservesThatVehicleAndRollback() = runTest {
+        val repo = newRepo()
+        repo.awaitLoaded()
+        val a = single.copy(pinnedBusId = "a", isOnboard = true)
+        val b = a.copy(pinnedBusId = "b", targetOrder = 8, targetStopId = "before")
+        val first = assertNotNull(repo.start(a))
+        val second = assertNotNull(repo.start(b))
+        val changed = a.copy(pinnedBusId = "b")
+        assertEquals(second.sessionId, repo.sessionReplacedBy(changed)?.sessionId)
+        val replacement = assertNotNull(repo.start(changed))
+        assertEquals(setOf(first.sessionId, replacement.sessionId), repo.sessions.value.map { it.sessionId }.toSet())
+        repo.restore(replacement, second)
+        assertEquals(setOf(first.target, second.target), repo.sessions.value.map { it.target }.toSet())
+    }
+
+    @Test
     fun changingAlightingStopReplacesOnlySameVehicleSameDirectionSameCity() = runTest {
         val repo = newRepo()
         repo.awaitLoaded()

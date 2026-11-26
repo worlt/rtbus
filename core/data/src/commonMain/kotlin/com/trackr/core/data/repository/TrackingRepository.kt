@@ -582,7 +582,8 @@ class DefaultTrackingRepository @OptIn(ExperimentalUuidApi::class) constructor(
  * 一起等按「同一个站 + 同一批线」算。
  */
 internal fun TrackingTarget.trackingKey(): String = when (this) {
-    is TrackingTarget.SingleLine -> "single|$cityId|$source|$lineId|$direction|$targetStopId|$targetOrder"
+    // 普通候车、指定 A 车、指定 B 车即使同站也不是同一任务。此键只在内存比较，不改变落盘格式。
+    is TrackingTarget.SingleLine -> "single|$cityId|$source|$lineId|$direction|$targetStopId|$targetOrder|$pinnedBusId"
     is TrackingTarget.Route -> "route|${group.id}"
     is TrackingTarget.WatchTogether -> "watch|$stopId|" + lines.map { it.lineId }.sorted().joinToString(",")
 }

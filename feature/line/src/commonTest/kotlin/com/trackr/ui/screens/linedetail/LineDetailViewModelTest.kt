@@ -724,6 +724,31 @@ class LineDetailViewModelTest {
     }
 
     @Test
+    fun twoVehiclesAtSameDestinationKeepIndependentAlightingReminders() = runTest(main.dispatcher) {
+        val other = buses.single().copy(busId = "b2", plateOrFleetNo = "沪B5678")
+        fakeRepository.lineDetailResult = fakeRepository.lineDetailResult!!.map { it.copy(buses = buses + other) }
+        val page = createViewModel(targetOrder = 2)
+        testScheduler.runCurrent()
+        for (bus in buses + other) {
+            page.selectBusToFollow(bus)
+            page.openAlightingPicker()
+            assertTrue(page.startAlightingReminder(stops[2]))
+            testScheduler.runCurrent()
+        }
+        val rides = trackingRepository.sessions.value.associate { it.state.pinnedBusId to it.sessionId }
+        assertEquals(setOf("b1", "b2"), rides.keys)
+        val overview = createViewModel(targetOrder = 3)
+        testScheduler.runCurrent()
+        assertNull(overview.uiState.value.rideToResume)
+        assertFalse(overview.uiState.value.isTrackingThisStop) // 不猜要结束的是哪辆车
+        val fromHome = createViewModel(targetOrder = 3, entrySessionId = rides.getValue("b1"))
+        testScheduler.runCurrent()
+        assertEquals("b1", fromHome.uiState.value.followedBusId)
+        fromHome.stopTracking()
+        assertEquals(rides.getValue("b2"), trackingRepository.sessions.value.single().sessionId)
+    }
+
+    @Test
     fun alightingPickerLocksSameBusAndReplacesWaitingReminderOnlyAfterSuccess() = runTest(main.dispatcher) {
         val viewModel = createViewModel(targetOrder = 2)
         testScheduler.runCurrent()
