@@ -78,7 +78,8 @@ class ArrivalAlertNotifier(
         val notification = alertNotification(
             context = context,
             title = "追踪已停止",
-            content = "${state.lineName} 追踪已超过 ${maxTrackingDurationText()}，已停止追踪。",
+            content = if (state.isAlightingReminder) "${state.lineName} 未能确认到达${state.targetStopName}，本次下车提醒已过期。"
+                else "${state.lineName} 追踪已超过 ${maxTrackingDurationText()}，已停止追踪。",
             category = NotificationCompat.CATEGORY_STATUS,
             requestCode = NOTIFICATION_ID_EXPIRED,
             timeoutMillis = TIMEOUT_STATUS_MILLIS

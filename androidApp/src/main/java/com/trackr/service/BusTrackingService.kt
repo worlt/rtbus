@@ -346,6 +346,7 @@ class BusTrackingService : LifecycleService() {
     private fun handleRestart(): Int {
         lifecycleScope.launch {
             trackingRepository.awaitLoaded()
+            trackingRepository.discardExpiredAlightingReminders()
             val stored = trackingRepository.sessions.value.filter { it.state.isActive }
             if (stored.isEmpty()) {
                 shutdown()

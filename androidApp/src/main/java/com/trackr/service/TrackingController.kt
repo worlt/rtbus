@@ -66,6 +66,7 @@ class AndroidTrackingController(
      *   （真正的接续在 [appScope] 里等读盘完成后进行）
      */
     override fun resumeInterrupted(): Boolean {
+        repository.discardExpiredAlightingReminders()
         repository.sessions.value.firstOrNull { it.interrupted }?.let { return startResume(it) }
         appScope.launch {
             repository.awaitLoaded()

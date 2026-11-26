@@ -994,6 +994,33 @@ class BusHomeViewModelTest {
     }
 
     @Test
+    fun onboardCardWhileSignalIsLost_hidesOldEtaButStillOpensAndStopsThisRide() = runTest(main.dispatcher) {
+        val vm = createViewModel()
+        testScheduler.runCurrent()
+        trackingController.start(TrackingTarget.SingleLine(cityId = "034", lineId = "L", lineName = "71路",
+            targetStopName = "人民广场", targetOrder = 5, pinnedBusId = "mine"))
+        val ride = assertNotNull(trackingRepository.session.value)
+        fun update(failed: Boolean, missing: Int) {
+            trackingRepository.update(ride.sessionId, ride.generation) { it.copy(refreshFailed = failed,
+                state = it.state.copy(currentBusId = "mine", stopsRemaining = 2, etaSeconds = 240, missingBusPolls = missing)) }
+            testScheduler.runCurrent()
+        }
+        for ((failed, missing) in listOf(true to 0, false to 1)) {
+            update(failed, missing)
+            val card = vm.uiState.value.trackingCards.single()
+            assertEquals("暂无车辆位置", card.arrival.big)
+            assertEquals(ride.sessionId, card.open.trackingSessionId)
+            assertTrue(card.title.contains("人民广场"))
+        }
+        update(false, 0)
+        val card = vm.uiState.value.trackingCards.single()
+        assertEquals("4 分钟", card.arrival.big)
+        vm.onEvent(BusHomeEvent.StopTracking(card.sessionId))
+        testScheduler.runCurrent()
+        assertTrue(vm.uiState.value.trackingCards.isEmpty())
+    }
+
+    @Test
     fun testTrackingCards_twoLines_stopOnlyTheOne() = runTest(main.dispatcher) {
         val viewModel = createViewModel()
         testScheduler.runCurrent()

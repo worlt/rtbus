@@ -144,6 +144,9 @@ interface TrackingRepository {
     /** Suspend work without losing targets; invalidate every in-flight result and cached fix. */
     fun pauseAll()
 
+    /** 回到前台或重启服务前，从内存和存储中移除已过期的指定车下车提醒。 */
+    fun discardExpiredAlightingReminders()
+
     /** 等盘里的会话读完（服务被系统重建时先等它） */
     suspend fun awaitLoaded()
 
@@ -242,16 +245,11 @@ class DefaultTrackingRepository @OptIn(ExperimentalUuidApi::class) constructor(
                 stored.forEach { lastGeneration = maxOf(lastGeneration, it.generation) }
                 if (stored.isNotEmpty() && !touched && _sessions.value.isEmpty()) {
                     // 进程被杀后读回：先标成中断，服务接上后再清掉；太久没更新的直接扔
+                    val now = nowMillis()
                     val fresh = stored.filter { session ->
-                        val age = nowMillis() - session.state.updatedAtMillis
-                        // 年龄为负 = 用户把系统时间往回调了，照样接着追
-                        age <= MAX_RESUME_AGE_MILLIS
+                        now - session.state.updatedAtMillis <= MAX_RESUME_AGE_MILLIS && !session.isExpiredAlighting(now)
                     }
-                    if (fresh.isNotEmpty()) {
-                        publish(fresh.map { it.copy(interrupted = true) }, persist = false)
-                    } else {
-                        writer.enqueue { store.write(emptyList()) }
-                    }
+                    publish(fresh.map { it.copy(interrupted = true) }, persist = fresh.size != stored.size)
                 }
             }
             loaded.complete(Unit)
@@ -312,17 +310,29 @@ class DefaultTrackingRepository @OptIn(ExperimentalUuidApi::class) constructor(
     override fun stop(sessionId: String?) {
         synchronized(lock) {
             touched = true
-            val current = _sessions.value
-            val remaining = if (sessionId == null) emptyList() else current.filterNot { it.sessionId == sessionId }
-            if (remaining.size == current.size) return
-            nextGeneration()
-            (current - remaining.toSet()).forEach { gone ->
-                lastBuses.remove(gone.sessionId)
-                lastLineBuses.remove(gone.sessionId)
-            }
-            if (remaining.isEmpty()) userFix = null
-            publish(remaining)
+            removeMatching { sessionId == null || it.sessionId == sessionId }
         }
+    }
+
+    override fun discardExpiredAlightingReminders() = synchronized(lock) {
+        val now = nowMillis()
+        removeMatching { it.isExpiredAlighting(now) }
+    }
+
+    private fun TrackingSession.isExpiredAlighting(now: Long): Boolean =
+        state.isAlightingReminder && TrackingEngine.isTrackingExpired(this, now)
+
+    /** 持锁调用；按会话清理，不影响同时追的其他车，也不让迟到的轮询写回。 */
+    private fun removeMatching(predicate: (TrackingSession) -> Boolean) {
+        val (removed, remaining) = _sessions.value.partition(predicate)
+        if (removed.isEmpty()) return
+        nextGeneration()
+        for (gone in removed) {
+            lastBuses.remove(gone.sessionId)
+            lastLineBuses.remove(gone.sessionId)
+        }
+        if (remaining.isEmpty()) userFix = null
+        publish(remaining)
     }
 
     override fun restore(failed: TrackingSession, previous: TrackingSession?) {

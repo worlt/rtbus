@@ -8,6 +8,7 @@ import com.trackr.core.data.repository.TrackingSessionStore
 import com.trackr.core.domain.tracking.TrackingEngine
 import com.trackr.core.model.TrackingSession
 import com.trackr.core.model.TrackingTarget
+import com.trackr.core.testing.FakeClock
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -119,6 +120,26 @@ class TrackingControllerTest {
         repo.awaitLoaded()
         delay(200)
         assertEquals(emptyList<String>(), startedIds)
+    }
+
+    @Test
+    fun foregroundReturn_removesOverdueAlightingCardWithoutRestartingIt() = runBlocking {
+        val clock = FakeClock()
+        val storage = InMemoryTrackingSessionStore()
+        val repo = DefaultTrackingRepository(storage, appScope, clock)
+        repo.awaitLoaded()
+        val ride = requireNotNull(repo.start(target.copy(pinnedBusId = "mine")))
+        val startedIds = mutableListOf<String>()
+        val controller = AndroidTrackingController(context, repo,
+            starter = { _, id -> startedIds += id }, appScope = appScope)
+        assertFalse(controller.resumeInterrupted())
+        assertEquals(ride.sessionId, repo.session.value?.sessionId)
+        clock.setWallClock(clock.nowMillis + 31 * 60_000L)
+        assertFalse(controller.resumeInterrupted())
+        assertTrue(repo.sessions.value.isEmpty())
+        repo.flush()
+        assertTrue(storage.read().isEmpty())
+        assertTrue(startedIds.isEmpty())
     }
 
     @Test

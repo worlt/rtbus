@@ -469,6 +469,9 @@ data class TrackingSessionState(
     val isPinnedBus: Boolean
         get() = legPhase == LegPhase.SINGLE && pinnedBusId != null
 
+    val isAlightingReminder: Boolean
+        get() = isPinnedBus && isOnboard
+
     /** 车已到上车站，正在用定位确认用户是否上车 */
     val isAwaitingBoardingConfirmation: Boolean
         get() = (legPhase == LegPhase.WAITING_BOARD || legPhase == LegPhase.SINGLE) && boardingCandidateBusId != null

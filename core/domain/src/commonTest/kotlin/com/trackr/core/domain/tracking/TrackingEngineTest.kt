@@ -549,6 +549,41 @@ class TrackingEngineTest {
     }
 
     @Test
+    fun onboardExpiry_usesLastSightOfThisBus_notFailuresOtherBusesOrTheOriginalEta() {
+        val min = 60_000L
+        val first = singlePoll(beginPinned(), listOf(boardingBus("mine", 3, eta = 60)), null,
+            nowMillis = NOW_MILLIS).session
+        // 预计一分钟到，但十分钟后仍有这辆车的新位置：不按旧 ETA 结束真实行程。
+        val delayed = singlePoll(first, listOf(boardingBus("mine", 6, eta = 120)), null,
+            nowMillis = NOW_MILLIS + 10 * min).session
+        val missing = singlePoll(delayed, listOf(boardingBus("other", 10)), null,
+            nowMillis = NOW_MILLIS + 15 * min).session
+        val failed = TrackingEngine.reduceFailure(missing, NOW_MILLIS + 21 * min)
+        assertFalse(TrackingEngine.isTrackingExpired(failed, NOW_MILLIS + 22 * min - 1))
+        assertTrue(TrackingEngine.isTrackingExpired(failed, NOW_MILLIS + 22 * min))
+    }
+
+    @Test
+    fun onboardExpiry_replayingSameCachedSnapshotDoesNotExtendRide() {
+        val detail = singleDetail(listOf(boardingBus("mine", 3, eta = 120))).copy(updatedAtMillis = NOW_MILLIS)
+        fun poll(session: TrackingSession, at: Long) = TrackingEngine.reducePoll(session, detail, false, null,
+            null, at, ELAPSED_NOW).session
+        val replayed = poll(poll(beginPinned(), NOW_MILLIS), NOW_MILLIS + 11 * 60_000L)
+        assertTrue(TrackingEngine.isTrackingExpired(replayed, NOW_MILLIS + 12 * 60_000L))
+    }
+
+    @Test
+    fun onboardExpiry_withoutEtaAllowsThirtyMinutesButDoesNotExpireWaitingBus() {
+        val onboard = beginPinned()
+        val waiting = assertNotNull(TrackingEngine.begin("w", 2,
+            singleTarget().copy(pinnedBusId = "mine", isOnboard = false), NOW_MILLIS))
+        val deadline = NOW_MILLIS + 30 * 60_000L
+        assertFalse(TrackingEngine.isTrackingExpired(onboard, deadline - 1))
+        assertTrue(TrackingEngine.isTrackingExpired(onboard, deadline))
+        assertFalse(TrackingEngine.isTrackingExpired(waiting, deadline))
+    }
+
+    @Test
     fun engine_pinned_beginCarriesPinnedBusIntoState() {
         val session = beginPinned()
         assertEquals("mine", session.state.pinnedBusId)

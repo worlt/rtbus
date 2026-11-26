@@ -195,6 +195,15 @@ class ArrivalAlertManagerTest {
     }
 
     @Test
+    fun expiredAlightingNotificationDoesNotClaimArrivalOrThreeHoursOfTracking() {
+        alertNotifier.triggerTrackingExpired(app, activeTrackingState(stopsRemaining = 3).copy(pinnedBusId = "mine"))
+        val posted = requireNotNull(shadowOf(notificationManager).getNotification(ArrivalAlertNotifier.NOTIFICATION_ID_EXPIRED))
+        val text = posted.extras.getCharSequence("android.text").toString()
+        assertTrue(text, text.contains("未能确认到达") && !text.contains("小时"))
+        assertNull(shadowOf(notificationManager).getNotification(ArrivalAlertNotifier.NOTIFICATION_ID_ARRIVED))
+    }
+
+    @Test
     fun testMissedBusAlert_clearsStaleArrivedNotificationAndSaysNextBus() {
         alertNotifier.triggerArrivedAlert(
             app,

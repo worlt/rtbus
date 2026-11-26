@@ -191,7 +191,9 @@ data class TrackingSession(
     val boardChoice: BoardChoice? = null,
     /** Snapshot freshness is independent of commands and failed refreshes. */
     val lastRealtimeAtMillis: Long = 0L,
-    val refreshFailed: Boolean = false
+    val refreshFailed: Boolean = false,
+    /** 下车提醒的失联计时基准：最近含指定车的快照时间；一直没有该车时从开始追踪算。 */
+    val alightingSignalAtMillis: Long? = null
 ) {
     /** 一起等（等车或已上车）；单线路、路线为 null */
     val watchTarget: TrackingTarget.WatchTogether?

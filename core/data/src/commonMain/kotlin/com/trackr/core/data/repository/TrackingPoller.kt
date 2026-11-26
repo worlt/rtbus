@@ -52,8 +52,7 @@ class TrackingPoller(
         while (currentCoroutineContext().isActive) {
             val session = current() ?: return
             if (TrackingEngine.isTrackingExpired(session, clock.now().toEpochMilliseconds())) {
-                onExpired(session)
-                tracking.stop(sessionId)
+                if (tracking.update(sessionId, generation) { null }) onExpired(session)
                 return
             }
             val target = session.watchTarget
@@ -122,7 +121,13 @@ class TrackingPoller(
             if (current() == null) return
             var effects: List<TrackingEngine.Effect> = emptyList()
             trace = null
+            var expired: TrackingSession? = null
             val applied = tracking.update(sessionId, generation) { latest ->
+                // 进程挂起时发出的请求可能在过期后才返回；不要复活旧行程或补发旧到站提醒。
+                if (latest.state.isAlightingReminder && TrackingEngine.isTrackingExpired(latest, clock.now().toEpochMilliseconds())) {
+                    expired = latest
+                    return@update null
+                }
                 result.fold(onSuccess = { reduce ->
                     failures = 0
                     val reduced = reduce(latest)
@@ -134,6 +139,7 @@ class TrackingPoller(
                 })
             }
             if (!applied) return
+            expired?.let { onExpired(it); return }
             trace?.let {
                 boardingTrace.record(it)
                 tracedStops = true

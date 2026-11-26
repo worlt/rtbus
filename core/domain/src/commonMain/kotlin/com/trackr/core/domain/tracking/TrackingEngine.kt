@@ -60,6 +60,9 @@ object TrackingEngine {
     /** 单次追踪最长运行时长，避免网络异常时无限轮询。 */
     const val MAX_TRACKING_DURATION_MILLIS = 3 * 60 * 60 * 1000L
 
+    private const val ALIGHTING_ETA_GRACE_MS = 10 * 60_000L
+    private const val ALIGHTING_NO_ETA_TIMEOUT_MS = 30 * 60_000L
+
     /**
      * 这一项不取定位时（车还远、单线路没开「上车后自动结束追踪」、只追指定的车）的轮询间隔。
      * 取定位时轮询跟着定位档位走（[LocationCadence.Tier.intervalMillis]），车的位置和人的位置一样新，判定才对得上
@@ -361,7 +364,14 @@ object TrackingEngine {
             if (update.boarded) return Result(session.copy(state = update.state), listOf(Effect.Finished.Boarded(update.state)))
             // 指定的车开过目标站（issue #52）：到站提醒（如果这轮才补发）之后结束
             if (update.finished) return Result(session.copy(state = update.state), effects + Effect.Finished.Completed)
-            return Result(session.copy(state = update.state), effects)
+            val next = if (previous.isAlightingReminder) {
+                // 空列表、其他车和缓存快照的重放都不能把这段行程当成刚刚看见。
+                val signal = if (update.state.missingBusPolls == 0) {
+                    detail.updatedAtMillis.takeIf { it > 0 }?.coerceAtMost(nowMillis) ?: nowMillis
+                } else alightingSignalAt(session)
+                session.copy(state = update.state, alightingSignalAtMillis = signal)
+            } else session.copy(state = update.state)
+            return Result(next, effects)
         }
 
         // 路线：两阶段（等车站 A / 锁定车 -> 下车站 B）
@@ -650,8 +660,19 @@ object TrackingEngine {
      */
     fun isTrackingExpired(session: TrackingSession, nowMillis: Long): Boolean {
         val elapsed = nowMillis - session.state.startedAtMillis
-        return elapsed < 0 || elapsed >= MAX_TRACKING_DURATION_MILLIS
+        if (elapsed < 0 || elapsed >= MAX_TRACKING_DURATION_MILLIS) return true
+        val state = session.state
+        if (!state.isAlightingReminder) return false
+        val timeout = if (state.etaSeconds > 0) state.etaSeconds * 1000L + ALIGHTING_ETA_GRACE_MS
+            else ALIGHTING_NO_ETA_TIMEOUT_MS
+        return nowMillis - alightingSignalAt(session) >= timeout
     }
+
+    /** v5 没有独立的车辆时间。只有最后一次成功刷新确实含指定车时才采用它，不能用失败/空刷时间续期。 */
+    private fun alightingSignalAt(session: TrackingSession): Long = session.alightingSignalAtMillis
+        ?: session.lastRealtimeAtMillis.takeIf { it > 0 && session.state.missingBusPolls == 0 &&
+            session.state.currentBusId == session.state.pinnedBusId }
+        ?: session.state.startedAtMillis
 
     /**
      * 本阶段的定位档位；不能用定位时恒为 OFF。

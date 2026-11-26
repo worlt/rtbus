@@ -157,6 +157,41 @@ class TrackingRepositoryTest {
     }
 
     @Test
+    fun readBack_dropsOnlyOverdueAlightingTripFromHomeAndDisk_evenWithRecentFailedRefresh() = runTest {
+        val first = newRepo()
+        first.awaitLoaded()
+        val ride = assertNotNull(first.start(single.copy(pinnedBusId = "mine")))
+        clock.advanceBy(31.minutes)
+        first.update(ride.generation) { TrackingEngine.reduceFailure(it, clock.nowMillis) }
+        val waiting = assertNotNull(first.start(single.copy(lineId = "other")))
+        first.flush()
+
+        val second = newRepo()
+        second.awaitLoaded()
+        assertEquals(listOf(waiting.sessionId), second.sessions.value.map { it.sessionId })
+        second.flush()
+        assertEquals(listOf(waiting.sessionId), store.read().map { it.sessionId })
+    }
+
+    @Test
+    fun v5RideWithRecentKnownBusKeepsItsIdentityButCommandsCannotExtendIt() = runTest {
+        val ride = assertNotNull(TrackingEngine.begin("v5", 1, single.copy(pinnedBusId = "mine"), clock.nowMillis))
+        clock.advanceBy(40.minutes)
+        val seenAt = clock.nowMillis
+        // v5 格式：没有独立失联时间，但最后一次成功轮询确实见到这辆车，再过 2 分钟预计到站。
+        store.write(listOf(ride.copy(lastRealtimeAtMillis = seenAt, state = ride.state.copy(
+            currentBusId = "mine", etaSeconds = 120, updatedAtMillis = seenAt))))
+        clock.advanceBy(11.minutes)
+        val repo = newRepo()
+        repo.awaitLoaded()
+        assertEquals("v5", repo.resume()?.sessionId)
+        repo.cycleThreshold("v5") // 用户操作改 updatedAtMillis，但不能延长行程。
+        clock.advanceBy(1.minutes)
+        repo.discardExpiredAlightingReminders()
+        assertTrue(repo.sessions.value.isEmpty())
+    }
+
+    @Test
     fun startBeforeLoadCompletes_discardsReadBackSession() = runTest {
         val first = newRepo()
         first.awaitLoaded()

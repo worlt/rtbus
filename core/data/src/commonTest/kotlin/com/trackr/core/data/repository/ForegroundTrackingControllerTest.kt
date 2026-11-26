@@ -78,6 +78,22 @@ class ForegroundTrackingControllerTest {
         assertEquals(1, f.realtime.lineDetailCalls.size)
     }
 
+    @Test fun delayedArrivalResponseCannotReviveExpiredRideOrEmitArrival() = runTest {
+        val f = Fixture(this)
+        val pending = CompletableDeferred<Unit>()
+        f.realtime.lineDetailHook = { pending.await() }
+        f.realtime.lineDetailsMap["L1"] = BusLineDetail(
+            line = BusLineDirection(lineId = "L1", name = "1路", startStop = "始", endStop = "终"),
+            stops = emptyList(), buses = listOf(LiveBus("mine", "mine", order = 5, isArrived = true)))
+        f.controller.setActive(true); runCurrent()
+        assertTrue(f.controller.start(target.copy(pinnedBusId = "mine"))); runCurrent()
+        assertEquals(listOf("L1"), f.realtime.lineDetailCalls)
+        f.clock.advanceBy(1.hours)
+        pending.complete(Unit); runCurrent()
+        assertTrue(f.repo.sessions.value.isEmpty())
+        assertTrue(f.effects.isEmpty())
+    }
+
     @Test fun repeatedForegroundAndStartDoNotDuplicateWorkers() = runTest {
         val f = Fixture(this)
         f.controller.setActive(true); runCurrent()
