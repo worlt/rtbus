@@ -166,7 +166,7 @@
 - 最终完整命令 `test :androidApp:assembleDebug --no-daemon --console=plain`：**BUILD SUCCESSFUL，2m 11s，636 tasks（34 executed / 602 up-to-date）**；18 模块 JUnit XML 汇总 **1,567 项，0 failures / errors / skipped**。另 26 项品牌/规划/SDK/Key 边界及检查器测试、`git diff --check` 通过。未连接真实公交数据接口；未执行 iOS 编译/链接或设备测试。
 - 两个最新 debug APK：applicationId `com.github.u5151561.trackr.debug`、名称“实时公交.D”、versionName 0.1.13 / code 21；沿用既有 debug 签名，apksigner 验证成功且两个 ABI 签名证书相同。每包仅含本 ABI 的 graphics.path 与 datastore counter 两个原生库，退役 SDK 检查、新提醒代码 DEX 标记、实际 VIBRATE 权限、64 位 ELF 和 ZIP 16 KB 对齐通过。没有创建 release 密钥或更改签名配置。
 
-| 最新可安装 debug 包（项目内路径） | 字节 | SHA-256 |
+| 当轮 debug 包（历史，已由下方最新包替代） | 字节 | SHA-256 |
 | --- | ---: | --- |
 | `androidApp/build/outputs/apk/debug/androidApp-arm64-v8a-debug.apk` | 33,453,066 | `5BF2293D61A655934132628B73E1CB7E0156487D400A220167CBAC4CF77C679C` |
 | `androidApp/build/outputs/apk/debug/androidApp-armeabi-v7a-debug.apk` | 33,451,142 | `2F25F8A4F1E0395E410731FCEF939014EE93BB79A4B3864C8F5D32813D9D82F9` |
@@ -174,9 +174,27 @@
 - 本机忽略日志目录 `build/rtbus-validation/`：最终 `boarding-feedback-verified-host.log`；上一轮完整通过 `boarding-feedback-final.log`；`boarding-static-checks.log`；逐项汇总 `boarding-feedback-audit-summary.json`；可复核脚本 `audit-boarding-artifacts.py`；双 ABI 签名/对齐/Manifest 元数据日志为 `boarding-<abi>-*.log`。
 - 安装与实测操作见 [提醒验收清单](boarding-feedback-acceptance.md)。`adb devices -l` 无设备，真实马达/语音、锁屏与厂商后台、真实乘车到站均未验收。保留此前 release 静态核查记录，但不能把旧 release 包当作本轮新功能包。无 remote、不推送。
 
+### 本轮续接：静音震动、常驻上车入口与原版过渡间距（2026-11-26）
+
+- 当前最新代码：`62a7648`（普通静音震动）、`0709c40`（常驻上车入口/显式选车）、`b94822b`（原版标题过渡与间距）。本节 APK 为当前最新包；前节哈希仅保留历史，不应据旧哈希判断本轮安装包。
+- 静音根因：原实现把通知已发出视为渠道已完成震动；普通静音会抑制通知用途的反馈，原手动兜底也仅用于未发独立通知。新增统一 ReminderVibration：普通静音的主动到站/临近/换乘/错过及定时提醒显式请求闹钟用途震动；非静音且已发通知时不重复请求。继续检查应用开关、通知权限、原通知渠道的禁用/禁震状态及勿扰，不修改系统静音、不删除重建渠道、不绕过勿扰或全局禁震。语音独立开关保留。Robolectric 验证实际请求用途与各禁止条件，不能据此声称真机马达已通过。
+- “我已上车 · 选择下车站”移到线路详情固定底栏，位于原追踪/换向/乘车码行上方；无有效车辆时仍显示但禁用。总览先明确选车牌/自编号，再选前方下车站；单车详情直接锁定当前车。取消或车辆失效不误开任务，成功后进入同车跟随；保留同车替换和多任务隔离。320dp 小屏可见可点有回归。
+- 按用户最终要求保留首页和“我的”原生 LargeTopAppBar + exitUntilCollapsedScrollBehavior，大标题随滚动收起、回顶展开。展开高度缩为 120dp，首页搜索距顶栏 12dp，“我的”列表顶部留 16dp。顶栏安全区由外部 padding 承接，避免首项滚动后挤到标题下。首页将顶栏 nestedScroll 放在下拉刷新内侧，使标题优先展开、剩余下拉再刷新；回归先复现“刷新吞掉回顶展开手势”后通过。未采用固定紧凑标题。
+- 标题回归覆盖展开/收起、两次回顶后高度不累积、下拉刷新、320dp/1.5 倍字体。原生截图已检查：`original-home-expanded-dark.png`、`original-home-collapsed-dark.png`、`original-me-expanded-dark.png`、`original-me-collapsed-dark.png`；合并预览 `original-headers-preview.png`；底栏 `silent-boarding-footer.png`。图片在忽略目录 `build/rtbus-validation/`，非真机截图。
+- 最终 `test :androidApp:assembleDebug --continue --no-daemon --console=plain`：**BUILD SUCCESSFUL，2m 14s，636 tasks（32 executed / 604 up-to-date）**。18 模块 JUnit XML 汇总 **1,590 项，0 failures / errors / skipped**。另 26 项静态/检查器测试、`git diff --check` 通过；未在测试中访问真实公交接口。
+- 两包沿用本机既有 debug 签名，apksigner 验证通过且证书一致；VIBRATE 权限、ReminderVibration/显式选车/下车追踪 DEX 标记、退役 SDK 边界、ELF/ZIP 16 KB 对齐通过。包名 `com.github.u5151561.trackr.debug`，名称“实时公交.D”，版本仍为 0.1.13 / code 21，需以哈希识别新构建。未生成或修改 release 密钥，旧 release 不含本轮功能。
+
+| 当前最新可安装 debug 包（项目内路径） | 字节 | SHA-256 |
+| --- | ---: | --- |
+| `androidApp/build/outputs/apk/debug/androidApp-arm64-v8a-debug.apk` | 33,452,164 | `3B1EEDE50DE0EC93BC5B881057196DC650460B0821C9716F48E9D0F24F88A82C` |
+| `androidApp/build/outputs/apk/debug/androidApp-armeabi-v7a-debug.apk` | 33,450,240 | `ADB6A7DD97BCC0736D7CDA53F10EE9C3424CEB81825365D70D6580951C219372` |
+
+- 日志目录 `build/rtbus-validation/`：最终 `silent-original-final-host.log`、标题专项 `original-header-targeted.log`、`silent-original-static.log`、`silent-original-artifact-audit.log`、逐项汇总 `silent-feedback-audit-summary.json`、复核脚本 `audit-silent-artifacts.py`、签名/对齐/Manifest 元数据 `silent-<abi>-*.log`。此前固定顶栏的 compact 截图/日志属于已被替代的中间方案。
+- `adb devices -l` 仍无设备：普通静音实际震动、厂商系统、锁屏/后台、语音和真实公交到站均待按 [提醒验收清单](boarding-feedback-acceptance.md) 实测；iOS 未实际编译/运行。无 remote、不推送。
+
 ## 7. 唯一明确的下一步
 
-下一独立阶段是按 boarding-feedback-acceptance.md 安装本轮 0cc1eb0 的新 debug 签名包，先验收“只震动/只语音/均开/均关”，再完成“指定未到车辆候车 → 我已上车 → 选择下车站 → 锁屏到站提醒”的真实乘车流程。当前没有连接真机。之后继续其余 Android 保留功能验收；release 的真实签名安装/升级和应用内安装器验收需用户控制的签名配置与同签名新版本包，不生成或提交密钥。iOS 编译/运行需在 macOS/Xcode 环境完成。release APK 构建和静态产物检查已通过，不等同于设备验收。不要重做已完成的 Key/隐私、SDK/CocoaPods 或规划 UI/数据链删除；保留全国城市、普通公交及辅助功能。自己的远程更新源、发布 workflow 和元数据等第一版可用、用户确认远程后再接入。不配置 remote，不推送。
+下一独立阶段是按 boarding-feedback-acceptance.md 安装代码 b94822b 对应的最新 debug 签名包，先测普通静音下“语音关/震动开”的定时提醒及锁屏对照，确认原版标题过渡与间距；再验收四种语音/震动组合，并完成“指定未到车辆候车 → 底部我已上车 → 按车牌选择车辆 → 选择下车站 → 锁屏到站提醒”的真实乘车流程。当前没有连接真机。之后继续其余 Android 保留功能验收；release 的真实签名安装/升级和应用内安装器验收需用户控制的签名配置与同签名新版本包，不生成或提交密钥。iOS 编译/运行需在 macOS/Xcode 环境完成。release APK 构建和静态产物检查已通过，不等同于设备验收。不要重做已完成的 Key/隐私、SDK/CocoaPods 或规划 UI/数据链删除；保留全国城市、普通公交及辅助功能。自己的远程更新源、发布 workflow 和元数据等第一版可用、用户确认远程后再接入。不配置 remote，不推送。
 
 ## 8. 记录维护
 

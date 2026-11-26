@@ -162,12 +162,12 @@ iosApp/              Xcode 宿主（UIKit 薄壳）和 TrackrWidgets 扩展
 
 ### 本轮可安装的 Android 测试包
 
-2026-11-26 本轮功能代码为 `0cc1eb0`，已用本机既有 debug 签名生成两个 APK：
+2026-11-26 最新代码为 `b94822b`（包含静音震动、常驻“我已上车”入口、原版大标题过渡与间距优化），已用本机既有 debug 签名重新生成两个 APK：
 
-- 大多数安卓手机：`androidApp/build/outputs/apk/debug/androidApp-arm64-v8a-debug.apk`（33,453,066 字节，约 31.9 MiB）。
-- 32 位 ARM 旧设备：同目录 `androidApp-armeabi-v7a-debug.apk`（33,451,142 字节）。
+- 大多数安卓手机：`androidApp/build/outputs/apk/debug/androidApp-arm64-v8a-debug.apk`（33,452,164 字节，约 31.9 MiB）。
+- 32 位 ARM 旧设备：同目录 `androidApp-armeabi-v7a-debug.apk`（33,450,240 字节）。
 
-名称“实时公交.D”，版本 0.1.13 / code 21。完整主机回归 1,567 项通过，双 ABI 签名和 16 KB 对齐核验通过；真实马达/语音、锁屏后台与乘车流程待真机验收。文件哈希见 [交接记录](tasks/HANDOFF.md)，安装及逐步操作见 [提醒验收清单](tasks/boarding-feedback-acceptance.md)。
+名称“实时公交.D”，版本 0.1.13 / code 21。完整主机回归 1,590 项及 26 项静态检查通过，双 ABI 签名和 16 KB 对齐核验通过；真实马达/语音、锁屏后台与乘车流程待真机验收。文件哈希见 [交接记录](tasks/HANDOFF.md)，安装及逐步操作见 [提醒验收清单](tasks/boarding-feedback-acceptance.md)。
 
 ### 发布 Release
 
