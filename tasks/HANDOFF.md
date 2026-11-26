@@ -33,8 +33,8 @@
 尚未完成，不能误报：
 - 高德专属实现和配置已退役：规划 UI/数据链、SDK/CocoaPods/链接、Key 页面/仓库/存储读写、专属隐私及 Android AMAP_WEB_KEY 已删除；两个最新 debug APK 无退役 SDK/Key 类。保留旧导航序列化标识及历史 Key 文件备份排除。release APK、真机和 iOS 实际验收仍未完成；普通查询、系统定位、路线详情和追踪保留。
 - applicationId、源码包名/类名、Bundle ID、URL scheme、数据库/偏好文件名、签名配置和图标仍沿用工程现状；应用 ID 尚未独立，不能宣称能与原版并存。
-- 原版更新端点仍在代码中，尚未切断或替换。用户没有自己的远程仓库，这是正常的本地开发阶段，不阻止其他改造。
-- 裁剪前品牌版本的 Android debug 构建与 413 项定向 JVM 测试成功；并未单独构建原始快照。当前裁剪版本完整 Android/JVM 主机测试全绿（1,555 项，0 失败/errors/跳过，见第 6 节最新增量）；debug 构建及 release 合并 Manifest 已验证，release APK 构建/签名、真机和 iOS 验收仍未完成。
+- 正式/测试更新源已显式未配置，不请求原作者清单；应用内更新机制和关于页入口保留，自己的远程发行源及发布 workflow 仍待用户确认远程后接入。
+- 裁剪前品牌版本的 Android debug 构建与 413 项定向 JVM 测试成功；并未单独构建原始快照。当前裁剪版本完整 Android/JVM 主机测试结果见第 6 节最新增量；debug 构建及 release 合并 Manifest 已验证，release APK 构建/签名、真机和 iOS 验收仍未完成。
 
 ## 4. 环境和构建状态（续接先重新核对）
 
@@ -55,7 +55,7 @@
 2. 在实际 Git 根执行 git status --short、git log -5 --oneline、git remote -v，保留用户现有改动。
 3. 工具链与 Android 构建 / 定向测试基线已完成；细节见 `baseline.md`。
 4. 入口/DI 与 Android 高德启动绑定的边界增量已完成；唯一明确的实施下一步见第 7 节，不重复已完成的删除。
-5. 更新机制保留。后续本地阶段可显式提示正式源未配置，以 MockEngine/本地 APK 夹具验证；不能编造仓库或回退原作者端点，不为测试取消 HTTPS、包名、版本和签名校验。正式远程源等用户确认后再接入。
+5. 更新机制保留。正式/测试更新源默认空列表，返回 NotConfigured 并在关于页说明；不要编造仓库或回退原作者端点，不为测试取消 HTTPS、受信任下载源、包名、版本和签名校验。正式远程源等用户确认后再接入。
 
 ## 6. 当前增量与实际验证（2026-11-25）
 
@@ -137,9 +137,18 @@
 - SignatureUtils、AndroidAppUpdateInstaller 及各自测试、两份备份规则、RouteAlignmentService 逐字未改；LegacySettingsMigration.copySettings 普通设置迁移体未改。Android 构建、安装器签名/包名/版本/下载验证随完整套件通过，但不代表真机升级验收。未连接真实公交接口，无 remote，不推送。
 - 日志/汇总均在忽略目录 build/rtbus-validation/，前缀 key-privacy-：module-summary.json、suite-summary.json、test-changes.json、preservation-check.json、function-check.json、static-final.log、boundary-baseline-red.log、verified-host.log、debug-dependencies.log / release-dependencies.log、artifact-checks.log / artifact-summary.json 及各 APK Manifest/ZIP 对齐日志。git diff --check 通过。
 
+### 应用内更新源显式未配置（2026-11-26）
+
+- 入场提交 fa8bc73，工作区干净、无 remote。本轮不接入远程发行源，正式/测试源默认空列表，不再包含上游元数据地址；当前所选通道无源时返回独立的 UpdateCheckResult.NotConfigured。关于页保留检查和测试通道开关，显示“更新源未配置”的说明弹窗，不误报已最新或网络失败，也不提供安装动作。
+- 保留显式注入源时的并发择新、通道/ABI 选择、失败回退和取消；元数据新增请求前 HTTPS 检查。下载域名白名单与入场提交逐字一致；AndroidAppUpdateInstaller 全文件未改，包名/版本/签名、下载/授权恢复/清理及 FileProvider 流程保留。检查请求 User-Agent 改为 RTBus。
+- 新增 11 项主机回归：检查器 4 项覆盖默认正式/测试通道零请求、仅测试源按开关启用、HTTP/无协议元数据拒绝；安装器 PackageManager 夹具 5 项覆盖错误包名、同版/旧版、不同签名、缺失签名拒绝及文件清理，同签名新版本可进入授权步骤并重试/丢弃；AboutViewModel 和 Compose UI 各 1 项覆盖独立状态、不启动下载、通道切换、弹窗说明与关闭。夹具不是实际签名 APK，不替代真实升级验收。
+- 定向 :androidApp:testDebugUnitTest :feature:me:testAndroidHostTest :androidApp:assembleDebug 通过（app 321 + me 58 = 379 项，0 failures/errors/skipped）。随后完整 test :androidApp:assembleDebug :androidApp:processReleaseMainManifest 通过（3m20s，638 tasks），18 个模块 JUnit XML 共 1,542 项，0 failures/errors/skipped；比 fa8bc73 净增上述 11 项，无删除/跳过测试。静态/检查器 26 项通过，git diff --check 通过。
+- 两个最新 debug APK 各检查 31 份 DEX，均不含上游 update/update-beta 清单地址，无高德 DEX/原生库；各仅保留 graphics.path 与 datastore counter 原生库。Gradle checkDebug16kbPageAlignment 与两个 APK 的 zipalign -c -P 16 -v 4 通过。release 合并 Manifest 任务通过；未生成 release APK，未做真机/iOS 或真实签名升级。
+- README、测试指南和待办同步，清除 todo 的过时“下一步删除 Key”。本地日志/汇总在忽略目录 build/rtbus-validation/：update-source-targeted-verified.log、update-source-full-host.log、update-source-static.log、update-source-suite-summary.json、update-source-apk-summary.json 和各 APK 的 update-source-*-zipalign.log。没有调用真实公交或上游更新接口；无 remote、不推送。
+
 ## 7. 唯一明确的下一步
 
-独立处理应用内更新源：本地阶段将正式/测试更新源设为显式未配置，不请求原作者更新清单，不编造 RTBus 仓库；保留检查/下载/授权恢复/取消流程以及 HTTPS、受信任下载源、包名、版本号和签名校验。使用 MockEngine 与本地测试夹具覆盖“未配置”及安全拒绝路径，按独立增量验证后本地提交。不要重做已完成的 Key/隐私、SDK/CocoaPods 或规划 UI/数据链删除；保留全国城市、普通公交及辅助功能。release APK、真机/iOS 和自己的签名/升级仍待后续验收。不配置 remote、不推送。
+独立进行 Android release APK 构建与产物核查：记录实际签名状态、两个 ABI、Manifest、退役 SDK/Key 类与资源、ELF/ZIP 16 KB 对齐。沿用现有本地构建配置，不生成或提交新签名密钥；构建/产物核查不代替真机安装、真实签名升级和 iOS 验收。不要重做已完成的 Key/隐私、SDK/CocoaPods 或规划 UI/数据链删除；保留全国城市、普通公交及辅助功能。自己的远程更新源、发布 workflow 和元数据等第一版可用、用户确认远程后再接入。不配置 remote、不推送。
 
 ## 8. 记录维护
 

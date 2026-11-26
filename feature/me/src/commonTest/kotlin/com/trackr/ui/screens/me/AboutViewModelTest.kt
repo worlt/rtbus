@@ -139,6 +139,30 @@ class AboutViewModelTest {
     }
 
     @Test
+    fun checkForUpdates_whenNotConfigured_showsStateAndCannotInstall() = runTest(main.dispatcher) {
+        val installer = FakeAppUpdateInstaller()
+        val checker = FakeUpdateChecker(UpdateCheckResult.NotConfigured)
+        val viewModel = AboutViewModel(updateChecker = checker, updateInstaller = installer)
+
+        viewModel.checkForUpdates()
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.canCheckUpdates)
+        assertEquals(AboutUpdateUiState.NotConfigured, viewModel.uiState.value.update)
+        viewModel.onEvent(AboutEvent.StartInstall)
+        advanceUntilIdle()
+        assertEquals(AppUpdateInstallState.Idle, viewModel.uiState.value.install)
+        assertEquals(0, installer.downloadCount)
+
+        viewModel.onEvent(AboutEvent.DismissUpdateDialog)
+        assertEquals(AboutUpdateUiState.Idle, viewModel.uiState.value.update)
+        viewModel.onEvent(AboutEvent.SetBetaUpdates(true))
+        viewModel.checkForUpdates()
+        advanceUntilIdle()
+        assertEquals(true, checker.lastIncludeBeta)
+        assertEquals(AboutUpdateUiState.NotConfigured, viewModel.uiState.value.update)
+    }
+
+    @Test
     fun checkForUpdates_whenError_updatesStateToError() = runTest(main.dispatcher) {
         val fakeChecker = FakeUpdateChecker(UpdateCheckResult.Error("网络连接超时"))
         val viewModel = AboutViewModel(

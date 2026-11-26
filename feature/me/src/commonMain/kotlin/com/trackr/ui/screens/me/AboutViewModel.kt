@@ -22,6 +22,7 @@ import kotlinx.coroutines.launch
 sealed interface AboutUpdateUiState {
     data object Idle : AboutUpdateUiState
     data object Checking : AboutUpdateUiState
+    data object NotConfigured : AboutUpdateUiState
     data class HasUpdate(val updateInfo: AppUpdateInfo, val isForce: Boolean) : AboutUpdateUiState
     data class UpToDate(val currentVersionName: String) : AboutUpdateUiState
     data class Error(val message: String) : AboutUpdateUiState
@@ -136,6 +137,7 @@ class AboutViewModel(
 
             setUpdate(
                 when (result) {
+                    UpdateCheckResult.NotConfigured -> AboutUpdateUiState.NotConfigured
                     is UpdateCheckResult.HasUpdate ->
                         AboutUpdateUiState.HasUpdate(result.updateInfo, result.isForceUpdate)
                     is UpdateCheckResult.UpToDate ->

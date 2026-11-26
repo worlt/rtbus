@@ -61,6 +61,8 @@ import com.trackr.feature.me.resources.me_about_check_failed
 import com.trackr.feature.me.resources.me_about_check_failed_retry
 import com.trackr.feature.me.resources.me_about_check_update
 import com.trackr.feature.me.resources.me_about_checking
+import com.trackr.feature.me.resources.me_about_update_not_configured
+import com.trackr.feature.me.resources.me_about_update_not_configured_body
 import com.trackr.feature.me.resources.me_about_data_body
 import com.trackr.feature.me.resources.me_about_data_title
 import com.trackr.feature.me.resources.me_about_cancel_download
@@ -302,6 +304,11 @@ private fun UpdateRow(state: AboutUiState, onClick: () -> Unit) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.primary
             )
+            AboutUpdateUiState.NotConfigured -> Text(
+                text = stringResource(MeRes.string.me_about_update_not_configured),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             is AboutUpdateUiState.Error -> Text(
                 text = stringResource(MeRes.string.me_about_check_failed_retry),
                 style = MaterialTheme.typography.bodyMedium,
@@ -413,7 +420,7 @@ private fun DottedDivider() {
     )
 }
 
-/** 更新检查的三种结果弹窗；Idle / Checking 不弹 */
+/** 更新检查结果弹窗；Idle / Checking 不弹 */
 @Composable
 private fun UpdateDialogs(
     update: AboutUpdateUiState,
@@ -549,6 +556,15 @@ private fun UpdateDialogs(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             },
+            confirmButton = {
+                TextButton(onClick = onDismiss) { Text(stringResource(MeRes.string.me_about_got_it)) }
+            }
+        )
+
+        AboutUpdateUiState.NotConfigured -> AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text(stringResource(MeRes.string.me_about_update_not_configured)) },
+            text = { Text(stringResource(MeRes.string.me_about_update_not_configured_body)) },
             confirmButton = {
                 TextButton(onClick = onDismiss) { Text(stringResource(MeRes.string.me_about_got_it)) }
             }

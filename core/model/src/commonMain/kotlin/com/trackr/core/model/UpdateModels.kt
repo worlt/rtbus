@@ -66,6 +66,9 @@ sealed interface AppUpdateInstallState {
  * 版本更新检测结果
  */
 sealed interface UpdateCheckResult {
+    /** 当前通道没有配置更新源；不发起请求，也不能判定为最新版本。 */
+    data object NotConfigured : UpdateCheckResult
+
     /**
      * 发现新版本
      */

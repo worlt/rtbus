@@ -18,6 +18,8 @@
     <string name="me_about_check_update">检查新版本</string>
     <string name="me_about_beta_updates">接收测试版</string>
     <string name="me_about_beta_updates_desc">检查更新时也提示 beta 版。测试版功能还没定型，可能有问题；关掉后等下一个正式版发布再升级回正式通道。</string>
+    <string name="me_about_update_not_configured">更新源未配置</string>
+    <string name="me_about_update_not_configured_body">当前版本尚未配置实时公交的更新源，暂时无法检查新版本。</string>
     <string name="me_about_checking">正在检查...</string>
     <string name="me_about_new_version">发现新版本</string>
     <string name="me_about_up_to_date">已是最新</string>

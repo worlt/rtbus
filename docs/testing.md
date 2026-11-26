@@ -98,8 +98,9 @@ Koin 由 `TrackrApp.onCreate` 启动，Robolectric 用例里每个用例都会�
 |  | `MainActivityDeepLinkTest` | 真实的 `MainActivity`：启动器冷启动只显示保留的公交/我的页签、不要求规划 entry；冷启动带 `trackr://line` 打开对应线路详情、Intent 里的链接被清掉、返回回首页根页；旧版 6 个 extra 仍能打开；热启动 `onNewIntent` 同样；带保存状态重建时不重放；`trackr://transit-code` 直接拉起支付宝乘车码、不动栈；坏链接忽略 | Robolectric Compose UI |
 |  | `ShortcutsXmlTest` | 静态快捷方式 `res/xml/shortcuts.xml`（issue #50）：`targetPackage` / `targetClass` 写的是字面量且指向本包的 `MainActivity`、两个快捷方式分别解析成支付宝和云闪付乘车码、debug 版除包名外和 main 一致 | Robolectric (JVM) |
 | `deeplink` | `DeepLinkIntentsTest` | Intent ↔ `trackr://` 链接（第 18 步）：data 里的新链接；旧版 6 个 extra、两种拼法的旧 `OPEN_TRANSIT_CODE` action 兼容（只有 alipay 是支付宝）；`consume` 后同一个 Intent 不重放、不碰非 `trackr` 的 data；别的 App 传来的坏 Intent 忽略；动态快捷方式发的是 `ACTION_VIEW` + `trackr://line` | Robolectric (JVM) |
-| `data/remote/update` | `GithubUpdateCheckerTest` | 更新检查并发多源择新（旧缓存 / 已最新响应不遮挡新版本）、部分源失败或无效时保留有效结果、强制更新判定、下载地址 https 与域名白名单校验、取消全部在途请求（Ktor `MockEngine`） | Robolectric (JVM) |
+| `data/remote/update` | `GithubUpdateCheckerTest` | 默认正式/测试源未配置且零请求、仅测试源按开关启用、拒绝 HTTP 元数据；更新检查并发多源择新（旧缓存 / 已最新响应不遮挡新版本）、部分源失败或无效时保留有效结果、强制更新判定、下载地址 https 与域名白名单校验、取消全部在途请求（Ktor `MockEngine`） | Robolectric (JVM) |
 |  | `AndroidAppUpdateInstallerTest` | 更新包下载安装：地址不在白名单或是 Release 页面时不下载、HTTP 出错报状态码、下回来的不是 APK 时校验失败、没下载过时重试 / 丢弃都安全 | Robolectric (JVM) |
+|  | `UpdatePackageVerificationTest` | PackageManager 本地夹具通过真实安装器拒绝错误包名、同版/旧版、不同/缺失签名并清理文件；同签名新版本可到授权步骤、重试和丢弃。不代替真实签名 APK 升级 | Robolectric (JVM) |
 | `data/local` | `StorageBackendTest` | 整套存储端到端：同一份旧数据经新存储和旧存储读出来完全相同、旧文件不被改动、新存储写入重开读回、USE_NEW_STORE 关了再开能带回旧存储期间的改动、库打不开时退回旧存储、旧的聚合配置在新旧存储里读成同一个主数据源 | Robolectric (JVM) |
 |  | `BackupRulesTest` | `backup_rules.xml` 和 `data_extraction_rules.xml` 两段：排除高德 Key（新旧两个文件）和追踪会话、不排除 `trackr.db` 和设置、没有 include、三段一样、Manifest 都接上了 | Robolectric (JVM) |
 |  | `UiModeSettingsTest` | 界面模式、「试试长辈版」提示、主题模式和主题色的存取：没存过 = 标准版 / 跟随系统、写入后换新实例读回、未知值退回默认、新旧存储切换不丢也不删旧 key | Robolectric (JVM) |
@@ -174,9 +175,10 @@ Koin 由 `TrackrApp.onCreate` 启动，Robolectric 用例里每个用例都会�
 |  | `ReorderShiftTest` | 拖动排序的位移计算（纯函数）：被拖那行跟手、中间的行各让一格、松手后只有被拖那行补零头、靠近上下边自动滚 | commonTest（JVM；iOS 只编译和链接测试，不跑） |
 | `:feature:me` `ui/screens/me` | `MeViewModelTest` | 「我的」页（第 25 步）：数据源只有车来了 / 掌上公交二选一、乘车码偏好、到站前提醒全局设置（1–3 站）、定时提醒行显示最早一条开着的提醒和开关、实时通知 / 锁屏开关、状态栏胶囊（实时通知关着或 iOS 不显示、去设置、回前台重查）、高德 Key 状态文字跟着仓库、子页提示显示一次就删、提醒短文字；长辈版开关写界面模式 | commonTest（JVM） |
 |  | `ReminderEditViewModelTest` | 定时提醒编辑：读出已有提醒、提醒已删、改时间 / 重复日后保存是原位替换并给「我的」发提示、预设重复日、开了「到点自动开始追踪」又没有精确闹钟权限时提示（回前台重查、去设置、打不开设置时给提示）、删除要确认、连点保存只存一次 | commonTest（JVM） |
-|  | `AboutViewModelTest` | 关于页更新检查：初始空闲、有更新 / 已最新 / 出错、关弹窗回空闲、检查中不重复检查、没有 `UpdateChecker`（iOS）时不显示「检查更新」 | commonTest（JVM） |
+|  | `AboutViewModelTest` | 关于页更新检查：初始空闲、有更新 / 已最新 / 出错 / 未配置，未配置不启动安装、关弹窗回空闲、检查中不重复检查、没有 `UpdateChecker`（iOS）时不显示「检查更新」 | commonTest（JVM） |
 |  | `ThemeSettingsViewModelTest` | 主题设置：连续切换各项偏好互不覆盖、跟随系统和换取色来源时保留之前的选择、非法 RGB 不覆盖上一个颜色、长辈版下偏好保留 | commonTest（JVM） |
 |  | `ThemeSettingsScreenTest` / `MeLiveUpdateGuideTest` | 主题设置页（9 种配色风格都能直接选、跟随系统时隐藏风格选择、非法十六进制保留上一个颜色并报错）；「我的 → 实时活动通知」（没开时点这一行先说明再跳系统设置、已开或系统不支持直接跳，issue #29） | Robolectric Compose UI |
+|  | `AboutUpdateSourceTest` | 未配置更新源时显示独立说明弹窗，没有“已最新”或安装按钮，确认关闭事件 | Robolectric Compose UI |
 | `:composeApp` `ui/navigation` | `NavigationFlowTest` | D2 底栏「路线规划」：有 / 无 Key、只有 Web Key、只有 Android Key、只有构建时 Key 时显示与否；停在该页签时 Key 被清空回首页并清栈；恢复到该页签但已无 Key 时回首页；后来填了 Key 页签出现但不切过去 | Robolectric Compose UI |
 | `:composeApp` `app` | `UiModeSwitchNavigationTest` | 切换界面模式时的导航：不论停在哪一页，新模式的栈都是 `[首页]`；切回标准版 3 条页签栈都在根页；旧模式的页面 ViewModel 清掉；长辈版的栈能跨重建恢复 | Robolectric Compose UI |
 |  | `FontScalePromptTest` / `OnboardingDialogOrderTest` | 系统字体 ≥ 1.3 倍且没点过才弹「试试长辈版」、点「先不用」后不再弹、点「打开长辈版」切过去；字号提示等定位说明和系统权限申请都结束后才弹 | Robolectric Compose UI |

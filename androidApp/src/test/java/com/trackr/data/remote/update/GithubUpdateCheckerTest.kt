@@ -23,9 +23,76 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import java.io.IOException
+import java.util.concurrent.atomic.AtomicInteger
 
 @RunWith(RobolectricTestRunner::class)
 class GithubUpdateCheckerTest {
+
+    @Test
+    fun checkForUpdates_defaultStableSource_isNotConfiguredWithoutRequests() = runTest {
+        assertDefaultNotConfigured(includeBeta = false)
+    }
+
+    @Test
+    fun checkForUpdates_defaultBetaSources_areNotConfiguredWithoutRequests() = runTest {
+        assertDefaultNotConfigured(includeBeta = true)
+    }
+
+    private suspend fun assertDefaultNotConfigured(includeBeta: Boolean) {
+        val requests = AtomicInteger()
+        val client = HttpClient(MockEngine {
+            requests.incrementAndGet()
+            error("Unconfigured source must not request metadata")
+        })
+        try {
+            val result = GithubUpdateChecker(client).checkForUpdates(2, "0.0.2", includeBeta)
+            assertEquals(UpdateCheckResult.NotConfigured, result)
+            assertEquals(0, requests.get())
+        } finally {
+            client.close()
+        }
+    }
+
+    @Test
+    fun checkForUpdates_betaOnlySource_isIgnoredUntilEnabled() = runTest {
+        val requests = AtomicInteger()
+        val client = HttpClient(MockEngine {
+            requests.incrementAndGet()
+            respondJson(releasePayload(11))
+        })
+        try {
+            val checker = GithubUpdateChecker(
+                httpClient = client,
+                endpointUrls = emptyList(),
+                betaEndpointUrls = listOf("https://example.com/beta")
+            )
+            assertEquals(UpdateCheckResult.NotConfigured, checker.checkForUpdates(10, "0.1.6", false))
+            assertEquals(0, requests.get())
+            val result = checker.checkForUpdates(10, "0.1.6", true)
+            assertEquals(11, (result as UpdateCheckResult.HasUpdate).updateInfo.versionCode)
+            assertEquals(1, requests.get())
+        } finally {
+            client.close()
+        }
+    }
+
+    @Test
+    fun checkForUpdates_insecureMetadataSource_isRejectedWithoutRequests() = runTest {
+        val requests = AtomicInteger()
+        val client = HttpClient(MockEngine {
+            requests.incrementAndGet()
+            respondJson(releasePayload(11))
+        })
+        try {
+            for (url in listOf("http://example.com/update.json", "example.com/update.json")) {
+                val checker = GithubUpdateChecker(client, endpointUrls = listOf(url))
+                assertTrue(checker.checkForUpdates(10, "0.1.6") is UpdateCheckResult.Error)
+            }
+            assertEquals(0, requests.get())
+        } finally {
+            client.close()
+        }
+    }
 
     @Test
     fun checkForUpdates_whenNewVersionAvailable_returnsHasUpdate() = runTest {
