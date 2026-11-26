@@ -289,22 +289,8 @@ fun MeScreen(
                         checked = state.vibrationAlerts,
                         onCheckedChange = { onEvent(MeEvent.SetVibrationAlerts(it)) }
                     )
-                    if (state.canTestVibration) {
-                        GroupDivider()
-                        SettingRow(
-                            title = stringResource(MeRes.string.me_test_vibration),
-                            subtitle = stringResource(MeRes.string.me_test_vibration_desc),
-                            onClick = { onEvent(MeEvent.TestVibration) }
-                        )
-                    }
-                    if (state.canTestArrival) {
-                        GroupDivider()
-                        SettingRow(
-                            title = stringResource(MeRes.string.me_test_arrival),
-                            subtitle = stringResource(MeRes.string.me_test_arrival_desc),
-                            onClick = { onEvent(MeEvent.TestArrivalAlert) }
-                        )
-                    }
+                    // 复测/发布包不暴露人工触发提醒的入口。内部排障时可临时恢复这一行。
+                    // ReminderTestEntries(state, onEvent)
                     GroupDivider()
                     SettingRow(
                         title = stringResource(MeRes.string.me_reminders),
@@ -536,6 +522,26 @@ private fun SettingsGroup(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerLow
             ),
             content = content
+        )
+    }
+}
+
+@Composable
+private fun ReminderTestEntries(state: MeUiState, onEvent: (MeEvent) -> Unit) {
+    if (state.canTestVibration) {
+        GroupDivider()
+        SettingRow(
+            title = stringResource(MeRes.string.me_test_vibration),
+            subtitle = stringResource(MeRes.string.me_test_vibration_desc),
+            onClick = { onEvent(MeEvent.TestVibration) }
+        )
+    }
+    if (state.canTestArrival) {
+        GroupDivider()
+        SettingRow(
+            title = stringResource(MeRes.string.me_test_arrival),
+            subtitle = stringResource(MeRes.string.me_test_arrival_desc),
+            onClick = { onEvent(MeEvent.TestArrivalAlert) }
         )
     }
 }

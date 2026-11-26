@@ -19,13 +19,10 @@ import org.robolectric.annotation.GraphicsMode
 class MeVibrationTest {
     @get:Rule val compose = createComposeRule()
 
-    @Test fun testEntryShowsReportWithSettingsAndDismissActions() {
+    @Test fun diagnosticReportRetainsSettingsAndDismissActions() {
         val state = mutableStateOf(MeUiState(canTestVibration = true))
         val events = mutableListOf<MeEvent>()
         compose.setContent { TrackrTheme { MeScreen(state.value, onEvent = { events += it }) } }
-        compose.onNodeWithTag("me_settings_list").performScrollToNode(hasText("测试震动"))
-        compose.onNodeWithText("测试震动").assertIsDisplayed().performClick()
-        assertEquals(listOf(MeEvent.TestVibration), events)
         compose.runOnIdle { state.value = state.value.copy(vibrationTestResult = "已发送到站引导震动请求，不播放声音。请以手机是否实际震动为准。\n\n反馈实现：导航引导兼容版 v2\n到站反馈：确认到站与主动引导 v4\n设备：测试设备\nAndroid：15 / API 35\n铃声模式：静音；铃声音量：0\n勿扰：关闭\n应用震动：true；通知允许：true\n渠道重要级别：4；渠道震动：true\n请求结果：REQUESTED\n\n最近真实提醒（最多6条，不含测试）：\n11-26 15:00:00 APPROACHING 通知=false 震动=REQUESTED\n11-26 15:00:10 ARRIVED 通知=true 震动=REQUESTED\n\n最近追踪状态：\n11-26 15:00:10 本次追踪已自动结束") }
         compose.onNodeWithText("提醒测试结果").assertIsDisplayed()
         System.getenv("RTBUS_SCREENSHOT_DIR")?.let { directory ->
@@ -41,17 +38,16 @@ class MeVibrationTest {
         assertEquals(MeEvent.DismissVibrationTest, events.last())
     }
 
-    @Test fun arrivalEntryIsVisibleAndSendsTheArrivalEvent() {
+    @Test fun testEntriesHiddenEvenOnSupportedPlatform_butRealVibrationSettingStillWorks() {
         val events = mutableListOf<MeEvent>()
-        compose.setContent { TrackrTheme { MeScreen(MeUiState(canTestArrival = true), { events += it }) } }
-        compose.onNodeWithTag("me_settings_list").performScrollToNode(hasText("测试到站提醒"))
-        compose.onNodeWithText("测试到站提醒").assertIsDisplayed().performClick()
-        assertEquals(listOf(MeEvent.TestArrivalAlert), events)
-        System.getenv("RTBUS_SCREENSHOT_DIR")?.let { directory ->
-            java.io.File(directory, "arrival-v4-test-entry.png").outputStream().use {
-                compose.onRoot().captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
-            }
-        }
+        val state = MeUiState(canTestVibration = true, canTestArrival = true, vibrationAlerts = true)
+        compose.setContent { TrackrTheme { MeScreen(state, { events += it }) } }
+        // 先滚到同一设置分组，不能因为 LazyColumn 还没组合这一组而误判为入口已隐藏。
+        compose.onNodeWithTag("me_settings_list").performScrollToNode(hasText("震动提醒"))
+        compose.onNodeWithText("测试震动").assertDoesNotExist()
+        compose.onNodeWithText("测试到站提醒").assertDoesNotExist()
+        compose.onNodeWithText("震动提醒").assertIsDisplayed().performClick()
+        assertEquals(listOf(MeEvent.SetVibrationAlerts(false)), events)
     }
 
     @Test fun unsupportedPlatformDoesNotShowTestEntry() {
