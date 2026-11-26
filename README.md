@@ -85,15 +85,15 @@
 ## 🏗️ 工程结构
 
 ```text
-:androidApp          Android 壳：Activity、追踪服务、通知、桌面微件、定位、高德 Key 存储
-:composeApp          根 Composable：主题、3 个页签、长辈版单栈、NavDisplay、Koin 模块装配；iosMain 是 iOS 宿主入口和平台能力
+:androidApp          Android 壳：Activity、追踪服务、通知、桌面微件、系统定位
+:composeApp          根 Composable：主题、公交/我的页签、长辈版单栈、NavDisplay、Koin 模块装配；iosMain 是 iOS 宿主入口和平台能力
 :core:designsystem   设计系统：颜色、字体、图标、通用文案
 :core:model          领域模型（纯 Kotlin）
 :core:domain         领域逻辑：到站规则、追踪状态机、坐标换算
-:core:network        Ktor 客户端、车来了 / 掌上公交 / 高德 Web 接口
-:core:data           仓库实现、追踪会话、收藏合并、高德 Key 各槽
+:core:network        Ktor 客户端与实时公交数据源
+:core:data           仓库实现、追踪会话、收藏合并
 :core:database       Room（trackr.db）
-:core:datastore      DataStore：设置、高德 Key、追踪会话
+:core:datastore      设置与追踪会话存储
 :core:navigation     Navigation 3 的页面键与返回栈
 :core:ui             多个 feature 共用的组件（乘车码、到站样式、轮询协调）
 :core:testing        各仓库的 Fake，供单元测试与截图测试使用
@@ -101,9 +101,9 @@
 :feature:search      搜索
 :feature:stop        站点详情、一起等
 :feature:line        线路详情、时刻表
-:feature:route       路线规划、路线详情、高德地图
+:feature:route       普通路线详情与追踪
 :feature:favorites   收藏编辑与分组排序
-:feature:me          我的、定时提醒、高德 Key、主题设置、关于
+:feature:me          我的、定时提醒、主题设置、关于
 iosApp/              Xcode 宿主（UIKit 薄壳）和 TrackrWidgets 扩展
 ```
 
@@ -111,7 +111,7 @@ iosApp/              Xcode 宿主（UIKit 薄壳）和 TrackrWidgets 扩展
 
 - UI 走单向数据流：`ViewModel` 暴露 `StateFlow<UiState>`，页面是无状态的 `Screen(state, onEvent)`。
 - 功能模块只依赖 `:core:*`，模块之间不互相依赖；跨模块组件下沉到 `:core:ui`。
-- Android 专有能力（定位、签名、乘车码、焦点通知）放在 `:androidApp`，高德地图 SDK 放 `:feature:route` 的 `androidMain`；`commonMain` 只依赖接口。
+- Android 专有能力（定位、签名、乘车码、焦点通知）放在 `:androidApp`；`commonMain` 只依赖接口。
 - 不同功能的改动分开提交，提交信息沿用 `type(scope): 描述`。
 
 ---
@@ -160,17 +160,13 @@ iosApp/              Xcode 宿主（UIKit 薄壳）和 TrackrWidgets 扩展
 ./gradlew jacocoTestReport
 ```
 
-### 本轮可安装的 Android 测试包
+### 本轮可安装的 Android 测试包（v9）
 
-2026-11-26 最新代码为 `ac7540e`（确认到站与主动引导 v4）。用户反馈 v3 仍然到站不震动、没有自动结束。本轮修正单线路短 ETA 提前用掉到站提醒标记的问题，并使单线路追踪卡/常驻通知的“到站”显示与事件一致；真正到站主动请求引导震动，“我已上车”的下车追踪确认停靠后即完成。原版标题过渡、间距和固定上车入口保持现状。
+多数安卓手机用 **[RTBus v9 · 64 位测试包](build/rtbus-validation/RTBus-20261126-alighting-v9-arm64-debug.apk)**。只有不支持 64 位的旧机才用 [32 位测试包](build/rtbus-validation/RTBus-20261126-alighting-v9-arm32-debug.apk)。这些是本机的构建副本，不是远程下载地址；安装到已有同签名「实时公交.D」上，不用先卸载。
 
-- 大多数安卓手机：`build/rtbus-validation/RTBus-20261126-arrival-v4-arm64-debug.apk`（33,458,511 字节，约 31.9 MiB）。
-- 32 位 ARM 旧设备：同目录 `RTBus-20261126-arrival-v4-arm32-debug.apk`（33,456,587 字节）。
-- 原始产物仍为 `androidApp/build/outputs/apk/debug/androidApp-arm64-v8a-debug.apk` / `androidApp-armeabi-v7a-debug.apk`，与上述副本字节一致。
+v9 修复两个下车提醒问题：同一站的不同车辆不再相互替换；刷新失败后不能拿旧位置开启或更改提醒。已建立的提醒不会仅因线路页刷新失败而取消。无需逐版安装 v5–v8。
 
-名称“实时公交.D”，版本 0.1.13 / code 21。最终完整主机测试与 debug 构建成功；18 模块共 **1,620 项测试**、26 项静态检查通过。双 ABI 签名及与 v3 证书一致性、Manifest/DEX/退役 SDK 边界和 ELF/ZIP 16 KB 对齐核验通过。可覆盖安装上一轮同签名 debug 包；未生成密钥、未更新 release，无 remote、不推送。
-
-安装后先结束旧构建留下的追踪。保持普通静音，到**“我的 → 测试到站提醒”**，无需等公交即可测试真正的到站通知和震动链，报告应有**“到站反馈：确认到站与主动引导 v4”**；它不创建或结束追踪、不播放语音，通知声音仍由系统设置控制。原“测试震动”保留作比较；两种报告均附最近六条真实提醒及最近追踪状态（不含线路、车牌、坐标；测试不覆盖真实记录）。`REQUESTED` 仅表示系统接口已调用，不是马达成功回执。当前无连接手机，v4 实际马达、锁屏和真实公交到站仍待验收。测试步骤见 [提醒验收清单](tasks/boarding-feedback-acceptance.md) 第 6–7 节，哈希与证据见 [交接记录](tasks/HANDOFF.md)。
+版本仍为 0.1.13 / code 21；用 v9 文件名和[交接记录](tasks/HANDOFF.md)里的 SHA-256 核对。诊断页的「到站反馈：确认到站与主动引导 v4」只表示震动机制版本，不能用来区分 v8 和 v9。[提醒验收清单](tasks/boarding-feedback-acceptance.md)第 5 节有不用出门的 v9 复测步骤。
 
 ### 发布 Release
 
