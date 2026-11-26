@@ -135,6 +135,9 @@ class BusTrackingService : LifecycleService() {
     /** 已经发出去的常驻通知 id（不管那一项还在不在），收摊时挨条撤掉，不留关不掉的旧通知 */
     private val postedNotifyIds = mutableSetOf<Int>()
 
+    /** 本轮自然完成前刚发出的到站提醒；会话收尾只撤常驻通知，让最终提醒自行超时。 */
+    private val finalArrivalSessions = mutableSetOf<String>()
+
     /** 前台服务（实时活动 / 上岛）绑在哪一份会话的通知上；null = 还没进前台 */
     private var foregroundSessionId: String? = null
 
@@ -434,9 +437,9 @@ class BusTrackingService : LifecycleService() {
                 worker.job = null
                 endedWorkers += worker
             }
-            // 这一项没了，它留下的到站提醒也没有主人了：一起撤掉，别让「车辆已到站」在通知栏
-            // 和锁屏上等用户手动点掉（#28）。常驻通知等前台换人之后再撤，提醒不用等。
-            ArrivalAlertNotifier.cancelSessionAlerts(this, sessionId)
+            // 主动结束仍清掉提醒；自然完成时保留本轮刚发的最终到站通知，避免通知震动
+            // 尚未播放就被取消。常驻进度仍立即清理，最终提醒沿用五分钟自动过期。
+            ArrivalAlertNotifier.cancelSessionAlerts(this, sessionId, keepArrived = finalArrivalSessions.remove(sessionId))
             if (foregroundSessionId == sessionId) foregroundSessionId = null
         }
         // 新增 / 换代：接上或重开这一路（通知 id 跟会话绑定，不用挪）
@@ -566,8 +569,12 @@ class BusTrackingService : LifecycleService() {
         speakIfEnabled(effect)
         when (effect) {
             is TrackingEngine.Effect.Alert -> when (effect.kind) {
-                TrackingEngine.AlertKind.ARRIVED ->
+                TrackingEngine.AlertKind.ARRIVED -> {
+                    // poller 成功提交 Finished 后先派发效果；会话 collector 在同一 Main 队列随后收尾。
+                    // 仅保留本轮自然完成的最终到站提醒，不保留用户主动结束时的旧提醒。
+                    if (sessionOf(sessionId) == null) finalArrivalSessions += sessionId
                     arrivalAlerts.triggerArrivedAlert(this, effect.state, effect.forceStandalone, sessionId)
+                }
                 TrackingEngine.AlertKind.APPROACHING ->
                     arrivalAlerts.triggerApproachingAlert(this, effect.state, sessionId)
                 TrackingEngine.AlertKind.MISSED ->

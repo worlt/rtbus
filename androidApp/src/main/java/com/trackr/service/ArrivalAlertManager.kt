@@ -200,11 +200,11 @@ class ArrivalAlertNotifier(
             }
         }
         // 静音走显式提醒震动；其他模式的独立通知仍由渠道震动，避免重复。
-        performWaveformVibration(context, APPROACHING_VIBRATION_PATTERN, posted)
+        performWaveformVibration(context, APPROACHING_VIBRATION_PATTERN, posted, "APPROACHING")
     }
 
     /**
-     * 当车辆到达目标候车站（stopsRemaining == 0 且 isBusArrivedAtStop 或 etaSeconds <= 45）时触发到站提醒及长震动
+     * 到站时使用与临近提醒 / 即时测试相同的有限分段震动，避免到站单独采用另一种效果。
      */
     fun triggerArrivedAlert(
         context: Context,
@@ -244,7 +244,7 @@ class ArrivalAlertNotifier(
             }
         }
         // 静音走显式提醒震动；其他模式的独立通知仍由渠道震动，避免重复。
-        performOneShotVibration(context, ARRIVED_VIBRATION_DURATION_MS, posted)
+        performWaveformVibration(context, APPROACHING_VIBRATION_PATTERN, posted, "ARRIVED")
     }
 
     /**
@@ -284,7 +284,7 @@ class ArrivalAlertNotifier(
             Log.e(TAG, "Failed to post transfer alert notification", e)
         }
         // 静音走显式提醒震动；其他模式的独立通知仍由渠道震动，避免重复。
-        performWaveformVibration(context, TRANSFER_VIBRATION_PATTERN, posted)
+        performWaveformVibration(context, TRANSFER_VIBRATION_PATTERN, posted, "TRANSFER")
     }
 
     /**
@@ -326,7 +326,7 @@ class ArrivalAlertNotifier(
             Log.e(TAG, "Failed to post missed-bus alert notification", e)
         }
         // 静音走显式提醒震动；其他模式的独立通知仍由渠道震动，避免重复。
-        performWaveformVibration(context, MISSED_VIBRATION_PATTERN, posted)
+        performWaveformVibration(context, MISSED_VIBRATION_PATTERN, posted, "MISSED")
     }
 
     /**
@@ -387,14 +387,10 @@ class ArrivalAlertNotifier(
         )
     }
 
-    private fun performWaveformVibration(context: Context, pattern: LongArray, posted: Boolean) {
-        ReminderVibration.vibrate(context, CHANNEL_ID_ALERT, vibrationEnabled(),
+    private fun performWaveformVibration(context: Context, pattern: LongArray, posted: Boolean, event: String) {
+        val result = ReminderVibration.vibrate(context, CHANNEL_ID_ALERT, vibrationEnabled(),
             VibrationEffect.createWaveform(pattern, -1), notificationPosted = posted)
-    }
-
-    private fun performOneShotVibration(context: Context, durationMs: Long, posted: Boolean) {
-        ReminderVibration.vibrate(context, CHANNEL_ID_ALERT, vibrationEnabled(),
-            VibrationEffect.createOneShot(durationMs, VibrationEffect.DEFAULT_AMPLITUDE), notificationPosted = posted)
+        Log.i(TAG, "event=$event notificationPosted=$posted vibration=$result")
     }
 
     companion object {
@@ -418,7 +414,6 @@ class ArrivalAlertNotifier(
         private val APPROACHING_VIBRATION_PATTERN = longArrayOf(0, 280, 120, 280, 120, 400)
         private val TRANSFER_VIBRATION_PATTERN = longArrayOf(0, 300, 100, 300, 100, 300)
         private val MISSED_VIBRATION_PATTERN = longArrayOf(0, 350, 150, 350)
-        private const val ARRIVED_VIBRATION_DURATION_MS = 800L
 
         /**
          * 提醒在通知栏里留多久就自己消失（#28）。
@@ -451,20 +446,23 @@ class ArrivalAlertNotifier(
         }
 
         /**
-         * 撤掉一份追踪留下的全部提醒：到站 / 即将到站 / 换乘 / 错过。
+         * 撤掉一份追踪留下的提醒：到站 / 即将到站 / 换乘 / 错过。
          *
          * 追踪结束了这些提醒就没有主人了，不该继续挂在通知栏和锁屏上等用户手动点掉（#28）。
          * 「已停止」「已中断」是解释性的状态消息，不挂在会话上，只能靠 [TIMEOUT_STATUS_MILLIS] 自己过期；
          * 旧版本发出去的通知没带 sessionId，算不出 id，也只能等它自己过期。
+         * [keepArrived] 仅用于本轮刚产生最终到站提醒的自然完成；保留其五分钟超时，
+         * 防止会话收尾马上取消通知及其尚未播放的震动。用户主动结束时保持默认清理。
          */
-        fun cancelSessionAlerts(context: Context, sessionId: String) {
+        fun cancelSessionAlerts(context: Context, sessionId: String, keepArrived: Boolean = false) {
             if (sessionId.isEmpty()) return
             listOf(
                 NOTIFICATION_ID_APPROACHING,
                 NOTIFICATION_ID_ARRIVED,
                 NOTIFICATION_ID_TRANSFER,
                 NOTIFICATION_ID_MISSED
-            ).forEach { cancelNotification(context, alertNotificationId(it, sessionId)) }
+            ).filterNot { keepArrived && it == NOTIFICATION_ID_ARRIVED }
+                .forEach { cancelNotification(context, alertNotificationId(it, sessionId)) }
         }
     }
 }

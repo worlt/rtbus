@@ -291,6 +291,85 @@ class BusTrackingServiceTest {
     }
 
     @Test
+    fun silentPinnedArrival_survivesLastSessionShutdownAndServiceDestruction() =
+        assertFinalPinnedArrival(vibrationEnabled = true)
+
+    @Test
+    fun silentPinnedArrival_withVibrationOff_stillKeepsFinalNotificationWithoutVibrating() =
+        assertFinalPinnedArrival(vibrationEnabled = false)
+
+    private fun assertFinalPinnedArrival(vibrationEnabled: Boolean) {
+        val audio = app.getSystemService(Application.AUDIO_SERVICE) as android.media.AudioManager
+        audio.ringerMode = android.media.AudioManager.RINGER_MODE_SILENT
+        val vibrator = app.getSystemService(Application.VIBRATOR_SERVICE) as android.os.Vibrator
+        shadowOf(vibrator).setHasVibrator(true)
+        transit.settings.setVoiceAlerts(false)
+        transit.settings.setVibrationAlerts(vibrationEnabled)
+        // 两轮之间已越过下车站：状态机本轮同时补发 ARRIVED 并结束最后一份追踪。
+        transit.realtime.lineDetailResult = Result.success(
+            lineDetail("L59", listOf(LiveBus(busId = "mine", plateOrFleetNo = "闽B2", order = 8, segmentProgress = 0.2f)))
+        )
+        val session = requireNotNull(trackingRepository.start(
+            singleTarget().copy(pinnedBusId = "mine", pinnedPlate = "闽B2", isOnboard = true)
+        ))
+        val controller = startService(session.sessionId)
+        val service = controller.get()
+        waitUntil("补发到站提醒并结束服务") { shadowOf(service).isStoppedBySelf }
+        assertNull(trackingRepository.sessionById(session.sessionId))
+        controller.destroy()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        val arrival = shadowOf(notificationManager).getNotification(
+            ArrivalAlertNotifier.alertNotificationId(ArrivalAlertNotifier.NOTIFICATION_ID_ARRIVED, session.sessionId)
+        )
+        assertNotNull("结束追踪及销毁服务不能马上取消最终到站通知和它的震动", arrival)
+        assertEquals(5 * 60_000L, arrival.timeoutAfter)
+        assertTrue(arrival.extras.getCharSequence(android.app.Notification.EXTRA_TEXT).toString().contains("请下车"))
+        val live: LiveProgressNotifier = GlobalContext.get().get()
+        assertNull(shadowOf(notificationManager).getNotification(live.notificationIdOf(session.sessionId)))
+        assertEquals(vibrationEnabled, shadowOf(vibrator).isVibrating)
+        if (vibrationEnabled) assertNavigationVibrationAttributes(vibrator)
+    }
+
+    @Test
+    fun silentWaitingBus_approachingThenArrived_eachRequestsFeedback() {
+        val audio = app.getSystemService(Application.AUDIO_SERVICE) as android.media.AudioManager
+        audio.ringerMode = android.media.AudioManager.RINGER_MODE_SILENT
+        val vibrator = app.getSystemService(Application.VIBRATOR_SERVICE) as android.os.Vibrator
+        shadowOf(vibrator).setHasVibrator(true)
+        transit.settings.setVibrationAlerts(true)
+        val alerts: ArrivalAlertNotifier = GlobalContext.get().get()
+        alerts.liveNotificationEnabledProvider = { true }
+        alerts.liveUpdateActiveChecker = { true }
+        transit.realtime.lineDetailResult = Result.success(lineDetail("L59", listOf(
+            LiveBus(busId = "mine", plateOrFleetNo = "闽B2", order = 6, segmentProgress = 0.5f))))
+        val session = requireNotNull(trackingRepository.start(
+            singleTarget().copy(pinnedBusId = "mine", pinnedPlate = "闽B2", isOnboard = false)
+        ))
+        val controller = startService(session.sessionId)
+        waitUntil("先发即将到站提醒") {
+            trackingRepository.sessionById(session.sessionId)?.state?.hasTriggeredApproachingAlert == true
+        }
+        assertTrue(shadowOf(vibrator).isVibrating)
+        val approachingPattern = shadowOf(vibrator).pattern.copyOf()
+        vibrator.cancel()
+        transit.realtime.lineDetailResult = Result.success(lineDetail("L59", listOf(
+            LiveBus(busId = "mine", plateOrFleetNo = "闽B2", order = 7, segmentProgress = 1f, isArrived = true))))
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(10))
+        waitUntil("同一辆车随后发已到站提醒") {
+            trackingRepository.sessionById(session.sessionId)?.state?.hasTriggeredArrivedAlert == true
+        }
+        assertTrue("临近震动结束后，到站要重新请求震动", shadowOf(vibrator).isVibrating)
+        org.junit.Assert.assertArrayEquals(approachingPattern, shadowOf(vibrator).pattern)
+        val arrival = shadowOf(notificationManager).getNotification(
+            ArrivalAlertNotifier.alertNotificationId(ArrivalAlertNotifier.NOTIFICATION_ID_ARRIVED, session.sessionId))
+        assertNotNull(arrival)
+        assertTrue(arrival.extras.getCharSequence(android.app.Notification.EXTRA_TEXT).toString().contains("请上车"))
+        assertFalse(shadowOf(controller.get()).isStoppedBySelf)
+        controller.destroy()
+    }
+
+    @Test
     fun voiceOff_alertIsNotSpoken() {
         val announcer = FakeAnnouncer()
         loadKoinModules(module { single<Announcer> { announcer } })
@@ -516,7 +595,7 @@ class BusTrackingServiceTest {
     // ---------------------------------------------------------------- 同时追多项（第 36 步）
 
     @Test
-    fun completedForegroundRoute_cleansUpNotificationsAndKeepsOtherLineRunning() {
+    fun completedForegroundRoute_keepsFinalAlertAndOtherLineRunning() {
         transit.realtime.lineDetailResult = Result.success(
             lineDetail("L59", listOf(LiveBus(busId = "b1", plateOrFleetNo = "闽B1", order = 7, segmentProgress = 1f, isArrived = true)))
         )
@@ -537,8 +616,8 @@ class BusTrackingServiceTest {
         }
         assertNotNull(shadowOf(notificationManager).getNotification(notifier.notificationIdOf(first.sessionId)))
         assertNull(shadowOf(notificationManager).getNotification(notifier.notificationIdOf(route.sessionId)))
-        assertNull(
-            "自动结束也必须经过统一清理，不能在收集会话变化前丢掉 worker",
+        assertNotNull(
+            "自然到站结束只撤常驻进度，刚发出的最终到站提醒须保留到自动过期",
             shadowOf(notificationManager).getNotification(
                 ArrivalAlertNotifier.alertNotificationId(ArrivalAlertNotifier.NOTIFICATION_ID_ARRIVED, route.sessionId)
             )

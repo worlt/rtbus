@@ -101,6 +101,7 @@ internal object ReminderVibration {
             }
             listOf(
                 "反馈实现：导航引导兼容版 v2",
+                "到站反馈：分段提醒修复 v3",
                 "设备：" + Build.MANUFACTURER + " " + Build.MODEL,
                 "Android：" + Build.VERSION.RELEASE + " / API " + Build.VERSION.SDK_INT,
                 "铃声模式：" + mode + "；铃声音量：" + audio.getStreamVolume(AudioManager.STREAM_RING),

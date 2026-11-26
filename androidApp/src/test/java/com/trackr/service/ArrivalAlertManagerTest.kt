@@ -411,6 +411,26 @@ class ArrivalAlertManagerTest {
     }
 
     @Test
+    fun silentArrivalUsesTheSameFiniteWaveformAsTheWorkingImmediateTest() {
+        val audio = app.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
+        audio.ringerMode = android.media.AudioManager.RINGER_MODE_SILENT
+        val vibrator = app.getSystemService(android.content.Context.VIBRATOR_SERVICE) as android.os.Vibrator
+        val shadow = shadowOf(vibrator)
+        shadow.setHasVibrator(true)
+        val notifier = alertsWithLockScreen { true }
+        notifier.ensureNotificationChannel(app)
+        ReminderVibration.test(app, ArrivalAlertNotifier.CHANNEL_ID_ALERT, enabled = true)
+        val testedPattern = shadow.pattern.copyOf()
+        vibrator.cancel()
+
+        notifier.triggerArrivedAlert(app, activeTrackingState(0), forceStandalone = true)
+
+        org.junit.Assert.assertArrayEquals("真实到站使用已验证的分段震动，不再单独走单次长震", testedPattern, shadow.pattern)
+        assertEquals(-1, shadow.repeat)
+        assertNavigationVibrationAttributes(vibrator)
+    }
+
+    @Test
     fun pinnedWaitingAndOnboardNotificationsUseCorrectAction() {
         val notifier = alertsWithLockScreen { true }
         val pinned = activeTrackingState(0).copy(pinnedBusId = "selected", isOnboard = false)
