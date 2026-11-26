@@ -70,6 +70,28 @@ class ScheduledReminderReceiverTest {
     }
 
     @Test
+    fun scheduledReminderVibratesInSilentModeButRespectsSwitch() = runBlocking {
+        val fake = FakeTransitRepository()
+        loadKoinModules(module { single<ITransitRepository> { fake } })
+        val reminder = autoStartReminder("silent-feedback").copy(autoStartLiveTracking = false)
+        reminderRepository.saveReminder(reminder)
+        val audio = app.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+        audio.ringerMode = android.media.AudioManager.RINGER_MODE_SILENT
+        val vibrator = app.getSystemService(Context.VIBRATOR_SERVICE) as android.os.Vibrator
+        shadowOf(vibrator).setHasVibrator(true)
+        vibrator.cancel()
+        fake.setVibrationAlerts(true)
+        ScheduledReminderReceiver().handleReminderTrigger(app, reminder.id)
+        assertTrue(shadowOf(vibrator).isVibrating)
+        assertEquals(android.os.VibrationAttributes.USAGE_ALARM,
+            (shadowOf(vibrator).getVibrationAttributesFromLastVibration() as android.os.VibrationAttributes).usage)
+        vibrator.cancel()
+        fake.setVibrationAlerts(false)
+        ScheduledReminderReceiver().handleReminderTrigger(app, reminder.id)
+        assertFalse(shadowOf(vibrator).isVibrating)
+    }
+
+    @Test
     fun testReceiveInvalidAction_doesNothing() {
         val intent = Intent("invalid.action")
         receiver.onReceive(app, intent)

@@ -242,6 +242,11 @@ class ScheduledReminderReceiver : BroadcastReceiver(), KoinComponent {
             .build()
 
         notificationManager.notify(NOTIFICATION_BASE_ID + reminder.id.hashCode() % 10000, notification)
+        com.trackr.service.ReminderVibration.vibrate(
+            context, scheduledChannelId, vibrationEnabled,
+            android.os.VibrationEffect.createWaveform(longArrayOf(0, 280, 120, 280, 120, 400), -1),
+            notificationPosted = true
+        )
     }
 
     @VisibleForTesting

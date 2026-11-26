@@ -397,6 +397,21 @@ class ArrivalAlertManagerTest {
     }
 
     @Test
+    fun silentModePostedArrivalUsesReminderVibration() {
+        val audio = app.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
+        audio.ringerMode = android.media.AudioManager.RINGER_MODE_SILENT
+        val vibrator = app.getSystemService(android.content.Context.VIBRATOR_SERVICE) as android.os.Vibrator
+        val shadow = shadowOf(vibrator)
+        shadow.setHasVibrator(true)
+        vibrator.cancel()
+        alertsWithLockScreen { true }.triggerArrivedAlert(app, activeTrackingState(0))
+        assertNotNull(shadowOf(notificationManager).getNotification(ArrivalAlertNotifier.NOTIFICATION_ID_ARRIVED))
+        assertTrue("静音时已发布通知也要单独请求提醒震动", shadow.isVibrating)
+        val attributes = shadow.getVibrationAttributesFromLastVibration() as android.os.VibrationAttributes
+        assertEquals(android.os.VibrationAttributes.USAGE_ALARM, attributes.usage)
+    }
+
+    @Test
     fun pinnedWaitingAndOnboardNotificationsUseCorrectAction() {
         val notifier = alertsWithLockScreen { true }
         val pinned = activeTrackingState(0).copy(pinnedBusId = "selected", isOnboard = false)

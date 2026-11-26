@@ -64,7 +64,7 @@
     <string name="me_voice_alerts">语音播报提醒</string>
     <string name="me_voice_alerts_desc">独立播报追踪中的快到站、到站、换乘及定时提醒</string>
     <string name="me_vibration_alerts">震动提醒</string>
-    <string name="me_vibration_alerts_desc">独立控制追踪提醒和定时提醒的震动；仍受系统静音和勿扰设置影响</string>
+    <string name="me_vibration_alerts_desc">独立控制追踪和定时提醒；普通静音模式下仍请求震动，遵守勿扰及系统禁震设置</string>
     <string name="me_reminders">定时提醒</string>
     <string name="me_reminders_none">没有</string>
     <string name="me_reminders_count">%1$s 个</string>

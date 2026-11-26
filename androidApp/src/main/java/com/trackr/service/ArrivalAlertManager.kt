@@ -6,12 +6,8 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.media.AudioAttributes
 import android.os.Build
-import android.os.VibrationAttributes
 import android.os.VibrationEffect
-import android.os.Vibrator
-import android.os.VibratorManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -203,10 +199,8 @@ class ArrivalAlertNotifier(
                 Log.e(TAG, "Failed to post approaching alert notification", e)
             }
         }
-        // 独立通知已由渠道负责振动；只有没发出独立通知时才手动振动，避免振两次
-        if (!posted) {
-            performWaveformVibration(context, APPROACHING_VIBRATION_PATTERN)
-        }
+        // 静音走显式提醒震动；其他模式的独立通知仍由渠道震动，避免重复。
+        performWaveformVibration(context, APPROACHING_VIBRATION_PATTERN, posted)
     }
 
     /**
@@ -249,10 +243,8 @@ class ArrivalAlertNotifier(
                 Log.e(TAG, "Failed to post arrived alert notification", e)
             }
         }
-        // 独立通知已由渠道负责振动；只有没发出独立通知时才手动振动，避免振两次
-        if (!posted) {
-            performOneShotVibration(context, ARRIVED_VIBRATION_DURATION_MS)
-        }
+        // 静音走显式提醒震动；其他模式的独立通知仍由渠道震动，避免重复。
+        performOneShotVibration(context, ARRIVED_VIBRATION_DURATION_MS, posted)
     }
 
     /**
@@ -291,10 +283,8 @@ class ArrivalAlertNotifier(
         } catch (e: Exception) {
             Log.e(TAG, "Failed to post transfer alert notification", e)
         }
-        // 独立通知由渠道负责振动；没发出去时才手动振动
-        if (!posted) {
-            performWaveformVibration(context, TRANSFER_VIBRATION_PATTERN)
-        }
+        // 静音走显式提醒震动；其他模式的独立通知仍由渠道震动，避免重复。
+        performWaveformVibration(context, TRANSFER_VIBRATION_PATTERN, posted)
     }
 
     /**
@@ -335,9 +325,8 @@ class ArrivalAlertNotifier(
         } catch (e: Exception) {
             Log.e(TAG, "Failed to post missed-bus alert notification", e)
         }
-        if (!posted) {
-            performWaveformVibration(context, MISSED_VIBRATION_PATTERN)
-        }
+        // 静音走显式提醒震动；其他模式的独立通知仍由渠道震动，避免重复。
+        performWaveformVibration(context, MISSED_VIBRATION_PATTERN, posted)
     }
 
     /**
@@ -398,49 +387,14 @@ class ArrivalAlertNotifier(
         )
     }
 
-    private fun performWaveformVibration(context: Context, pattern: LongArray) {
-        vibrateAsNotification(context, VibrationEffect.createWaveform(pattern, -1))
+    private fun performWaveformVibration(context: Context, pattern: LongArray, posted: Boolean) {
+        ReminderVibration.vibrate(context, CHANNEL_ID_ALERT, vibrationEnabled(),
+            VibrationEffect.createWaveform(pattern, -1), notificationPosted = posted)
     }
 
-    private fun performOneShotVibration(context: Context, durationMs: Long) {
-        vibrateAsNotification(context, VibrationEffect.createOneShot(durationMs, VibrationEffect.DEFAULT_AMPLITUDE))
-    }
-
-    /**
-     * 以“通知”用途振动：系统会按静音 / 勿扰 / 通知振动设置决定是否真正振动，
-     * 不会在用户静音时强行振动
-     */
-    private fun vibrateAsNotification(context: Context, effect: VibrationEffect) {
-        if (!vibrationEnabled() || !areNotificationsEnabled(context)) return
-        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
-        val channel = manager?.getNotificationChannel(CHANNEL_ID_ALERT)
-        if (channel != null && (channel.importance == NotificationManager.IMPORTANCE_NONE || !channel.shouldVibrate())) return
-        try {
-            val vibrator = getVibrator(context)
-            if (vibrator == null || !vibrator.hasVibrator()) return
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                vibrator.vibrate(effect, VibrationAttributes.createForUsage(VibrationAttributes.USAGE_NOTIFICATION))
-            } else {
-                val audioAttributes = AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_NOTIFICATION)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .build()
-                @Suppress("DEPRECATION")
-                vibrator.vibrate(effect, audioAttributes)
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to perform notification vibration", e)
-        }
-    }
-
-    private fun getVibrator(context: Context): Vibrator? {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val manager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
-            manager?.defaultVibrator
-        } else {
-            @Suppress("DEPRECATION")
-            context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
-        }
+    private fun performOneShotVibration(context: Context, durationMs: Long, posted: Boolean) {
+        ReminderVibration.vibrate(context, CHANNEL_ID_ALERT, vibrationEnabled(),
+            VibrationEffect.createOneShot(durationMs, VibrationEffect.DEFAULT_AMPLITUDE), notificationPosted = posted)
     }
 
     companion object {
