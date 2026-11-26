@@ -162,14 +162,15 @@ iosApp/              Xcode 宿主（UIKit 薄壳）和 TrackrWidgets 扩展
 
 ### 本轮可安装的 Android 测试包
 
-2026-11-26 最新代码为 `342bd44`（进一步缩小标题上方空白、保留原版双标题过渡，新增普通静音震动兼容调用与“测试震动”；常驻“我已上车”入口保留），已用本机既有 debug 签名重新生成两个 APK：
+2026-11-26 最新代码为 `50d4f7b`（到站分段反馈修复 v3）：到站改用已在用户手机即时测试中生效的有限分段震动；自然完成当轮保留刚发出的最终到站通知，避免和常驻进度一起被立即撤销。原版标题过渡、间距及常驻“我已上车”入口保持现状。
 
-- 大多数安卓手机：`androidApp/build/outputs/apk/debug/androidApp-arm64-v8a-debug.apk`（33,457,478 字节，约 31.9 MiB）。
-- 32 位 ARM 旧设备：同目录 `androidApp-armeabi-v7a-debug.apk`（33,455,554 字节）。
+- 大多数安卓手机：`build/rtbus-validation/RTBus-20261126-arrival-v3-arm64-debug.apk`（33,457,478 字节，约 31.9 MiB）。
+- 32 位 ARM 旧设备：同目录 `RTBus-20261126-arrival-v3-arm32-debug.apk`（33,455,554 字节）。
+- 原始产物仍为 `androidApp/build/outputs/apk/debug/androidApp-arm64-v8a-debug.apk` / `androidApp-armeabi-v7a-debug.apk`，与上述副本字节一致。
 
-名称“实时公交.D”，版本 0.1.13 / code 21。完整主机回归 1,599 项及 26 项静态检查通过，双 ABI 签名和 16 KB 对齐核验通过；真实马达/语音、锁屏后台与乘车流程待真机验收。文件哈希见 [交接记录](tasks/HANDOFF.md)，安装及逐步操作见 [提醒验收清单](tasks/boarding-feedback-acceptance.md)。另存带明确文件名的同内容副本：`build/rtbus-validation/RTBus-20261126-silent-v2-arm64-debug.apk`、`RTBus-20261126-silent-v2-arm32-debug.apk`。
+名称“实时公交.D”，版本 0.1.13 / code 21。完整主机测试任务及 debug 构建成功；18 模块共 1,603 项测试和 26 项静态检查通过。双 ABI 签名、与 v2 证书一致性、Manifest/DEX/退役 SDK 边界及 16 KB 对齐核验通过。可覆盖安装上一轮同签名 debug 包；没有重新生成密钥，没有更新 release。
 
-用户已反馈上一轮在普通静音下仍不震动，不能把上一轮主机测试视为真机通过。安装本轮包后可直接到“我的 → 测试震动”，检查报告包含“导航引导兼容版 v2”。报告会区分请求已发送与应用开关、通知权限、渠道或勿扰拦截；“REQUESTED”不证明手机马达已工作。
+最新用户实测已确认 v2 在普通静音下即时测试成功，临近/追踪操作也有震动，**实际到站仍未震动**。此轮 v3 已完成代码和主机验证，仍需手机复测实际到站。安装后在“我的 → 测试震动”报告里核对新增“到站反馈：分段提醒修复 v3”，再按 [提醒验收清单](tasks/boarding-feedback-acceptance.md) 第 7 节分别测试候车到站与下车到站；文件哈希和证据见 [交接记录](tasks/HANDOFF.md)。`REQUESTED` 仅表示系统请求已发送，不是硬件成功回执。
 
 ### 发布 Release
 

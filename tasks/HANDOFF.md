@@ -185,7 +185,7 @@
 - 已检查本轮原生渲染：original-home-expanded-dark.png、original-home-collapsed-dark.png、original-me-expanded-dark.png、original-me-collapsed-dark.png；新预览 balanced-headers-preview.png；各字体中间态 balanced-title-font-*.png；诊断弹窗 balanced-vibration-test-dialog.png。均在忽略目录 build/rtbus-validation/，是 Robolectric 渲染，不是真机截图。
 - 两个 APK 已用本机既有 debug 签名生成；apksigner 通过，双 ABI 证书一致，且与上一轮签名一致。Manifest/VIBRATE 权限、诊断与 boarding DEX 标记、退役 SDK 边界、ELF/ZIP 16 KB 对齐核验通过。包名 com.github.u5151561.trackr.debug，名称“实时公交.D”，版本仍为 0.1.13 / code 21，用哈希及 v2 诊断标记识别。未更新 release，未生成密钥。
 
-| 最新 debug APK（项目内路径） | 字节 | SHA-256 |
+| 上一轮 v2 debug APK（历史原始路径，现已被 v3 构建覆盖；旧包副本见下） | 字节 | SHA-256 |
 | --- | ---: | --- |
 | androidApp/build/outputs/apk/debug/androidApp-arm64-v8a-debug.apk | 33,457,478 | C755E19A87FA26BA37A4059DC3723906938CD49F96B27118E31F298801611835 |
 | androidApp/build/outputs/apk/debug/androidApp-armeabi-v7a-debug.apk | 33,455,554 | FE3BC18995BC77B4A8E873828D20BC3B1548AB6B075BEA7D735641AFA44ED341 |
@@ -195,9 +195,29 @@
 - 参考 [AOSP VibrationAttributes](https://android.googlesource.com/platform/frameworks/base/+/refs/heads/main/core/java/android/os/VibrationAttributes.java) 和 [AOSP VibrationSettings](https://raw.githubusercontent.com/aosp-mirror/platform_frameworks_base/master/services/core/java/com/android/server/vibrator/VibrationSettings.java)。系统策略按用途区分，普通静音不是全局禁震；厂商最终效果需实测，不能把本次调用选择当作该手机已验证的根因。
 - adb devices -l 仍无设备。普通静音实际马达、厂商系统/后台、锁屏、语音和真实公交到站待按验收清单复测；iOS 未实际编译/运行。无 remote、不推送。
 
+### 本轮续接：实际到站不震动，分段反馈修复 v3（2026-11-26）
+
+- 最新用户反馈优先于旧待验收记录：v2 “测试震动”已在普通静音手机上成功，用户另反馈临近/追踪操作有震动，但实际到站没有震动。动作反馈不等同于到站通知链；没有据此宣称后台或实际到站已通过。
+- 代码提交 `50d4f7b`。确认并通过回归复现的生命周期缺陷：TrackingPoller 成功提交 Finished 并移除会话后派发 ARRIVED；同一 Main 队列的会话 collector 随即清理此会话全部提醒，刚发的最终到站通知被马上撤掉。覆盖指定车两轮间越站补发、路线最后一程到站及另一条线仍在运行的场景。此缺陷会失去最终通知及其通知反馈机会，但不能单凭主机测试证明它是该手机不震的唯一原因。
+- BusTrackingService 仅对“本轮 ARRIVED 效果发出时会话已自然完成”的 session 标记一次；collector 收尾消费标记，保留本轮最终到站通知原有五分钟超时，仍立即撤常驻进度和临近等旧提醒。用户手动结束、失效、服务回收中的活动会话仍沿用清理。完成后的最终通知可点击消除或自行超时，不留下永久常驻。
+- 到站原为独有的单次 800ms 长震，临近/即时测试为有限分段波形。到站改用同一分段波形与导航引导调用、repeat=-1；没有证据认定该机型不支持单次长震。保留原有应用震动开关、通知权限、渠道及勿扰检查，也保留正常响铃/振动模式的通知渠道处理。ArrivalAlertManager 日志新增 APPROACHING / ARRIVED / TRANSFER / MISSED 事件、notificationPosted 和 vibration 结果，不记录线路或车牌。
+- “我的 → 测试震动”诊断新增“到站反馈：分段提醒修复 v3”，原 v2 底层标记仍保留。版本仍 0.1.13 / code 21，需用 v3 诊断标记及哈希识别构建。没有改标题布局、开关 UI、上车入口或 KMP/iOS 结构，没有恢复退役 SDK/Key。
+- 先写回归并实际看到 3 项断言失败（波形不一致、单车自然完成最终通知被撤、多任务最后一程最终通知被撤）。修复后定向 65 项通过；增加候车“临近 → 到站”连续轮询、关闭震动仍保留最终通知、最后会话停服务并 onDestroy 等覆盖，手动结束旧提醒清理测试继续通过。
+- 最终 `test :androidApp:assembleDebug --continue --no-daemon --console=plain` BUILD SUCCESSFUL，1m 14s，636 tasks（23 executed / 613 up-to-date）；18 模块 XML 共 1,603 项，0 failures / errors / skipped。26 项 Python 静态/检查器测试、git diff --check 通过。沿用 Gradle 增量缓存；未把主机模拟当作手机马达验收。
+- 双 ABI APK 签名核验通过，二者证书相同且与用户上一轮 v2 包一致；Manifest/VIBRATE、到站 v3/诊断/boarding DEX 标记、退役 SDK 边界及 ELF/ZIP 16 KB 对齐通过。包名 com.github.u5151561.trackr.debug，未生成密钥、未更新 release。
+
+| v3 可安装 debug APK（项目内路径） | 字节 | SHA-256 |
+| --- | ---: | --- |
+| build/rtbus-validation/RTBus-20261126-arrival-v3-arm64-debug.apk | 33,457,478 | 4030D885BB439A91BFC996355D22DAECF3036EA1D8EFCEF1B86583743545E5C8 |
+| build/rtbus-validation/RTBus-20261126-arrival-v3-arm32-debug.apk | 33,455,554 | CAF72C114596909906EA07E98E4A604537FF37CD65BB9BCBC7D2ACB0A6A49BF6 |
+
+- 原始 APK 路径为 androidApp/build/outputs/apk/debug/androidApp-arm64-v8a-debug.apk / androidApp-armeabi-v7a-debug.apk；与具名副本已逐个核对哈希。旧 silent-v2 具名副本保留供回溯，不应再安装旧包验证本轮修复。
+- 本轮证据均在忽略目录 build/rtbus-validation/：arrival-vibration-red.log（最终三项行为断言失败）、arrival-vibration-targeted.log / arrival-vibration-targeted-summary.json（65 项通过）、arrival-v3-full-host.log、arrival-v3-static.log、arrival-v3-artifact-audit.log、arrival-v3-audit-summary.json、audit-arrival-v3-artifacts.py、arrival-v3-<abi>-signature/zipalign/badging.log、arrival-v3-previous-signature.log。
+- adb devices -l 无设备。用户确认的是上一轮即时测试物理成功，本轮实际到站、锁屏/后台及语音仍须复测；iOS 未实际编译/运行。只做本地提交，无 remote、不推送。
+
 ## 7. 唯一明确的下一步
 
-下一独立阶段按 boarding-feedback-acceptance.md 安装代码 `342bd44` 的 silent-v2 debug 签名包，保持普通静音，先在“我的 → 测试震动”确认 v2 标记并观察实际震动；若未震，优先保留完整诊断弹窗截图，不必先等公交。即时震动有效后，再验证前台/锁屏定时提醒、标题过渡和四种反馈组合，并实际乘车完成“指定未到车辆 → 底部我已上车 → 明确选车 → 选下车站 → 锁屏到站提醒”。当前没有连接真机，因此静音物理反馈仍未验收。之后继续其余 Android 保留功能验收；release 真实签名安装/升级需用户控制的签名配置，iOS 编译/运行需 macOS/Xcode。不生成或提交密钥，不配置 remote、不推送，不重做已完成的退役 SDK/Key/隐私清理；保留全国城市和普通公交及辅助功能。
+安装代码 `50d4f7b` 的 arrival-v3 具名 debug 包，保持普通静音，在“我的 → 测试震动”核对“分段提醒修复 v3”。按 boarding-feedback-acceptance.md 第 7 节分别实测“指定未到车 → 临近 → 候车到站”和“我已上车 → 选车/下车站 → 锁屏下车到站”，重点观察到站是否再次震动，以及自然完成时最终通知是否保留而常驻进度消失。即时测试已由用户确认有效，不必再把它当作未解决的首要问题；若到站仍无反馈，记录到站通知是否出现、是否同时自动结束、锁屏状态及诊断，连接手机后查看 ARRIVED / ReminderVibration 日志。之后继续保留功能验收；release 真实签名/升级和 iOS Xcode 验收仍未完成。不生成/提交密钥、不配置 remote、不推送，保留全国城市及普通公交辅助能力。
 
 ## 8. 记录维护
 
