@@ -3,6 +3,15 @@ package com.trackr.feature.bus.home
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.performScrollToIndex
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeDown
+import androidx.compose.ui.test.swipeUp
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.graphics.asAndroidBitmap
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -116,6 +125,64 @@ class BusHomeScreenTest {
                 BusHomeScreen(state = state, onEvent = { events += it })
             }
         }
+    }
+
+    @Test
+    @Config(qualifiers = "zh-rCN-w360dp-h800dp")
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun originalHeaderTransitionKeepsComfortableSpacingAfterRepeatedScrolls() {
+        composeTestRule.setContent {
+            TrackrTheme(darkTheme = true) {
+                BusHomeScreen(state = stateOf(withFavorites = false), onEvent = { events += it })
+            }
+        }
+        fun headerHeight() = composeTestRule.onNodeWithTag(BusHomeTags.TOP_BAR).getUnclippedBoundsInRoot().let { it.bottom - it.top }
+        fun assertSearchGap() {
+            val header = composeTestRule.onNodeWithTag(BusHomeTags.TOP_BAR).getUnclippedBoundsInRoot()
+            val search = composeTestRule.onNodeWithTag(BusHomeTags.SEARCH).getUnclippedBoundsInRoot()
+            assertEquals("搜索框与标题栏保持 12dp 间距", 12f, (search.top - header.bottom).value, 1f)
+            composeTestRule.onNodeWithTag(BusHomeTags.CITY_TITLE).assertIsDisplayed()
+        }
+        fun capture(name: String) {
+            System.getenv("RTBUS_SCREENSHOT_DIR")?.let { directory ->
+                val file = java.io.File(directory, name)
+                file.parentFile?.mkdirs()
+                file.outputStream().use {
+                    composeTestRule.onRoot().captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+                }
+            }
+        }
+        val expanded = headerHeight()
+        assertTrue("缩短展开区，保留大标题", expanded in 120.dp..152.dp)
+        assertSearchGap()
+        capture("original-home-expanded-dark.png")
+        repeat(2) { cycle ->
+            composeTestRule.onNodeWithTag(BusHomeTags.LIST).performTouchInput { swipeUp() }
+            composeTestRule.onNodeWithTag(BusHomeTags.LIST).performScrollToIndex(0)
+            assertEquals("上滑仍保留原版收起过渡", 56f, (expanded - headerHeight()).value, 1f)
+            assertSearchGap()
+            if (cycle == 0) capture("original-home-collapsed-dark.png")
+            composeTestRule.onNodeWithTag(BusHomeTags.LIST).performTouchInput { swipeDown() }
+            assertEquals("回顶重新展开，不能累积额外留白", expanded.value, headerHeight().value, 1f)
+            assertSearchGap()
+        }
+        composeTestRule.onNodeWithTag(BusHomeTags.LIST).performTouchInput { swipeDown() }
+        assertTrue("标题完全展开后仍可下拉刷新", events.any { it is BusHomeEvent.Refresh })
+    }
+
+    @Test
+    @Config(qualifiers = "zh-rCN-w320dp-h640dp")
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun originalHomeHeaderAndSearchFitSmallPhoneWithLargeText() {
+        composeTestRule.setContent {
+            val density = androidx.compose.ui.platform.LocalDensity.current
+            CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides
+                androidx.compose.ui.unit.Density(density.density, fontScale = 1.5f)) {
+                TrackrTheme { BusHomeScreen(stateOf(withFavorites = false), {}) }
+            }
+        }
+        composeTestRule.onNodeWithTag(BusHomeTags.CITY_TITLE).assertIsDisplayed().performClick()
+        composeTestRule.onNodeWithTag(BusHomeTags.SEARCH).assertIsDisplayed().performClick()
     }
 
     @Test

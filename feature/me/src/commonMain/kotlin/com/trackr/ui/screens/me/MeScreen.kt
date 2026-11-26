@@ -136,6 +136,7 @@ fun MeScreen(
     onEvent: (MeEvent) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     var showTransitCodeDialog by rememberSaveable { mutableStateOf(false) }
     var showAlertThresholdDialog by rememberSaveable { mutableStateOf(false) }
     var showRailModeDialog by rememberSaveable { mutableStateOf(false) }
@@ -145,7 +146,6 @@ fun MeScreen(
     var showLiveUpdateGuide by rememberSaveable { mutableStateOf(false) }
 
 
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val layoutDirection = LocalLayoutDirection.current
     val themeModeLabels = mapOf(
         ThemeMode.System to stringResource(MeRes.string.me_theme_system),
@@ -159,8 +159,10 @@ fun MeScreen(
         snackbarHost = { MeMessageHost(state.userMessages, Modifier.padding(bottom = LocalBottomBarHeight.current)) { onEvent(MeEvent.MessageShown(it)) } },
         topBar = {
             LargeTopAppBar(
-                title = { Text(text = stringResource(MeRes.string.me_title), fontWeight = FontWeight.Bold) },
+                modifier = Modifier.testTag("me_top_bar"),
+                expandedHeight = 120.dp,
                 scrollBehavior = scrollBehavior,
+                title = { Text(text = stringResource(MeRes.string.me_title), fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                     scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
@@ -171,10 +173,12 @@ fun MeScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
+                .testTag("me_settings_list")
+                .padding(top = innerPadding.calculateTopPadding())
                 .consumeWindowInsets(innerPadding),
             contentPadding = PaddingValues(
                 start = innerPadding.calculateStartPadding(layoutDirection) + 16.dp,
-                top = innerPadding.calculateTopPadding() + 8.dp,
+                top = 16.dp,
                 end = innerPadding.calculateEndPadding(layoutDirection) + 16.dp,
                 bottom = innerPadding.calculateBottomPadding() + LocalBottomBarHeight.current + 24.dp
             ),

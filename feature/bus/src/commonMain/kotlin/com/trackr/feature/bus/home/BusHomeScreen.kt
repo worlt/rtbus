@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -63,6 +64,7 @@ import org.jetbrains.compose.resources.vectorResource
 
 /** 测试用的 tag */
 internal object BusHomeTags {
+    const val TOP_BAR = "bus_home_top_bar"
     const val LIST = "bus_home_list"
     const val CITY_TITLE = "bus_home_city"
     const val SEARCH = "bus_home_search"
@@ -100,13 +102,11 @@ fun BusHomeScreen(
     val fabState = rememberTransitCodeFabState()
     // 底栏（页签）收起时，「乘车码」跟着一起往下走；底栏是根布局画的，这里只读它滑下去的距离
     val bottomBarCollapseOffset = LocalBottomBarCollapseOffset.current
-    // 标题栏和「我的」页一样，用 Material3 原生的滚动折叠：往下滑收成一条，往上滑展开
     val topBarScrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     Scaffold(
         modifier = modifier
-            .nestedScroll(fabState.nestedScrollConnection)
-            .nestedScroll(topBarScrollBehavior.nestedScrollConnection),
+            .nestedScroll(fabState.nestedScrollConnection),
         contentWindowInsets = WindowInsets.safeDrawing,
         topBar = {
             BusHomeTopBar(
@@ -143,25 +143,27 @@ fun BusHomeScreen(
             isRefreshing = state.isRefreshing,
             onRefresh = { onEvent(BusHomeEvent.Refresh) },
             state = pullState,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize()
+                .padding(top = innerPadding.calculateTopPadding())
+                .consumeWindowInsets(innerPadding),
             indicator = {
                 PullToRefreshDefaults.Indicator(
                     state = pullState,
                     isRefreshing = state.isRefreshing,
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(top = innerPadding.calculateTopPadding())
+                    modifier = Modifier.align(Alignment.TopCenter)
                 )
             }
         ) {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
+                    // 先让大标题展开，剩余下拉手势再交给外层刷新。
+                    .nestedScroll(topBarScrollBehavior.nestedScrollConnection)
                     .testTag(BusHomeTags.LIST),
                 contentPadding = PaddingValues(
                     start = innerPadding.calculateStartPadding(layoutDirection),
                     end = innerPadding.calculateEndPadding(layoutDirection),
-                    top = innerPadding.calculateTopPadding(),
+                    top = 12.dp,
                     // 留出底栏和悬浮按钮的高度，最后一个站不被挡住（按钮关掉了就不用留）
                     bottom = innerPadding.calculateBottomPadding() + LocalBottomBarHeight.current +
                         if (state.showTransitCodeButton) FAB_CLEARANCE else 0.dp
@@ -222,7 +224,7 @@ fun BusHomeScreen(
     }
 }
 
-/** 顶栏：大标题是城市名（v3），点它换城市；和「我的」页一样滚动收起成一条 */
+/** 保留原版大标题过渡，缩短展开区；内容与标题栏之间另留呼吸空间。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun BusHomeTopBar(
@@ -231,6 +233,9 @@ private fun BusHomeTopBar(
     scrollBehavior: TopAppBarScrollBehavior
 ) {
     LargeTopAppBar(
+        modifier = Modifier.testTag(BusHomeTags.TOP_BAR),
+        expandedHeight = 120.dp,
+        scrollBehavior = scrollBehavior,
         title = {
             Surface(
                 onClick = onCityClick,
@@ -251,7 +256,6 @@ private fun BusHomeTopBar(
                 }
             }
         },
-        scrollBehavior = scrollBehavior,
         colors = TopAppBarDefaults.topAppBarColors(
             containerColor = MaterialTheme.colorScheme.surface,
             scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
