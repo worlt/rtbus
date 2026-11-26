@@ -146,9 +146,17 @@
 - 两个最新 debug APK 各检查 31 份 DEX，均不含上游 update/update-beta 清单地址，无高德 DEX/原生库；各仅保留 graphics.path 与 datastore counter 原生库。Gradle checkDebug16kbPageAlignment 与两个 APK 的 zipalign -c -P 16 -v 4 通过。release 合并 Manifest 任务通过；未生成 release APK，未做真机/iOS 或真实签名升级。
 - README、测试指南和待办同步，清除 todo 的过时“下一步删除 Key”。本地日志/汇总在忽略目录 build/rtbus-validation/：update-source-targeted-verified.log、update-source-full-host.log、update-source-static.log、update-source-suite-summary.json、update-source-apk-summary.json 和各 APK 的 update-source-*-zipalign.log。没有调用真实公交或上游更新接口；无 remote、不推送。
 
+### Android release APK 构建与产物核查（2026-11-26）
+
+- 基于 e571480，在 JDK 21 / SDK 37 / Gradle 9.8.2 下执行 `:androidApp:assembleRelease`：BUILD SUCCESSFUL，518 个任务（237 executed / 281 up-to-date）；Gradle `checkRelease16kbPageAlignment` 的 4 个 64 位共享库全部通过。
+- 未发现 RELEASE_STORE_* 环境变量或 local.properties，按现有配置生成两个未签名 APK，没有创建或提交密钥。apksigner 对 arm64 APK 报 `Missing META-INF/MANIFEST.MF`，符合未签名状态；该 APK 不能作为签名发行包安装/升级。
+- APK 元数据均为 applicationId `com.github.u5151561.trackr`、versionCode 21、versionName 0.1.13、targetSdk 36。arm64-v8a：4,770,050 字节，SHA-256 `D55DEB03FE323738EB02AB73914784872A7B3053F12E827312F118AD1E4C503C`；armeabi-v7a：4,768,126 字节，SHA-256 `4C5CF5FD0EEE9A9BA9E7DBA1511BE8A522E20D753BC344A5E004B2D84F813D26`。两个 APK 都由 `zipalign -c -P 16 -v 4` 验证通过。
+- 实际 release 依赖报告、合并 Manifest 与两个 APK 通过 `.github/scripts/check_native_sdk_artifacts.py`；包内各仅有 graphics.path 和 datastore counter 原生库，无退役 SDK 依赖/组件/DEX 类。每包 1 个 DEX，未匹配到上游 update-beta / release metadata 地址。Manifest 保留定位、后台服务、通知、精确闹钟、重启恢复与安装授权等现有权限/组件；不据此声称设备行为已验收。
+- 输出位于 `androidApp/build/outputs/apk/release/`；本机日志在忽略目录 `build/rtbus-validation/`：`update-source-release-build.log`、`release-dependencies.log`、`update-source-release-arm64-zipalign.log`、`update-source-release-arm32-zipalign.log`。release 构建和产物检查已完成；仍未完成真机功能/安装器验收、真实签名升级或 iOS Xcode 构建。无 remote，不推送。
+
 ## 7. 唯一明确的下一步
 
-独立进行 Android release APK 构建与产物核查：记录实际签名状态、两个 ABI、Manifest、退役 SDK/Key 类与资源、ELF/ZIP 16 KB 对齐。沿用现有本地构建配置，不生成或提交新签名密钥；构建/产物核查不代替真机安装、真实签名升级和 iOS 验收。不要重做已完成的 Key/隐私、SDK/CocoaPods 或规划 UI/数据链删除；保留全国城市、普通公交及辅助功能。自己的远程更新源、发布 workflow 和元数据等第一版可用、用户确认远程后再接入。不配置 remote、不推送。
+下一独立阶段是设备验收：需先有用户控制的 release 签名配置，才能验证真实签名安装/升级和应用内安装器流程；不要生成或提交密钥。iOS 编译/运行需在 macOS/Xcode 环境完成。release APK 构建和静态产物检查已通过，不等同于设备验收。不要重做已完成的 Key/隐私、SDK/CocoaPods 或规划 UI/数据链删除；保留全国城市、普通公交及辅助功能。自己的远程更新源、发布 workflow 和元数据等第一版可用、用户确认远程后再接入。不配置 remote，不推送。
 
 ## 8. 记录维护
 
