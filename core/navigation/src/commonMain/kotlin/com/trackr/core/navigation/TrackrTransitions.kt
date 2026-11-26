@@ -2,6 +2,8 @@ package com.trackr.core.navigation
 
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -9,36 +11,40 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.navigation3.runtime.NavKey
+import androidx.navigation3.runtime.NavMetadataKey
+import androidx.navigation3.runtime.get
+import androidx.navigation3.runtime.metadata
 import androidx.navigation3.scene.Scene
 
-/**
- * 页面转场，和第 16 步之前 `MainActivity` 里用户实际看到的一样：进栈、出栈、预测返回都是横向滑动 + 淡入淡出（300ms）。
- *
- * 旧代码里有一段「两个页签根页之间切换用 220ms 淡入淡出」的判断，但它用 `initialState.key is ScreenKey.Home`，
- * 而 Scene.key 是字符串 `"$key:${key::class}"`，判断永远为假，所以页签切换一直是滑动。第 16 步按「无用户可见变化」
- * 删掉这段死代码；以后要改成淡入淡出另开一步。
- */
+/** 同级页签原位叠化；进子页只移动前景，底下的页始终铺满，不会在两页之间露出窗口背景。 */
 object TrackrTransitions {
-    private const val SLIDE_MILLIS = 300
+    private const val TAB_MILLIS = 160
+    const val PAGE_MILLIS = 220
+
+    private object TabRoot : NavMetadataKey<Boolean>
+    val tabRootMetadata: Map<String, Any> = metadata { put(TabRoot, true) }
+
+    private fun AnimatedContentTransitionScope<Scene<NavKey>>.betweenTabs() =
+        initialState.metadata[TabRoot] == true && targetState.metadata[TabRoot] == true
 
     val push: AnimatedContentTransitionScope<Scene<NavKey>>.() -> ContentTransform = {
-        (slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(SLIDE_MILLIS)) +
-            fadeIn(animationSpec = tween(SLIDE_MILLIS))) togetherWith
-            (slideOutHorizontally(targetOffsetX = { -it / 3 }, animationSpec = tween(SLIDE_MILLIS)) +
-                fadeOut(animationSpec = tween(SLIDE_MILLIS)))
+        val enter = if (betweenTabs()) {
+            fadeIn(tween(TAB_MILLIS))
+        } else {
+            slideInHorizontally(tween(PAGE_MILLIS)) { it / 12 } + fadeIn(tween(PAGE_MILLIS))
+        }
+        enter togetherWith ExitTransition.KeepUntilTransitionsFinished
     }
 
-    val pop: AnimatedContentTransitionScope<Scene<NavKey>>.() -> ContentTransform = {
-        popSlide()
-    }
+    val pop: AnimatedContentTransitionScope<Scene<NavKey>>.() -> ContentTransform = { revealPrevious() }
+    val predictivePop: AnimatedContentTransitionScope<Scene<NavKey>>.(Int) -> ContentTransform = { revealPrevious() }
 
-    val predictivePop: AnimatedContentTransitionScope<Scene<NavKey>>.(Int) -> ContentTransform = { _ ->
-        popSlide()
+    private fun AnimatedContentTransitionScope<Scene<NavKey>>.revealPrevious(): ContentTransform {
+        val exit = if (betweenTabs()) {
+            fadeOut(tween(TAB_MILLIS))
+        } else {
+            slideOutHorizontally(tween(PAGE_MILLIS)) { it / 12 } + fadeOut(tween(PAGE_MILLIS))
+        }
+        return EnterTransition.None togetherWith exit
     }
-
-    private fun popSlide(): ContentTransform =
-        (slideInHorizontally(initialOffsetX = { -it / 3 }, animationSpec = tween(SLIDE_MILLIS)) +
-            fadeIn(animationSpec = tween(SLIDE_MILLIS))) togetherWith
-            (slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(SLIDE_MILLIS)) +
-                fadeOut(animationSpec = tween(SLIDE_MILLIS)))
 }

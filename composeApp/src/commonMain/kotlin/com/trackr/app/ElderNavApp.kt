@@ -85,7 +85,7 @@ internal fun ElderNavApp(
             rememberViewModelStoreNavEntryDecorator(),
             rememberResultEventBusNavEntryDecorator(resultEventBus),
         ),
-        entryProvider = entryProvider { elderEntries(navigator) },
+        entryProvider = remember(navigator) { entryProvider<NavKey> { elderEntries(navigator) } },
     )
     Box(modifier = Modifier.fillMaxSize()) {
         NavDisplay(

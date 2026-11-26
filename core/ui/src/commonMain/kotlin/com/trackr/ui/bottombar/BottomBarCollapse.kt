@@ -3,7 +3,7 @@ package com.trackr.ui.bottombar
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.unit.dp
 
-/** 应用底栏的实际内容高度，不包含系统安全区；没有底栏（详情页、长辈版）时为 0。 */
+/** 标准版页签根页专用：底栏净高度（不含系统安全区），离场时也保留。子页不使用；长辈版不提供。 */
 val LocalBottomBarHeight = staticCompositionLocalOf { 0.dp }
 
 /**

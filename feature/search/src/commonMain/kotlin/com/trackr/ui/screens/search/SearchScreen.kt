@@ -63,6 +63,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.withResumed
 import com.trackr.core.designsystem.component.EmptyStateView
 import com.trackr.core.designsystem.resources.Res
 import com.trackr.core.designsystem.resources.action_back
@@ -172,7 +174,12 @@ private fun SearchTopBar(
     onEvent: (SearchEvent) -> Unit
 ) {
     val focusRequester = remember { FocusRequester() }
-    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    var didAutoFocus by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(lifecycle) {
+        // NavDisplay 在转场（含预测返回预览）期间只到 STARTED，避免键盘与页面同时进场。
+        if (!didAutoFocus) lifecycle.withResumed { didAutoFocus = focusRequester.requestFocus() }
+    }
     val dimens = TrackrTheme.dimens
 
     Column(

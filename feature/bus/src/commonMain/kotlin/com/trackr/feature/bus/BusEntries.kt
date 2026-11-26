@@ -4,6 +4,7 @@ import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
 import com.trackr.core.domain.platform.MonotonicClock
 import com.trackr.core.navigation.TrackrNavigator
+import com.trackr.core.navigation.TrackrTransitions
 import com.trackr.core.navigation.ScreenKey
 import com.trackr.feature.bus.elder.ArrivalAlertViewModel
 import com.trackr.feature.bus.elder.ElderBusHomeScreen
@@ -18,7 +19,7 @@ import org.koin.dsl.module
  * 公交首页（公交页签根页）的导航入口（`:composeApp` 组装）。第 19 步起页面在 commonMain，Android / iOS 共用。
  */
 fun EntryProviderScope<NavKey>.busEntries(navigator: TrackrNavigator) {
-    entry<ScreenKey.Home> {
+    entry<ScreenKey.Home>(metadata = TrackrTransitions.tabRootMetadata) {
         // Activity 级的首页 ViewModel（权限回调、TrackrRoot 首帧关轮询也用它），和原来一样
         val viewModel: BusHomeViewModel = koinViewModel(viewModelStoreOwner = LocalAppViewModelStoreOwner.current)
         BusHomeRoute(viewModel = viewModel, navigator = navigator)

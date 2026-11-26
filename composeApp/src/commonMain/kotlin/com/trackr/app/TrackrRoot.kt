@@ -5,8 +5,6 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.WindowInsets
@@ -18,6 +16,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -224,12 +223,28 @@ private fun TrackrNavApp(
         navBarTranslationY * (navBarHeightPx - systemNavBarInsetPx).coerceAtLeast(0)
     }
 
-    val keyboardVisible = WindowInsets.ime.getBottom(density) > systemNavBarInsetPx
-    val showTabBar = isTopLevel && (tabBar.collapsesOnScroll || !keyboardVisible)
-    val tabBarContentHeight = if (!showTabBar) 0.dp else if (navBarHeightPx == 0) {
+    // 只有 UIKit 需要根据键盘隐藏底栏；Android 不订阅每一帧的 IME inset。
+    val ime = WindowInsets.ime
+    val hideBarForIme by remember(tabBar, ime, density, systemNavBarInsetPx) {
+        derivedStateOf { !tabBar.collapsesOnScroll && ime.getBottom(density) > systemNavBarInsetPx }
+    }
+    val showTabBar = isTopLevel && !hideBarForIme
+    // 只有页签根页面消费这个留白。离场的根页仍在绘制，不能随栈顶切换立即拿走它的高度。
+    val tabBarContentHeight = if (hideBarForIme) 0.dp else if (navBarHeightPx == 0) {
         tabBar.initialContentHeight
     } else with(density) { (navBarHeightPx - systemNavBarInsetPx).coerceAtLeast(0).toDp() }
     val onSelectTab: (ScreenKey) -> Unit = navigator::selectTab
+    val provideEntry = remember(navigator) {
+        entryProvider<NavKey> {
+            busEntries(navigator)
+            routeEntries(navigator)
+            searchEntries(navigator)
+            lineEntries(navigator)
+            stopEntries(navigator)
+            meEntries(navigator)
+            favoritesEntries(navigator)
+        }
+    }
 
     CompositionLocalProvider(
         LocalBottomBarCollapseOffset provides bottomBarCollapseOffset,
@@ -250,8 +265,8 @@ private fun TrackrNavApp(
                 if (tabBar.collapsesOnScroll) {
                     AnimatedVisibility(
                         visible = showTabBar,
-                        enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(280)) + fadeIn(tween(200)),
-                        exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(280)) + fadeOut(tween(200)),
+                        enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(TrackrTransitions.PAGE_MILLIS)),
+                        exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(TrackrTransitions.PAGE_MILLIS)),
                         modifier = Modifier.graphicsLayer { translationY = navBarTranslationY * size.height },
                     ) { bar() }
                 } else if (showTabBar) {
@@ -261,16 +276,7 @@ private fun TrackrNavApp(
             }
         ) { _ ->
             NavDisplay(
-                // 只显示当前页签的栈（和第 16 步之前一样）：非首页页签根页按返回交给系统，切页签走横向滑动
-                entries = navigationState.toDecoratedEntries(startUnderneath = true, entryProvider = entryProvider {
-                    busEntries(navigator)
-                    routeEntries(navigator)
-                    searchEntries(navigator)
-                    lineEntries(navigator)
-                    stopEntries(navigator)
-                    meEntries(navigator)
-                    favoritesEntries(navigator)
-                }),
+                entries = navigationState.toDecoratedEntries(startUnderneath = true, entryProvider = provideEntry),
                 onBack = { navigator.back() },
                 modifier = Modifier.fillMaxSize(),
                 // 弹层型目的地（§3.7）：entry 带 BottomSheetSceneStrategy.bottomSheet() 就叠在上一页上；其余照常单页

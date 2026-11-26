@@ -10,6 +10,10 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertIsNotFocused
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.StateRestorationTester
@@ -186,6 +190,64 @@ class TrackrAppNavigationTest {
     private fun pressBack() {
         composeTestRule.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
         composeTestRule.waitForIdle()
+    }
+
+    private fun advanceTransitionFrames(count: Int) {
+        repeat(count) {
+            composeTestRule.mainClock.advanceTimeByFrame()
+            composeTestRule.waitForIdle() // 让 Android 完成该帧的 measure / layout
+        }
+    }
+
+    private fun selectTabWithPausedClock(label: String) {
+        composeTestRule.onNode(hasText(label) and SemanticsMatcher.keyIsDefined(SemanticsProperties.Selected))
+            .performSemanticsAction(SemanticsActions.OnClick)
+    }
+
+    @Test
+    fun tabSwitch_keepsBothPageHeadersInPlace_inBothDirections() {
+        launch()
+        val home = composeTestRule.onNodeWithTag("bus_home_top_bar")
+        val me = composeTestRule.onNodeWithTag("me_top_bar")
+        val x = home.getUnclippedBoundsInRoot().left.value
+        composeTestRule.mainClock.autoAdvance = false
+        for (tab in listOf("我的", "公交")) {
+            selectTabWithPausedClock(tab)
+            advanceTransitionFrames(5)
+            assertEquals("首页标题不应横穿屏幕", x, home.getUnclippedBoundsInRoot().left.value, 0.5f)
+            assertEquals("我的标题不应横穿屏幕", x, me.getUnclippedBoundsInRoot().left.value, 0.5f)
+            advanceTransitionFrames(22)
+        }
+        me.assertDoesNotExist()
+    }
+
+    @Test
+    fun reversingAnInFlightTabChange_leavesOnlyTheSelectedPageInteractive() {
+        launch()
+        composeTestRule.mainClock.autoAdvance = false
+        selectTabWithPausedClock("我的")
+        advanceTransitionFrames(5)
+        selectTabWithPausedClock("公交")
+        composeTestRule.mainClock.autoAdvance = true
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag("me_top_bar").assertDoesNotExist()
+        openSearch()
+        searchField().assertIsFocused()
+    }
+
+    @Test
+    fun searchTransition_keepsOutgoingFabPosition_andFocusesOnlyAfterArrival() {
+        launch()
+        val fab = composeTestRule.onNodeWithTag("transit_code_fab")
+        val y = fab.getUnclippedBoundsInRoot().top.value
+        composeTestRule.mainClock.autoAdvance = false
+        composeTestRule.onNodeWithText("搜线路、车站").performSemanticsAction(SemanticsActions.OnClick)
+        advanceTransitionFrames(5)
+        assertEquals("离场的乘车码按钮不应跳到底部", y, fab.getUnclippedBoundsInRoot().top.value, 0.5f)
+        searchField().assertIsNotFocused()
+        advanceTransitionFrames(22)
+        searchField().assertIsFocused()
+        fab.assertDoesNotExist()
     }
 
     @Test
