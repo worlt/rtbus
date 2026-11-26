@@ -23,6 +23,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import com.trackr.core.designsystem.theme.TrackrTheme
+import com.trackr.core.domain.tracking.TrackingEngine
+import com.trackr.core.model.AlightingBusPosition
 import com.trackr.core.model.BusLineDirection
 import com.trackr.core.model.FavoriteGroup
 import com.trackr.core.model.FavoriteItem
@@ -118,6 +120,22 @@ class BusHomeScreenTest {
             nearbyStops = listOf(nearby)
         )
         return BusHomeMapper.derive(BusHomeUiState(), raw)
+    }
+
+    @Test
+    fun alightingCardShowsVehiclePositionAlongsideEta() {
+        val started = checkNotNull(TrackingEngine.begin("ride", 1, TrackingTarget.SingleLine(
+            cityId = "051", lineId = "l325", lineName = "325",
+            targetOrder = 5, targetStopName = "科技园站", pinnedBusId = "mine"
+        ), 0L))
+        val ride = started.copy(
+            state = started.state.copy(currentBusId = "mine", stopsRemaining = 2, etaSeconds = 240),
+            alightingBusPosition = AlightingBusPosition("文化路", isStopped = false)
+        )
+        setContent(stateOf(session = ride))
+
+        composeTestRule.onNodeWithText("4 分钟").assertIsDisplayed()
+        composeTestRule.onNodeWithText("下一站：文化路").assertIsDisplayed()
     }
 
     private fun setContent(state: BusHomeUiState) {

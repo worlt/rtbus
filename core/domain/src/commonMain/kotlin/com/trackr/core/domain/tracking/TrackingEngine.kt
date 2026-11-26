@@ -3,6 +3,7 @@ package com.trackr.core.domain.tracking
 import com.trackr.core.domain.arrival.ArrivalRules
 import com.trackr.core.domain.math.CoordTransform
 import com.trackr.core.domain.math.RouteProjectionMath
+import com.trackr.core.model.AlightingBusPosition
 import com.trackr.core.model.BusLineDetail
 import com.trackr.core.model.CandidateLine
 import com.trackr.core.model.LegPhase
@@ -366,10 +367,15 @@ object TrackingEngine {
             if (update.finished) return Result(session.copy(state = update.state), effects + Effect.Finished.Completed)
             val next = if (previous.isAlightingReminder) {
                 // 空列表、其他车和缓存快照的重放都不能把这段行程当成刚刚看见。
+                val bus = detail.buses.firstOrNull { it.busId == previous.pinnedBusId }
                 val signal = if (update.state.missingBusPolls == 0) {
                     detail.updatedAtMillis.takeIf { it > 0 }?.coerceAtMost(nowMillis) ?: nowMillis
                 } else alightingSignalAt(session)
-                session.copy(state = update.state, alightingSignalAtMillis = signal)
+                session.copy(
+                    state = update.state,
+                    alightingSignalAtMillis = signal,
+                    alightingBusPosition = bus?.let { alightingBusPosition(it, detail) }
+                )
             } else session.copy(state = update.state)
             return Result(next, effects)
         }
@@ -489,8 +495,16 @@ object TrackingEngine {
         return Result(finished, effects + Effect.Finished.Completed)
     }
 
-    /** 轮询失败：保持状态，只改文案 */
+    private fun alightingBusPosition(bus: LiveBus, detail: BusLineDetail): AlightingBusPosition? {
+        val name = detail.stops.firstOrNull { it.order == bus.order }?.name?.trim().orEmpty()
+            .ifBlank { bus.nextStopName.orEmpty().trim() }
+        if (name.isBlank()) return null
+        return AlightingBusPosition(name, isStopped = ArrivalRules.isBusStopped(bus))
+    }
+
+    /** 轮询失败：保留下车提醒和判定状态，清除实时站点展示。 */
     fun reduceFailure(session: TrackingSession, nowMillis: Long): TrackingSession = session.copy(
+        alightingBusPosition = null,
         state = session.state.copy(
             statusSummary = "实时数据刷新失败，正在重试…",
             updatedAtMillis = nowMillis

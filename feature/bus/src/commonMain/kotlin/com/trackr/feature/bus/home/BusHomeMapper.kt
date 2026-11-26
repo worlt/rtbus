@@ -70,7 +70,9 @@ internal object BusHomeMapper {
             lineName = state.lineName,
             trackingSessionId = session.sessionId
         )
-        val sessionState = if (state.isAlightingReminder && (session.interrupted || session.refreshFailed || state.missingBusPolls > 0)) {
+        val alightingUnavailable = state.isAlightingReminder &&
+            (session.interrupted || session.refreshFailed || state.missingBusPolls > 0)
+        val sessionState = if (alightingUnavailable) {
             ArrivalState.NoService("暂无车辆位置", "下车提醒仍保留，等待实时数据更新")
         } else ArrivalText.stateForSession(state)
         val display = ArrivalText.format(sessionState)
@@ -126,6 +128,9 @@ internal object BusHomeMapper {
                     arrival = ArrivalUi.of(display),
                     detail = loadingDetail,
                     open = open,
+                    vehiclePosition = session.alightingBusPosition
+                        ?.takeIf { state.isAlightingReminder && !alightingUnavailable }
+                        ?.let { if (it.isStopped) "停靠：${it.stopName}" else "下一站：${it.stopName}" },
                     spoken = ArrivalText.spoken(
                         sessionState,
                         lineName = state.lineName,

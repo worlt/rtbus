@@ -63,6 +63,9 @@ internal fun TrackingCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                card.vehiclePosition?.let { position ->
+                    Text(text = position, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
                 if (card.detail.isNotBlank()) {
                     Text(text = card.detail, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }

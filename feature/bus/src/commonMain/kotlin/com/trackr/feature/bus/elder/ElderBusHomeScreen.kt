@@ -326,6 +326,9 @@ private fun ElderTrackingCard(card: TrackingCardUi, onOpen: () -> Unit, onReadAl
         ) {
             Text(text = card.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             ElderArrival(arrival = card.arrival, detail = card.detail)
+            card.vehiclePosition?.let { position ->
+                Text(text = position, style = MaterialTheme.typography.bodyLarge)
+            }
             if (card.spoken.isNotBlank()) {
                 ElderButton(
                     text = stringResource(BusRes.string.bus_elder_read_aloud),

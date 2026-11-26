@@ -14,6 +14,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import com.trackr.core.designsystem.theme.TrackrTheme
+import com.trackr.core.domain.tracking.TrackingEngine
+import com.trackr.core.model.AlightingBusPosition
 import com.trackr.core.model.BusLineDirection
 import com.trackr.core.model.FavoriteGroup
 import com.trackr.core.model.FavoriteItem
@@ -277,6 +279,22 @@ class ElderBusHomeScreenTest {
         composeTestRule.onNodeWithTag(ElderBusHomeTags.LIST).performScrollToNode(hasText("离你最近"))
         composeTestRule.onNodeWithTag(ElderBusHomeTags.readAloud("stop_f1")).performClick()
         assertEquals(BusHomeEvent.ReadAloud("325路，开往科技园，车都过了，下一班 7点20分 从 白石洲 发车"), events.last())
+    }
+
+    @Test
+    fun alightingCardShowsVehiclePositionAlongsideEta() {
+        val started = checkNotNull(TrackingEngine.begin("ride", 1, TrackingTarget.SingleLine(
+            cityId = "051", lineId = "l325", lineName = "325",
+            targetOrder = 5, targetStopName = "科技园站", pinnedBusId = "mine"
+        ), 0L))
+        val ride = started.copy(
+            state = started.state.copy(currentBusId = "mine", stopsRemaining = 2, etaSeconds = 240),
+            alightingBusPosition = AlightingBusPosition("文化路", isStopped = true)
+        )
+        setContent(BusHomeMapper.derive(BusHomeUiState(), stateOf().copy(trackingSessions = listOf(ride))), fontScale = 1.5f)
+
+        composeTestRule.onNodeWithText("4 分钟").assertIsDisplayed()
+        composeTestRule.onNodeWithText("停靠：文化路").assertIsDisplayed()
     }
 
     @Test

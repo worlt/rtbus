@@ -1,6 +1,7 @@
 package com.trackr.core.data.repository
 
 import com.trackr.core.domain.tracking.TrackingEngine
+import com.trackr.core.model.AlightingBusPosition
 import com.trackr.core.model.CandidateLine
 import com.trackr.core.model.LegPhase
 import com.trackr.core.model.LiveBus
@@ -103,6 +104,21 @@ class TrackingRepositoryTest {
     private fun TrackingRepository.resume(): TrackingSession? {
         val current = session.value ?: return null
         return resume(current.sessionId)
+    }
+
+    @Test
+    fun pausingAndResumingKeepsTheReminderButDropsItsOldBusPosition() = runTest {
+        val repo = newRepo()
+        repo.awaitLoaded()
+        val ride = assertNotNull(repo.start(single.copy(pinnedBusId = "mine")))
+        val position = AlightingBusPosition("文化路", isStopped = true)
+        assertTrue(repo.update(ride.generation) { it.copy(alightingBusPosition = position) })
+        assertEquals(position, repo.session.value?.alightingBusPosition)
+
+        repo.pauseAll()
+        val resumed = assertNotNull(repo.resume())
+        assertEquals(ride.target, resumed.target)
+        assertNull(resumed.alightingBusPosition)
     }
 
     // ---------------- 落盘读回 ----------------

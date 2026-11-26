@@ -604,6 +604,42 @@ class TrackingEngineTest {
     }
 
     @Test
+    fun onboardPosition_followsOnlyPinnedBusAndDistinguishesStoppedFromInTransit() {
+        val stops = listOf(BusStop(stopId = "7", name = "文化路", order = 7))
+        val mine = boardingBus("mine", order = 7, progress = 0.5f, eta = 180)
+        val other = boardingBus("other", order = 8, arrived = true).copy(nextStopName = "别的站")
+        fun poll(session: TrackingSession, vararg buses: LiveBus) = TrackingEngine.reducePoll(
+            session, singleDetail(buses.toList()).copy(stops = stops), false, null, null, NOW_MILLIS, ELAPSED_NOW
+        ).session
+
+        val approaching = poll(beginPinned(), other, mine)
+        val nextStop = assertNotNull(approaching.alightingBusPosition)
+        assertEquals("文化路", nextStop.stopName)
+        assertFalse(nextStop.isStopped)
+
+        val stopped = poll(approaching, other, mine.copy(isArrived = true))
+        assertTrue(assertNotNull(stopped.alightingBusPosition).isStopped)
+        assertFalse(stopped.state.isBusArrivedAtStop) // 文化路不是下车站。
+        assertNull(TrackingEngine.reduceFailure(stopped, NOW_MILLIS).alightingBusPosition)
+        val missing = poll(stopped, other)
+        assertNull(missing.alightingBusPosition)
+        val recovered = poll(missing, mine.copy(order = 8, nextStopName = " 体育馆 "))
+        assertEquals("体育馆", assertNotNull(recovered.alightingBusPosition).stopName)
+        assertNull(poll(recovered, mine.copy(order = 8)).alightingBusPosition)
+        // 无坐标时投影可能默认 1.0，不能据此声称车辆已停靠。
+        val withoutCoordinates = mine.copy(wgsLat = 0.0, wgsLng = 0.0, segmentProgress = 1f)
+        assertFalse(assertNotNull(poll(recovered, withoutCoordinates).alightingBusPosition).isStopped)
+    }
+
+    @Test
+    fun pinnedWaitingCardDoesNotProduceAlightingPosition() {
+        val waiting = assertNotNull(TrackingEngine.begin("waiting", 1,
+            singleTarget().copy(pinnedBusId = "mine", isOnboard = false), NOW_MILLIS))
+        val bus = boardingBus("mine", order = 7).copy(nextStopName = "文化路")
+        assertNull(singlePoll(waiting, listOf(bus), null).session.alightingBusPosition)
+    }
+
+    @Test
     fun engine_pinned_aheadBusPassingTargetDoesNotAlertOrFinish() {
         // 前车到站、开过目标站：都和指定的车无关
         val arrivedAhead = singlePoll(beginPinned(), listOf(boardingBus("ahead", order = 10, arrived = true, progress = 1f, eta = 0), boardingBus("mine", order = 2)), fix = null, stopAfterBoarding = false)

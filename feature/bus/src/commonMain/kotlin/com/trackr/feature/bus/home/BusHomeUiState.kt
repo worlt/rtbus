@@ -195,7 +195,8 @@ data class TrackingCardUi(
     val detail: String,
     val open: LineTarget,
     val spoken: String = "",
-    val watchLineId: String? = null
+    val watchLineId: String? = null,
+    val vehiclePosition: String? = null
 )
 
 /** 收藏合一列表里的一行 */

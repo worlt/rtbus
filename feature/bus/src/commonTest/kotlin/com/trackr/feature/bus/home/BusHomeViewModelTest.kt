@@ -3,6 +3,7 @@ package com.trackr.feature.bus.home
 import com.trackr.core.data.repository.DefaultLocationRepository
 import com.trackr.core.data.repository.DefaultTrackingRepository
 import com.trackr.core.data.repository.InMemoryTrackingSessionStore
+import com.trackr.core.model.AlightingBusPosition
 import com.trackr.core.model.DataSourceType
 import com.trackr.core.model.BusLineDirection
 import com.trackr.core.model.BusLineSummary
@@ -1023,8 +1024,9 @@ class BusHomeViewModelTest {
         trackingController.start(TrackingTarget.SingleLine(cityId = "034", lineId = "L", lineName = "71路",
             targetStopName = "人民广场", targetOrder = 5, pinnedBusId = "mine"))
         val ride = assertNotNull(trackingRepository.session.value)
-        fun update(failed: Boolean, missing: Int) {
+        fun update(failed: Boolean, missing: Int, stopped: Boolean = false) {
             trackingRepository.update(ride.sessionId, ride.generation) { it.copy(refreshFailed = failed,
+                alightingBusPosition = AlightingBusPosition("文化路", isStopped = stopped),
                 state = it.state.copy(currentBusId = "mine", stopsRemaining = 2, etaSeconds = 240, missingBusPolls = missing)) }
             testScheduler.runCurrent()
         }
@@ -1032,12 +1034,16 @@ class BusHomeViewModelTest {
             update(failed, missing)
             val card = vm.uiState.value.trackingCards.single()
             assertEquals("暂无车辆位置", card.arrival.big)
+            assertNull(card.vehiclePosition)
             assertEquals(ride.sessionId, card.open.trackingSessionId)
             assertTrue(card.title.contains("人民广场"))
         }
         update(false, 0)
         val card = vm.uiState.value.trackingCards.single()
         assertEquals("4 分钟", card.arrival.big)
+        assertEquals("下一站：文化路", card.vehiclePosition)
+        update(false, 0, stopped = true)
+        assertEquals("停靠：文化路", vm.uiState.value.trackingCards.single().vehiclePosition)
         vm.onEvent(BusHomeEvent.StopTracking(card.sessionId))
         testScheduler.runCurrent()
         assertTrue(vm.uiState.value.trackingCards.isEmpty())

@@ -262,7 +262,7 @@ class DefaultTrackingRepository @OptIn(ExperimentalUuidApi::class) constructor(
                     val (fresh, discarded) = stored.partition { session ->
                         now - session.state.updatedAtMillis <= MAX_RESUME_AGE_MILLIS && !session.isExpiredAlighting(now)
                     }
-                    publish(fresh.map { it.copy(interrupted = true) }, persist = discarded.isNotEmpty())
+                    publish(fresh.map { it.copy(interrupted = true, alightingBusPosition = null) }, persist = discarded.isNotEmpty())
                     discarded.forEach(::reportExpiry)
                 }
             }
@@ -511,7 +511,7 @@ class DefaultTrackingRepository @OptIn(ExperimentalUuidApi::class) constructor(
         lastBuses.clear()
         lastLineBuses.clear()
         val paused = _sessions.value.map {
-            if (it.interrupted) it else it.copy(interrupted = true, generation = nextGeneration())
+            if (it.interrupted) it else it.copy(interrupted = true, generation = nextGeneration(), alightingBusPosition = null)
         }
         if (paused != _sessions.value) publish(paused)
     }

@@ -2,6 +2,7 @@ package com.trackr.core.model
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 
 /**
  * 要追踪什么（重构计划 §2.6）。开始追踪时由 UI / 提醒传给 `TrackingController.start`，存在会话里，进程重建后据此继续。
@@ -166,6 +167,9 @@ data class TrackingLegParams(
     val direction: Int = 0
 )
 
+/** 指定车当前停靠或驶向的站，不是下车提醒的目标站。 */
+data class AlightingBusPosition(val stopName: String, val isStopped: Boolean)
+
 /**
  * 一份追踪会话（`TrackingRepository` 里可以同时有多份，一起存进 `tracking_session.json`；
  * 第 36 步起同时追多项，每份各自有代际号、各自轮询、各自一条常驻通知）。
@@ -193,7 +197,9 @@ data class TrackingSession(
     val lastRealtimeAtMillis: Long = 0L,
     val refreshFailed: Boolean = false,
     /** 下车提醒的失联计时基准：最近含指定车的快照时间；一直没有该车时从开始追踪算。 */
-    val alightingSignalAtMillis: Long? = null
+    val alightingSignalAtMillis: Long? = null,
+    /** 只用于当前实时显示，不随会话持久化，避免重启时显示旧站点。 */
+    @Transient val alightingBusPosition: AlightingBusPosition? = null
 ) {
     /** 一起等（等车或已上车）；单线路、路线为 null */
     val watchTarget: TrackingTarget.WatchTogether?
