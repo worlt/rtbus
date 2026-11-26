@@ -19,11 +19,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -40,11 +38,19 @@ import com.trackr.core.designsystem.resources.action_back
 import com.trackr.core.designsystem.resources.ic_back
 import com.trackr.core.designsystem.resources.ic_bus
 import com.trackr.core.designsystem.theme.busColors
+import com.trackr.core.domain.arrival.ArrivalRules
 import com.trackr.core.domain.math.RouteProjectionMath
 import com.trackr.core.model.BusLineDetail
+import com.trackr.core.model.TrackingSessionState
 import com.trackr.core.model.LiveBus
 import com.trackr.core.model.sanitizePlateOrFleetNo
 import com.trackr.feature.line.resources.Res as LineRes
+import com.trackr.ui.screens.linedetail.destinationIn
+import com.trackr.feature.line.resources.line_alight_destination
+import com.trackr.feature.line.resources.line_alight_marker
+import com.trackr.feature.line.resources.line_alight_remaining
+import com.trackr.feature.line.resources.line_alight_eta
+import com.trackr.feature.line.resources.line_alight_wait_data
 import com.trackr.feature.line.resources.line_distance_to_wait_station
 import com.trackr.feature.line.resources.line_follow_approaching
 import com.trackr.feature.line.resources.line_follow_at_stop
@@ -60,7 +66,6 @@ import com.trackr.feature.line.resources.line_follow_title
 import com.trackr.feature.line.resources.line_follow_track_bus
 import com.trackr.feature.line.resources.line_follow_track_bus_hint
 import com.trackr.feature.line.resources.line_follow_track_passed
-import com.trackr.feature.line.resources.line_follow_tracking_bus
 import com.trackr.feature.line.resources.line_follow_tracking_bus_hint
 import com.trackr.feature.line.resources.line_follow_to_terminus
 import com.trackr.feature.line.resources.line_follow_unknown_plate
@@ -80,9 +85,6 @@ sealed interface FollowTrackAction {
     /** 还没追：点了只追这一辆到 [stopName] */
     data class Available(override val stopName: String) : FollowTrackAction
 
-    /** 正在只追这一辆：点了结束 */
-    data class Tracking(override val stopName: String) : FollowTrackAction
-
     /** 车已开过 [stopName]：不能追 */
     data class Passed(override val stopName: String) : FollowTrackAction
 }
@@ -98,9 +100,12 @@ fun BusFollowContent(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     trackAction: FollowTrackAction? = null,
-    onToggleTrackBus: () -> Unit = {}
+    tracking: TrackingSessionState? = null,
+    onTrackBus: () -> Unit = {}
 ) {
     val busColors = MaterialTheme.busColors
+    val ride = tracking?.takeIf { it.isOnboard }
+    val destination = ride?.destinationIn(lineDetail.stops)
 
     Column(
         modifier = modifier
@@ -123,7 +128,7 @@ fun BusFollowContent(
             Column(modifier = Modifier.weight(1f)) {
                 val followedPlate = followedBus?.let { sanitizePlateOrFleetNo(it.plateOrFleetNo) }?.ifBlank { null }
                 Text(
-                    text = stringResource(LineRes.string.line_follow_title, followedPlate ?: stringResource(LineRes.string.line_follow_unknown_plate)),
+                    text = stringResource(LineRes.string.line_follow_title, followedPlate ?: tracking?.pinnedPlate?.ifBlank { null } ?: stringResource(LineRes.string.line_follow_unknown_plate)),
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
@@ -140,6 +145,15 @@ fun BusFollowContent(
 
         Spacer(modifier = Modifier.height(10.dp))
 
+        if (ride != null) {
+            Text(stringResource(LineRes.string.line_alight_destination, ride.targetStopName),
+                style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary)
+            Spacer(modifier = Modifier.height(6.dp))
+        } else if (tracking != null) {
+            Text(stringResource(LineRes.string.line_follow_tracking_bus_hint, tracking.targetStopName),
+                style = MaterialTheme.typography.bodyMedium)
+        }
         if (followedBus == null) {
             Box(
                 modifier = Modifier
@@ -148,13 +162,17 @@ fun BusFollowContent(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = stringResource(LineRes.string.line_follow_gone),
+                    text = stringResource(if (ride != null) LineRes.string.line_alight_wait_data else LineRes.string.line_follow_gone),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 13.sp
                 )
             }
         } else {
-            val stopsLeftToTerminus = (lineDetail.stops.size - followedBus.order).coerceAtLeast(0)
+            // 下车时的数据与首页同源，不把浏览站点的 ETA 当成到下车站的 ETA。
+            val remaining = if (ride != null) ride.stopsRemaining.takeIf { it >= 0 && !ride.isSignalLost }
+                else (lineDetail.stops.size - followedBus.order).coerceAtLeast(0)
+            val eta = if (ride != null) ride.etaSeconds.takeIf { !ride.isSignalLost } ?: -1 else followedBus.etaSeconds
+            val arrived = ride != null && !ride.isSignalLost && ArrivalRules.isSessionArrived(ride)
 
             // 统计概要卡
             Surface(
@@ -170,8 +188,8 @@ fun BusFollowContent(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(stringResource(LineRes.string.line_follow_to_terminus), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(stringResource(LineRes.string.line_follow_stops, stopsLeftToTerminus), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                        Text(stringResource(if (ride != null) LineRes.string.line_alight_remaining else LineRes.string.line_follow_to_terminus), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(remaining?.let { stringResource(LineRes.string.line_follow_stops, it) } ?: "—", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
                     }
                     // 掌上公交不给时速（一直是 0），车来了停站时也是 0：和线路列表、到站页一样，没有时速就不画这一栏（#58）
                     if (followedBus.speedKmh > 0) {
@@ -184,18 +202,18 @@ fun BusFollowContent(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
-                        Text(stringResource(LineRes.string.line_follow_eta), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        val etaText = if (followedBus.etaSeconds > 0) RouteProjectionMath.formatEtaText(followedBus.etaSeconds) else stringResource(LineRes.string.line_no_prediction)
+                        Text(stringResource(if (ride != null) LineRes.string.line_alight_eta else LineRes.string.line_follow_eta), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        val etaText = if (eta > 0 || arrived) RouteProjectionMath.formatEtaText(eta, arrived) else stringResource(LineRes.string.line_no_prediction)
                         BusArrivalBadge(
                             text = etaText,
-                            isHighlighted = followedBus.etaSeconds > 0
+                            isHighlighted = eta > 0 || arrived
                         )
                     }
                 }
             }
 
             val followDistance = RouteProjectionMath.formatDistanceText(followedBus.distanceToTargetMeters)
-            if (followDistance.isNotBlank()) {
+            if (ride == null && followDistance.isNotBlank()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = stringResource(LineRes.string.line_distance_to_wait_station, followDistance),
@@ -284,7 +302,7 @@ fun BusFollowContent(
                                 }
                             } else {
                                 StationNode(
-                                    isSelected = false,
+                                    isSelected = stop == destination,
                                     isPassed = isPassed,
                                     isConditionStop = !stop.statusNote.isNullOrEmpty()
                                 )
@@ -315,17 +333,22 @@ fun BusFollowContent(
                             )
 
                             // 站点名称
-                            Text(
-                                text = stop.name,
-                                fontSize = if (isCurrent) 14.sp else 13.sp,
-                                fontWeight = if (isCurrent) FontWeight.Bold else if (!isPassed) FontWeight.Medium else FontWeight.Normal,
-                                color = when {
-                                    isCurrent -> busColors.busArrivingAmber
-                                    isPassed -> busColors.busPassedGray
-                                    else -> MaterialTheme.colorScheme.onSurface
-                                },
-                                modifier = Modifier.weight(1f)
-                            )
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    text = stop.name,
+                                    fontSize = if (isCurrent) 14.sp else 13.sp,
+                                    fontWeight = if (isCurrent) FontWeight.Bold else if (!isPassed) FontWeight.Medium else FontWeight.Normal,
+                                    color = when {
+                                        isCurrent -> busColors.busArrivingAmber
+                                        isPassed -> busColors.busPassedGray
+                                        else -> MaterialTheme.colorScheme.onSurface
+                                    }
+                                )
+                                if (stop == destination) {
+                                    Text(stringResource(LineRes.string.line_alight_marker),
+                                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                                }
+                            }
 
                             // 右侧状态指示与徽标（复用 BusArrivalBadge 统一组件）
                             when {
@@ -358,7 +381,7 @@ fun BusFollowContent(
 
         if (trackAction != null) {
             Spacer(modifier = Modifier.height(12.dp))
-            FollowTrackButton(trackAction, onToggleTrackBus)
+            FollowTrackButton(trackAction, onTrackBus)
         }
     }
 }
@@ -380,26 +403,12 @@ private fun FollowTrackButton(action: FollowTrackAction, onClick: () -> Unit) {
                 )
             }
 
-            is FollowTrackAction.Tracking -> OutlinedButton(
-                onClick = onClick,
-                shape = MaterialTheme.shapes.medium,
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-            ) {
-                Text(
-                    text = stringResource(LineRes.string.line_follow_tracking_bus),
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1
-                )
-            }
-
             is FollowTrackAction.Passed -> Unit
         }
         Spacer(modifier = Modifier.height(6.dp))
         Text(
             text = when (action) {
                 is FollowTrackAction.Available -> stringResource(LineRes.string.line_follow_track_bus_hint, action.stopName)
-                is FollowTrackAction.Tracking -> stringResource(LineRes.string.line_follow_tracking_bus_hint, action.stopName)
                 is FollowTrackAction.Passed -> stringResource(LineRes.string.line_follow_track_passed, action.stopName)
             },
             fontSize = 12.sp,

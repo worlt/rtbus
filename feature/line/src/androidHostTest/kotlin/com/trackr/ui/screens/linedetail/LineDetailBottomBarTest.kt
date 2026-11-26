@@ -15,6 +15,7 @@ import androidx.compose.ui.test.performClick
 import com.trackr.core.designsystem.theme.TrackrTheme
 import com.trackr.core.model.BusLineDirection
 import com.trackr.core.model.BusStop
+import com.trackr.core.model.TrackingSessionState
 import com.trackr.core.model.RailMode
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -70,6 +71,42 @@ class LineDetailBottomBarTest {
         composeTestRule.onNodeWithTag("btn_boarded").assertIsDisplayed().assertIsEnabled()
         composeTestRule.onNodeWithText("追踪这班车").assertIsDisplayed()
         composeTestRule.onNodeWithContentDescription("换向").assertIsDisplayed()
+    }
+
+    @Test
+    fun onboardShowsOneEndActionAndMarksDestinationNotTheBrowsingStop() {
+        val ride = TrackingSessionState(isActive = true, lineId = line.lineId, pinnedBusId = "b1", isOnboard = true,
+            targetStopId = "s5", targetOrder = 5, targetStopName = "第5站", stopsRemaining = 3, etaSeconds = 360)
+        show(stateOf(reverseLine).copy(panelMode = PanelMode.BUS_FOLLOW, followedBusId = "b1", trackingSession = ride,
+            live = LineLive(listOf(LiveBus(busId = "b1", plateOrFleetNo = "粤R01508D", order = 2)))))
+        composeTestRule.onNodeWithText("正在追这辆车 · 结束").assertDoesNotExist()
+        composeTestRule.onNodeWithText("结束追踪").assertIsDisplayed()
+        composeTestRule.onNodeWithText("更改下车站").assertIsDisplayed()
+        composeTestRule.onNodeWithText("下车站：第5站").assertIsDisplayed()
+        composeTestRule.onNodeWithText("我的下车站").assertExists()
+        composeTestRule.onNodeWithText("3 站").assertIsDisplayed()
+        composeTestRule.onNodeWithText("约 6 分钟").assertIsDisplayed()
+        composeTestRule.onNodeWithText("到终点预测").assertDoesNotExist()
+    }
+
+    @Test
+    fun missingLiveBusKeepsPlateDestinationAndEndActionButNotStaleEta() {
+        val ride = TrackingSessionState(isActive = true, lineId = line.lineId, pinnedBusId = "b1", isOnboard = true,
+            pinnedPlate = "粤R01508D", targetStopId = "s5", targetOrder = 5, targetStopName = "第5站", etaSeconds = 360)
+        show(stateOf(reverseLine).copy(panelMode = PanelMode.BUS_FOLLOW, followedBusId = "b1", trackingSession = ride))
+        composeTestRule.onNodeWithText("单车跟随 · 粤R01508D").assertIsDisplayed()
+        composeTestRule.onNodeWithText("下车站：第5站").assertIsDisplayed()
+        composeTestRule.onNodeWithText("结束追踪").assertIsDisplayed()
+        composeTestRule.onNodeWithText("更改下车站").assertIsNotEnabled()
+        composeTestRule.onNodeWithText("约 6 分钟").assertDoesNotExist()
+    }
+
+    @Test
+    fun overviewShortcutOpensTheRideWithoutChoosingABusAgain() {
+        var event: LineDetailEvent? = null
+        show(stateOf(reverseLine).copy(rideToResume = RideShortcut("ride-2", "第5站"))) { event = it }
+        composeTestRule.onNodeWithText("返回单车跟随 · 到第5站下车").assertIsDisplayed().performClick()
+        assertEquals(LineDetailEvent.ResumeRide("ride-2"), event)
     }
 
     private val line = BusLineDirection(

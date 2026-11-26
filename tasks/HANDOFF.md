@@ -239,9 +239,22 @@
 - 忽略目录 build/rtbus-validation/ 证据：arrival-v4-red.log、arrival-v4-display-red.log、arrival-v4-targeted-verified.log、arrival-v4-full-host.log（首轮）、arrival-v4-final-host.log（最终）、arrival-v4-static.log、arrival-v4-artifact-audit.log、arrival-v4-audit-summary.json、audit-arrival-v4-artifacts.py、arrival-v4-<abi>-signature/zipalign/badging.log、arrival-v4-previous-signature.log。
 - adb devices -l 无设备。真实 v4 静音/锁屏/到站/语音仍待手机复测；iOS 未实际编译/运行。只做本地提交，无 remote、不推送。
 
+### 本轮：下车任务的单车跟随与返回体验 v5（2026-11-26）
+
+- 用户已明确反馈 v4 到站震动成功。本轮只改导航和线路详情，没有改通知、马达或自动完成判定。主机回归在修改前复现了重复结束按钮和重进时回到站点卡的问题（`follow-v5-red.log`）。
+- 首页追踪卡按会话 ID 打开；普通线路页按城市、来源、方向和进行中的指定车下车任务一次性恢复。用户主动退回总览后可一键「返回单车跟随」，后续轮询不抢焦点；过期卡不恢复其他任务。
+- 单车卡头显示下车站，统计取该任务的剩余站数/预计时间；行程中给目标站加文字标记。浏览其他站不改任务；短暂离线保留车牌/目的地，不冒用其他车数据。底栏保留「更改下车站」「结束追踪」，只结束显示的会话；浏览反向也不取消已上车的提醒。
+
+- 验证：18 模块 1,630 项主机测试全部通过（无跳过），26 项静态检查通过；双 ABI debug APK 与 v4 签名一致，Manifest、DEX、原生库及 ZIP 对齐核验通过。adb 未连接手机，不能把主机测试当作 v5 真机界面复测。日志 `build/rtbus-validation/follow-v5-final.log`，摘要 `follow-v5-audit-summary.json`。
+
+| v5 安装包（项目内路径） | SHA-256 |
+| --- | --- |
+| `build/rtbus-validation/RTBus-20261126-follow-v5-arm32-debug.apk` | `F5D9CF98D4C158FB0426A935541970E97F500813F96E6854D2BF82BEFA8BA47A` |
+| `build/rtbus-validation/RTBus-20261126-follow-v5-arm64-debug.apk` | `7CB0BB8BA4DFE08951FF1BD477289263DD8798D3149A733773263D0BB3C14CE2` |
+
 ## 7. 唯一明确的下一步
 
-覆盖安装代码 `ac7540e` 的 arrival-v4 具名 debug 包，先结束旧构建遗留追踪（v3 可能已把短 ETA 标成提醒完成），保持普通静音，在“我的 → 测试到站提醒”核对“确认到站与主动引导 v4”及手机真实震动。按 boarding-feedback-acceptance.md 第 6–7 节再新建候车和“我已上车”下车提醒：确认停靠后应有 ARRIVED 震动，已上车任务此轮即自动结束，最终通知保留。若失败，先拿完整报告的最近真实提醒、最近追踪状态、请求结果，并区分到站通知/自动结束/锁屏，无需反复坐车盲试。之后继续保留功能验收；release 真实签名/升级和 iOS Xcode 验收仍未完成。不生成/提交密钥、不配置 remote、不推送，保留全国城市及普通公交辅助能力。
+覆盖安装 follow-v5，按 boarding-feedback-acceptance.md 第 5 节的 v5 小节复测：选站后看目标标记、退回总览一键恢复，再回首页点原卡。无需等公交到站来验证本轮 UI。锁屏、自动结束、release 正式签名和 iOS 的实机验收仍独立待办；不配置 remote，不推送。
 
 ## 8. 记录维护
 

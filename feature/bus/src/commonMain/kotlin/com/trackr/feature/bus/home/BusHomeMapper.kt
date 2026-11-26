@@ -67,7 +67,8 @@ internal object BusHomeMapper {
             targetOrder = state.targetOrder,
             stopId = state.targetStopId,
             source = session.leg.source,
-            lineName = state.lineName
+            lineName = state.lineName,
+            trackingSessionId = session.sessionId
         )
         val sessionState = ArrivalText.stateForSession(state)
         val display = ArrivalText.format(sessionState)
@@ -160,7 +161,8 @@ internal object BusHomeMapper {
                 targetOrder = line.line.stopOrder,
                 stopId = line.line.stopIdOnLine.ifBlank { watch.stopId },
                 source = line.line.source,
-                lineName = line.line.lineName
+                lineName = line.line.lineName,
+                trackingSessionId = session.sessionId
             ),
             spoken = ArrivalText.spoken(
                 arrival,

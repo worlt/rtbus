@@ -146,7 +146,8 @@ data class LineTarget(
     val targetOrder: Int,
     val stopId: String,
     val source: DataSourceType,
-    val lineName: String
+    val lineName: String,
+    val trackingSessionId: String? = null
 )
 
 /**

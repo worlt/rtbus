@@ -80,7 +80,13 @@
     <string name="line_alight_no_stops">车辆暂时离线或前方没有可选站，请刷新后重试。</string>
     <string name="line_alight_start">开启下车提醒</string>
     <string name="line_alight_cancel">取消</string>
-    <string name="line_follow_tracking_bus">正在追这辆车 · 结束</string>
+    <string name="line_alight_change">更改下车站</string>
+    <string name="line_alight_resume">返回单车跟随 · 到%1$s下车</string>
+    <string name="line_alight_destination">下车站：%1$s</string>
+    <string name="line_alight_marker">我的下车站</string>
+    <string name="line_alight_remaining">距下车站</string>
+    <string name="line_alight_eta">预计下车</string>
+    <string name="line_alight_wait_data">暂未收到这辆车的位置，正在等待更新。</string>
     <string name="line_follow_tracking_bus_hint">这辆车快到「%1$s」、到站时提醒你</string>
     <string name="line_follow_track_passed">这辆车已开过「%1$s」，换一站或换一辆再追</string>
     <string name="line_list_back">返回站点卡</string>

@@ -107,6 +107,8 @@ import com.trackr.core.model.displayLineName
 import com.trackr.core.model.displayLineNameWithoutDiversion
 import com.trackr.core.model.diversionNote
 import com.trackr.feature.line.resources.Res as LineRes
+import com.trackr.feature.line.resources.line_alight_change
+import com.trackr.feature.line.resources.line_alight_resume
 import com.trackr.feature.line.resources.line_alight_boarded
 import com.trackr.feature.line.resources.line_boarding_title
 import com.trackr.feature.line.resources.line_boarding_hint
@@ -175,8 +177,9 @@ sealed interface LineDetailEvent {
     ) : LineDetailEvent
     /** 底栏主按钮：追踪这班车 / 结束追踪 */
     data object ToggleTracking : LineDetailEvent
-    /** 单车跟随里的「追这辆车」/「结束」（issue #52 下车提醒：只追这一辆到当前候车站） */
-    data object ToggleTrackFollowedBus : LineDetailEvent
+    data class ResumeRide(val sessionId: String) : LineDetailEvent
+    /** 单车卡只发起候车追踪，结束操作统一留在固定底栏。 */
+    data object StartTrackingFollowedBus : LineDetailEvent
     data class SelectBoardingBus(val busId: String) : LineDetailEvent
     data object OpenAlightingPicker : LineDetailEvent
     data object DismissAlightingPicker : LineDetailEvent
@@ -219,6 +222,12 @@ fun LineDetailScreen(
     var didJumpToEntryStop by rememberSaveable { mutableStateOf(false) }
     // 主卡可以收起成一行，把高度让给走向条；收起状态跟着页面保存
     var cardCollapsed by rememberSaveable { mutableStateOf(false) }
+
+    // 新建/恢复这趟车时把卡头和下车站带回视口；轮询和同一趟车内手动滚动不触发。
+    val rideId = state.trackingSessionId.takeIf { state.followedTracking?.isOnboard == true }
+    LaunchedEffect(rideId) {
+        if (rideId != null) pageScrollState.scrollTo(0)
+    }
 
     LaunchedEffect(static?.stops, state.entryStopOrder) {
         val stops = static?.stops ?: return@LaunchedEffect
@@ -291,7 +300,8 @@ fun LineDetailScreen(
         bottomBar = {
             if (static != null) {
                 LineBottomBar(
-                    isTracking = state.isTrackingThisStop,
+                    isTracking = state.isTrackingThisStop || state.followedTracking != null,
+                    isOnboard = state.followedTracking?.isOnboard == true,
                     canTrack = state.selectedStop != null && state.live != null,
                     canBoard = !state.isSwitchingDirection && state.live?.buses.orEmpty().any { bus ->
                         bus.busId.isNotBlank() && (state.followedBusId == null || bus.busId == state.followedBusId) &&
@@ -384,6 +394,14 @@ fun LineDetailScreen(
                                     text = state.errorMessage.orEmpty(),
                                     onRetry = { onEvent(LineDetailEvent.Refresh(fromPull = false)) }
                                 )
+                            }
+                            if (state.panelMode != PanelMode.BUS_FOLLOW) {
+                                state.rideToResume?.let { ride ->
+                                    TextButton(onClick = { onEvent(LineDetailEvent.ResumeRide(ride.sessionId)) },
+                                        modifier = Modifier.fillMaxWidth()) {
+                                        Text(stringResource(LineRes.string.line_alight_resume, ride.stopName))
+                                    }
+                                }
                             }
                             // 主卡：竖排固定在顶部，不跟站点列表一起滚；横排整页一起滚
                             HeroCard(
@@ -521,8 +539,11 @@ fun LineDetailScreen(
     state.boardingBusId?.let { busId ->
         val bus = state.live?.buses?.firstOrNull { it.busId == busId }
         val destinations = static?.stops.orEmpty().filter { bus != null && it.isFutureAlightingStop(bus) }
-        var pickedId by remember(busId) { mutableStateOf<String?>(null) }
-        val picked = destinations.firstOrNull { it.stopId + ":" + it.order == pickedId }
+            .distinctBy { it.alightingKey }
+        val currentDestination = state.followedTracking?.takeIf { it.isOnboard && it.pinnedBusId == busId }
+            ?.destinationIn(destinations)
+        var pickedId by remember(busId) { mutableStateOf(currentDestination?.alightingKey) }
+        val picked = destinations.firstOrNull { it.alightingKey == pickedId }
         AlertDialog(
             onDismissRequest = { onEvent(LineDetailEvent.DismissAlightingPicker) },
             title = { Text(stringResource(LineRes.string.line_alight_pick_title)) },
@@ -532,8 +553,8 @@ fun LineDetailScreen(
                     Text(stringResource(LineRes.string.line_alight_pick_hint))
                     if (destinations.isEmpty()) Text(stringResource(LineRes.string.line_alight_no_stops))
                     LazyColumn(Modifier.heightIn(max = 320.dp)) {
-                        items(destinations, key = { it.stopId + ":" + it.order }) { stop ->
-                            TextButton(onClick = { pickedId = stop.stopId + ":" + stop.order }, modifier = Modifier.fillMaxWidth().testTag("alight_stop_" + stop.order)) {
+                        items(destinations, key = { it.alightingKey }) { stop ->
+                            TextButton(onClick = { pickedId = stop.alightingKey }, modifier = Modifier.fillMaxWidth().testTag("alight_stop_" + stop.order)) {
                                 RadioButton(selected = picked == stop, onClick = null)
                                 Spacer(Modifier.width(8.dp))
                                 Text(stop.name, modifier = Modifier.weight(1f))
@@ -543,9 +564,9 @@ fun LineDetailScreen(
                 }
             },
             confirmButton = {
-                Button(enabled = picked != null, modifier = Modifier.testTag("btn_start_alighting"), onClick = {
+                Button(enabled = picked != null && picked != currentDestination, modifier = Modifier.testTag("btn_start_alighting"), onClick = {
                     picked?.let { onEvent(LineDetailEvent.StartAlightingReminder(it)) }
-                }) { Text(stringResource(LineRes.string.line_alight_start)) }
+                }) { Text(stringResource(if (state.followedTracking?.isOnboard == true) LineRes.string.line_alight_change else LineRes.string.line_alight_start)) }
             },
             dismissButton = {
                 TextButton(onClick = { onEvent(LineDetailEvent.DismissAlightingPicker) }) {
@@ -734,6 +755,7 @@ private fun HeroCard(
     onToggleCollapsed: (() -> Unit)? = null
 ) {
     val innerScrollState = rememberScrollState()
+    LaunchedEffect(state.panelMode, state.followedBusId) { innerScrollState.scrollTo(0) }
     Card(
         shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.busColors.stationCardContainer),
@@ -789,7 +811,8 @@ private fun HeroCard(
                         followedBus = followedBus,
                         onBack = { onEvent(LineDetailEvent.BackFromPanel) },
                         trackAction = followTrackAction(state, followedBus),
-                        onToggleTrackBus = { onEvent(LineDetailEvent.ToggleTrackFollowedBus) }
+                        tracking = state.followedTracking,
+                        onTrackBus = { onEvent(LineDetailEvent.StartTrackingFollowedBus) }
                     )
                 }
             }
@@ -802,8 +825,7 @@ internal fun followTrackAction(state: LineDetailUiState, followedBus: LiveBus?):
     val stop = state.selectedStop ?: return null
     val bus = followedBus ?: return null
     return when {
-        state.trackingSession.isActive && state.trackingSession.isPinnedBus &&
-            state.trackingSession.pinnedBusId == bus.busId -> FollowTrackAction.Tracking(state.trackingSession.targetStopName)
+        state.followedTracking != null -> null
         bus.order > stop.order -> FollowTrackAction.Passed(stop.name)
         else -> FollowTrackAction.Available(stop.name)
     }
@@ -832,6 +854,7 @@ private fun rememberLineDetail(static: LineStatic, live: LineLive?): BusLineDeta
 @Composable
 private fun LineBottomBar(
     isTracking: Boolean,
+    isOnboard: Boolean,
     canTrack: Boolean,
     canBoard: Boolean,
     onBoarded: () -> Unit,
@@ -860,7 +883,7 @@ private fun LineBottomBar(
                 enabled = canBoard,
                 shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("btn_boarded")
-            ) { Text(stringResource(LineRes.string.line_alight_boarded), fontWeight = FontWeight.Bold) }
+            ) { Text(stringResource(if (isOnboard) LineRes.string.line_alight_change else LineRes.string.line_alight_boarded), fontWeight = FontWeight.Bold) }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,

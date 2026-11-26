@@ -39,7 +39,9 @@ sealed interface ScreenKey : NavKey {
          */
         val boardStopName: String = "",
         /** 下车站名：和 [boardStopName] 一起判方向（上车站要在下车站前面） */
-        val alightStopName: String = ""
+        val alightStopName: String = "",
+        /** 从首页追踪卡进入时精确定位任务；普通线路入口留空。 */
+        val trackingSessionId: String? = null
     ) : ScreenKey
 
     @Serializable

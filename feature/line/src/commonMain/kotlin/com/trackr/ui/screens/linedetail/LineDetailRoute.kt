@@ -61,8 +61,8 @@ fun LineDetailRoute(
                     autoStartTracking = event.autoStartTracking
                 )
                 LineDetailEvent.ToggleTracking -> {
-                    if (state.isTrackingThisStop) {
-                        viewModel.stopTracking()
+                    if (state.isTrackingThisStop || state.followedTracking != null) {
+                        viewModel.stopTracking(state.trackingSessionId)
                     } else if (state.selectedStop != null) {
                         // 不拦：系统实时活动开没开都能追，普通通知栏照常出进度（引导在「我的」里）
                         viewModel.startTrackingSelectedStop()
@@ -72,14 +72,8 @@ fun LineDetailRoute(
                 LineDetailEvent.OpenAlightingPicker -> viewModel.openAlightingPicker()
                 LineDetailEvent.DismissAlightingPicker -> viewModel.dismissAlightingPicker()
                 is LineDetailEvent.StartAlightingReminder -> viewModel.startAlightingReminder(event.stop)
-                LineDetailEvent.ToggleTrackFollowedBus -> {
-                    if (state.trackingSession.isActive && state.trackingSession.isPinnedBus &&
-                        state.trackingSession.pinnedBusId == state.followedBusId) {
-                        viewModel.stopTrackingFollowedBus()
-                    } else {
-                        viewModel.startTrackingFollowedBus()
-                    }
-                }
+                LineDetailEvent.StartTrackingFollowedBus -> viewModel.startTrackingFollowedBus()
+                is LineDetailEvent.ResumeRide -> viewModel.resumeRide(event.sessionId)
                 // 一点就开默认渠道，「每次询问」才弹选择（不用长按）
                 LineDetailEvent.OpenTransitCode -> when (val provider = state.preferredTransitCodeProvider) {
                     TransitCodeProvider.ALIPAY, TransitCodeProvider.UNIONPAY -> transitCodeLauncher.open(provider)

@@ -17,7 +17,7 @@ import org.koin.dsl.module
 fun EntryProviderScope<NavKey>.lineEntries(navigator: TrackrNavigator) {
     entry<ScreenKey.LineDetail> { key ->
         val detailViewModel: LineDetailViewModel = koinViewModel(
-            key = "detail_${key.cityId}_${key.lineId}_${key.targetOrder}"
+            key = "detail_${key.cityId}_${key.lineId}_${key.targetOrder}_${key.trackingSessionId.orEmpty()}"
         ) { parametersOf(key) }
 
         LineDetailRoute(
@@ -34,7 +34,7 @@ fun EntryProviderScope<NavKey>.lineEntries(navigator: TrackrNavigator) {
 fun EntryProviderScope<NavKey>.elderLineEntries(navigator: TrackrNavigator) {
     entry<ScreenKey.LineDetail> { key ->
         val detailViewModel: LineDetailViewModel = koinViewModel(
-            key = "detail_${key.cityId}_${key.lineId}_${key.targetOrder}"
+            key = "detail_${key.cityId}_${key.lineId}_${key.targetOrder}_${key.trackingSessionId.orEmpty()}"
         ) { parametersOf(key) }
 
         LineDetailRoute(
@@ -56,6 +56,7 @@ val lineModule = module {
             initialStationId = key.stopId.takeIf { it.isNotBlank() },
             initialSource = key.source,
             lineNameHint = key.lineName,
+            entrySessionId = key.trackingSessionId,
             entryBoardStopName = key.boardStopName,
             entryAlightStopName = key.alightStopName,
             settings = get(),

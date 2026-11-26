@@ -188,7 +188,8 @@ class LineDetailViewModelTest {
         cityId: String = "034",
         lineId: String = "line_001",
         boardStopName: String = "",
-        alightStopName: String = ""
+        alightStopName: String = "",
+        entrySessionId: String? = null
     ): LineDetailViewModel {
         return LineDetailViewModel(
             cityId = cityId,
@@ -196,6 +197,7 @@ class LineDetailViewModelTest {
             initialTargetOrder = targetOrder,
             initialStationId = stationId,
             initialSource = DataSourceType.CHELAILE,
+            entrySessionId = entrySessionId,
             entryBoardStopName = boardStopName,
             entryAlightStopName = alightStopName,
             settings = fakeRepository.settings,
@@ -304,8 +306,6 @@ class LineDetailViewModelTest {
 
     @Test
     fun testStartTracking_passesSingleLineTargetToController() = runTest(main.dispatcher) {
-        val viewModel = createViewModel(targetOrder = 2)
-        testScheduler.runCurrent()
         val line = forwardDirection.copy(
             lineNo = "49",
             source = DataSourceType.MYGOLBS,
@@ -313,6 +313,9 @@ class LineDetailViewModelTest {
             direction = 1
         )
 
+        fakeRepository.lineDetailResult = fakeRepository.lineDetailResult!!.map { it.copy(line = line) }
+        val viewModel = createViewModel(targetOrder = 2)
+        testScheduler.runCurrent()
         val started = viewModel.startTracking(
             line = line,
             targetStop = stops[1],
@@ -550,6 +553,139 @@ class LineDetailViewModelTest {
     }
 
     @Test
+    fun reopeningActiveRideRestoresBusAndDestinationWithoutStartingAnotherTask() = runTest(main.dispatcher) {
+        val first = createViewModel(targetOrder = 2)
+        testScheduler.runCurrent()
+        first.selectBusToFollow(buses.single())
+        first.openAlightingPicker()
+        assertTrue(first.startAlightingReminder(stops[2]))
+        val reopened = createViewModel()
+        testScheduler.runCurrent()
+        assertEquals(PanelMode.BUS_FOLLOW, reopened.uiState.value.panelMode)
+        assertEquals("b1", reopened.uiState.value.followedBusId)
+        assertEquals(stops[2], reopened.uiState.value.selectedStop)
+        assertTrue(reopened.backFromPanel())
+        reopened.refreshNow()
+        testScheduler.runCurrent()
+        assertEquals(PanelMode.STATION_CARD, reopened.uiState.value.panelMode)
+        val shortcut = assertNotNull(reopened.uiState.value.rideToResume)
+        reopened.resumeRide(shortcut.sessionId)
+        assertEquals("b1", reopened.uiState.value.followedBusId)
+        assertEquals(1, trackingController.started.size)
+        reopened.stopTracking()
+        testScheduler.runCurrent()
+        assertNull(reopened.uiState.value.rideToResume)
+        assertNull(reopened.uiState.value.followedTracking)
+        val afterEnd = createViewModel()
+        testScheduler.runCurrent()
+        assertEquals(PanelMode.STATION_CARD, afterEnd.uiState.value.panelMode)
+    }
+
+    private fun startRide(busId: String, stop: BusStop, city: String = "034", direction: Int = 0,
+        source: DataSourceType = DataSourceType.CHELAILE, onboard: Boolean = true): String =
+        trackingRepository.start(TrackingTarget.SingleLine(cityId = city, lineId = forwardDirection.lineId,
+            lineName = forwardDirection.name, targetOrder = stop.order, targetStopId = stop.stopId,
+            targetStopName = stop.name, totalStops = stops.size, pinnedBusId = busId, pinnedPlate = "沪A1234",
+            direction = direction, source = source, isOnboard = onboard))!!.sessionId
+
+    @Test
+    fun homeCardSelectsItsOwnRideEvenWhenBusIsOfflineAndDoesNotStopAnotherRide() = runTest(main.dispatcher) {
+        val one = startRide("b1", stops[2])
+        val two = startRide("offline", stops[1])
+        val page = createViewModel(targetOrder = 2, entrySessionId = two)
+        testScheduler.runCurrent()
+        assertEquals("offline", page.uiState.value.followedBusId)
+        assertEquals(stops[1], page.uiState.value.selectedStop)
+        page.selectStop(stops[2]) // 浏览另一任务的站，但主按钮仍应结束当前跟随的车。
+        page.stopTracking()
+        page.stopTracking(two) // 过期点击不会回退到剩余的一份
+        testScheduler.runCurrent()
+        assertEquals(listOf(one), trackingRepository.sessions.value.map { it.sessionId })
+        val staleCard = createViewModel(targetOrder = 2, entrySessionId = two)
+        testScheduler.runCurrent()
+        assertNull(staleCard.uiState.value.followedBusId)
+        assertNull(staleCard.uiState.value.trackingSessionId)
+    }
+
+    @Test
+    fun restoredSessionArrivingAfterStopsCanFocusButManualBrowsingWins() = runTest(main.dispatcher) {
+        val untouched = createViewModel()
+        val browsing = createViewModel()
+        testScheduler.runCurrent()
+        browsing.openBusList()
+        startRide("b1", stops[1])
+        testScheduler.runCurrent()
+        assertEquals(PanelMode.BUS_FOLLOW, untouched.uiState.value.panelMode)
+        assertEquals(stops[1], untouched.uiState.value.selectedStop)
+        assertEquals(PanelMode.BUS_LIST, browsing.uiState.value.panelMode)
+        assertNotNull(browsing.uiState.value.rideToResume)
+    }
+
+    @Test
+    fun restoresFromCachedStopsBeforeLiveVehiclesWithoutResetOrDuplicateRequest() = runTest(main.dispatcher) {
+        startRide("b1", stops[1]) // 默认候车站会是第 3 站，不能覆盖第 2 站下车。
+        val key = LineStopsCache.keyOf(DataSourceType.CHELAILE, "034", "", "line_001")
+        val cache = FakeLineStopsCache(mutableMapOf(key to CachedLineStops(forwardDirection, null, stops, 0)))
+        val repo = CountingLineRepository(fakeRepository.realtime)
+        val gate = CompletableDeferred<Unit>()
+        repo.gate = gate
+        val page = createViewModel(realtime = repo, cache = cache)
+        testScheduler.runCurrent()
+        assertEquals("b1", page.uiState.value.followedBusId)
+        assertNull(page.uiState.value.live)
+        gate.complete(Unit)
+        testScheduler.runCurrent()
+        assertEquals(stops[1], page.uiState.value.selectedStop)
+        assertEquals(listOf<Int?>(2), repo.lineDetailTargetOrders)
+    }
+
+    @Test
+    fun repeatedOrderAndIdMarkOnlyTheConfirmedDestination() = runTest(main.dispatcher) {
+        val other = stops[2].copy(name = "同序另一站")
+        fakeRepository.lineDetailResult = fakeRepository.lineDetailResult!!.map { it.copy(stops = stops + other) }
+        startRide("b1", other)
+        val page = createViewModel(targetOrder = 3)
+        testScheduler.runCurrent()
+        val state = page.uiState.value
+        assertEquals(other, state.selectedStop)
+        assertEquals(other, state.followedTracking?.destinationIn(state.static!!.stops))
+        assertFalse(other.alightingKey == stops[2].alightingKey)
+    }
+
+    @Test
+    fun wrongCitySourceDirectionAndWaitingTasksDoNotRestoreAsRides() = runTest(main.dispatcher) {
+        startRide("b1", stops[1], city = "other")
+        startRide("b1", stops[1], direction = 1)
+        startRide("b1", stops[1], source = DataSourceType.MYGOLBS)
+        val waiting = startRide("b1", stops[1], onboard = false)
+        val page = createViewModel(targetOrder = 2, entrySessionId = waiting)
+        testScheduler.runCurrent()
+        assertEquals(PanelMode.STATION_CARD, page.uiState.value.panelMode)
+        assertNull(page.uiState.value.rideToResume)
+        assertEquals(waiting, page.uiState.value.trackingSessionId)
+    }
+
+    @Test
+    fun destinationChangesOnSameBusSurviveReopenAndReverseBrowsing() = runTest(main.dispatcher) {
+        startRide("b1", stops[2])
+        val page = createViewModel()
+        testScheduler.runCurrent()
+        page.openAlightingPicker()
+        assertEquals("b1", page.uiState.value.boardingBusId)
+        assertTrue(page.startAlightingReminder(stops[1]))
+        val reopened = createViewModel()
+        testScheduler.runCurrent()
+        assertEquals(stops[1], reopened.uiState.value.selectedStop)
+        assertEquals("s2", reopened.uiState.value.followedTracking?.targetStopId)
+        fakeRepository.lineDetailResult = Result.success(reverseDetail())
+        reopened.switchOppositeDirection()
+        testScheduler.runCurrent()
+        assertNull(reopened.uiState.value.followedTracking)
+        assertNull(reopened.uiState.value.rideToResume)
+        assertEquals("s2", trackingRepository.sessions.value.single().state.targetStopId)
+    }
+
+    @Test
     fun cancellingOverviewBoardingLeavesTrackingUntouched() = runTest(main.dispatcher) {
         val viewModel = createViewModel(targetOrder = 2)
         testScheduler.runCurrent()
@@ -621,7 +757,7 @@ class LineDetailViewModelTest {
         viewModel.selectStop(stops[1])
         testScheduler.runCurrent()
         assertEquals(3, viewModel.uiState.value.trackingSession.targetOrder)
-        viewModel.stopTrackingFollowedBus()
+        viewModel.stopTracking()
         assertEquals(1, trackingRepository.sessions.value.size)
         assertFalse(trackingRepository.sessions.value.single().state.isPinnedBus)
     }

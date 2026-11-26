@@ -980,6 +980,7 @@ class BusHomeViewModelTest {
         assertEquals("追踪 71路 · 人民广场", card.title)
         // 长辈版「读给我听」：还没选到车时读「正在查车」
         assertEquals("71路，正在查车", card.spoken)
+        assertEquals(card.sessionId, card.open.trackingSessionId)
         assertEquals("line_71", card.open.lineId)
         assertEquals(5, card.open.targetOrder)
         // 点卡片按会话里的数据源打开线路页（旧首页写死 CHELAILE）

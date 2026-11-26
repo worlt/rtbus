@@ -63,7 +63,8 @@ private fun LineTarget.toKey(): ScreenKey.LineDetail = ScreenKey.LineDetail(
     targetOrder = targetOrder,
     stopId = stopId,
     source = source,
-    lineName = lineName
+    lineName = lineName,
+    trackingSessionId = trackingSessionId
 )
 
 private fun StopTarget.toKey(): ScreenKey.StopDetail = ScreenKey.StopDetail(
