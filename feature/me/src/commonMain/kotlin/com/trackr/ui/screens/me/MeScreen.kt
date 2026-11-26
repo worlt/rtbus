@@ -77,7 +77,6 @@ import com.trackr.core.model.TransitCodeProvider
 import com.trackr.feature.me.resources.Res as MeRes
 import com.trackr.feature.me.resources.me_about_app
 import com.trackr.feature.me.resources.me_about_title
-import com.trackr.feature.me.resources.me_amap_title
 import com.trackr.feature.me.resources.me_arrival_alert
 import com.trackr.feature.me.resources.me_arrival_alert_desc
 import com.trackr.feature.me.resources.me_auto_stop_after_boarding
@@ -95,7 +94,6 @@ import com.trackr.feature.me.resources.me_elder_mode_desc
 import com.trackr.feature.me.resources.me_group_display
 import com.trackr.feature.me.resources.me_rail_mode
 import com.trackr.feature.me.resources.me_rail_mode_desc
-import com.trackr.feature.me.resources.me_group_map
 import com.trackr.feature.me.resources.me_group_notify
 import com.trackr.feature.me.resources.me_group_travel
 import com.trackr.feature.me.resources.me_live_notify
@@ -344,18 +342,6 @@ fun MeScreen(
                             }
                         )
                     }
-                }
-            }
-
-            item(key = "group_map", contentType = "settings_group") {
-                SettingsGroup(title = stringResource(MeRes.string.me_group_map)) {
-                    SettingRow(
-                        title = stringResource(MeRes.string.me_amap_title),
-                        subtitle = state.amapKeyStatus,
-                        onClick = { onEvent(MeEvent.OpenAmapKey) },
-                        modifier = Modifier.testTag("row_amap_key"),
-                        subtitleModifier = Modifier.testTag("text_amap_key_status")
-                    )
                 }
             }
 

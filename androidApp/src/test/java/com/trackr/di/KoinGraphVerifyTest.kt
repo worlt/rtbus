@@ -5,7 +5,6 @@ import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.test.core.app.ApplicationProvider
 import com.trackr.TrackrApp
-import com.trackr.core.data.repository.AmapKeyDefaults
 import com.trackr.core.data.repository.RealtimeRepository
 import com.trackr.core.data.repository.TrackingRepository
 import com.trackr.core.data.route.RouteAlignmentService
@@ -156,10 +155,6 @@ class KoinGraphVerifyTest {
         val koin = GlobalContext.get()
         assertTrue(app is TrackrApp)
         assertNotNull(koin.get<StorageBackend>())
-        val mapDefaults = koin.get<AmapKeyDefaults>()
-        assertFalse(mapDefaults.hasAndroidMapSdk)
-        assertFalse(mapDefaults.hasIosMapSdk)
-        assertEquals("", mapDefaults.androidKey)
         assertNotNull(koin.get<ITransitRepository>())
         assertNotNull(koin.get<IScheduledReminderRepository>())
         assertNotNull(koin.get<IRouteGroupRepository>())
@@ -174,6 +169,9 @@ class KoinGraphVerifyTest {
         })
         assertTrue("应用 DI 不再包含高德 Web 客户端", types.none {
             it.qualifiedName.orEmpty().startsWith("com.trackr.core.network.remote.amap.")
+        })
+        assertTrue("应用 DI 不再装配 Key/隐私或签名展示依赖", types.none {
+            it.simpleName.orEmpty().let { name -> name.contains("AmapKey") || name.contains("AppSigningInfo") }
         })
         assertTrue("路线详情定义必须保留", RouteDetailViewModel::class in types)
         assertTrue("应用 DI 不再包含 Android 高德 SDK 或 Key 同步", types.none {

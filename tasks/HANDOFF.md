@@ -1,6 +1,6 @@
 # RTBus 续接交接
 
-更新日期：2026-11-25。用途：新任务恢复项目状态；不是完整对话副本。以实际 Git、代码和验证结果为准，发现记录过时先核对再更新。
+更新日期：2026-11-26。用途：新任务恢复项目状态；不是完整对话副本。以实际 Git、代码和验证结果为准，发现记录过时先核对再更新。
 
 ## 1. 当前项目与不可扩大范围
 
@@ -31,7 +31,7 @@
 - 已有 Fake/桩数据定向 JVM 测试：`:core:domain` 215、`:core:data` 41、`:core:navigation` 70、`:feature:bus` 53、`:feature:search` 30、`:feature:route` 4，合计 **413 项通过，0 失败**；未连接真实公交接口。
 
 尚未完成，不能误报：
-- 高德尚未彻底拆除：规划 UI/数据链、全局 Android SDK、iOS CocoaPods/链接及原生 Key 注入已删除；两个 debug APK 已无高德原生库/DEX 类。Key 设置页/仓库/存储、专属隐私与 Android AMAP_WEB_KEY 等剩余配置仍待独立清理。普通查询、系统定位、路线详情和追踪保留。
+- 高德专属实现和配置已退役：规划 UI/数据链、SDK/CocoaPods/链接、Key 页面/仓库/存储读写、专属隐私及 Android AMAP_WEB_KEY 已删除；两个最新 debug APK 无退役 SDK/Key 类。保留旧导航序列化标识及历史 Key 文件备份排除。release APK、真机和 iOS 实际验收仍未完成；普通查询、系统定位、路线详情和追踪保留。
 - applicationId、源码包名/类名、Bundle ID、URL scheme、数据库/偏好文件名、签名配置和图标仍沿用工程现状；应用 ID 尚未独立，不能宣称能与原版并存。
 - 原版更新端点仍在代码中，尚未切断或替换。用户没有自己的远程仓库，这是正常的本地开发阶段，不阻止其他改造。
 - 裁剪前品牌版本的 Android debug 构建与 413 项定向 JVM 测试成功；并未单独构建原始快照。当前裁剪版本完整 Android/JVM 主机测试全绿（1,555 项，0 失败/errors/跳过，见第 6 节最新增量）；debug 构建及 release 合并 Manifest 已验证，release APK 构建/签名、真机和 iOS 验收仍未完成。
@@ -125,9 +125,21 @@
 - 日志与汇总均在忽略目录 build/rtbus-validation/，前缀 native-sdk-：removal-modules.log / removal-module-summary.json、removal-full-host.log / removal-suite-summary.json、debug-dependencies.log / release-dependencies.log、artifact-checks.log / artifact-summary.json、static-checks.log、boundary-red.log / boundary-green.log、apk-red.log，以及各 ABI 的 manifest.log / zipalign.log。产物检查可复用 .github/scripts/check_native_sdk_artifacts.py（命令见 docs/testing.md）。JDK/Gradle 缓存沿用第 4 节；本轮 Gradle 使用 --no-daemon --console=plain --max-workers=2 -Dorg.gradle.parallel=false -Dorg.gradle.vfs.watch=false。git diff --check 通过；无 remote，不推送。
 - 43 个保留核心源/测试文件与 af12ed4 字节一致；源 Manifest 除两个高德声明外完全一致。记录在 build/rtbus-validation/native-sdk-preservation-check.json（不是设备验收）。
 
+### 本轮续接：Key / 专属隐私退役（2026-11-26）
+- 删除“我的”里的 Key/地图设置组、Key 页面/ViewModel/事件/资源、仓库与 Fake、Android 新旧存储适配和 Key 迁移；Android/iOS runtime 不再装配 Key/隐私或仅供 Key 页使用的签名展示接口。Android AMAP_WEB_KEY、读取助手及未使用的旧字段常量已删除；发布签名配置保留。
+- 旧 Key 文件不再读取、创建、迁移或改写，也不主动删除历史文件。普通列表迁移不再遍历旧 Key 文件，防止其损坏备份复制到普通 legacy_backup。两份 Android 备份规则逐字未改：旧 SharedPreferences / DataStore 专用 Key 文件在旧版自动备份、云备份和设备迁移三段仍排除；普通设置与数据库继续备份。iOS private 目录的排除机制保留，未做 iOS 实际验收。
+- ScreenKey.AmapKey 及其序列化登记仅供旧存档兼容；标准版各栈与长辈版恢复时先剔除该页，保留同栈其他页面及其他页签。当前“我的”页无 Key 入口，长辈版拒绝再次打开；页签可见性不再依赖 Key。既有 RoutePlan 兼容和普通路线详情/追踪保留。
+- 新增/替换 10 项运行保护回归：旧文件不重开/不创建、损坏 Key 文件不影响普通设置和收藏迁移、混合旧 prefs 不向普通设置导入 Key/隐私、旧 Key 损坏备份不进入普通备份目录、标准版/长辈版旧页恢复。34 项旧 Key 行为测试退役或替换，另 2 项页签用例仅随退役语义改名；完整测试数量净减 24。普通设置、收藏、导航、启动、备份与安装器测试保留，未添加 skip 或弱化安全检查；逐项变化见 key-privacy-test-changes.json。
+- 6 个模块定向任务通过：674 项（datastore 7、data 205、navigation 74、me 56、compose 20、app 312），0 failures/errors/skipped。首两次编译发现新增测试的错误快照字段和一处遗漏的旧 Key 断言，已修正；最终定向日志 key-privacy-modules-final.log 为 BUILD SUCCESSFUL。
+- 最终源码执行 test :androidApp:assembleDebug :androidApp:processReleaseMainManifest：BUILD SUCCESSFUL；18 个模块的 JUnit XML 共 1,531 项，0 failures/errors/skipped。key-privacy-verified-host.log 为最终依据；早一轮完整通过记录为 key-privacy-full-host.log。未执行 iOS 原生任务，不能将 JUnit 的 0 skipped 当作 iOS 通过。
+- 新增 test_key_privacy_boundary.py 的 5 项保护，与已有品牌/规划/SDK 检查合计 26 项通过。新检查在入场提交 c568b92 的生产源码上有 3 项预期失败（另两项历史备份/序列化保护通过），当前源码全通过。只是源码/检查器测试，不代替平台运行。
+- 两个最新 debug APK 的所有 DEX 与 Compose 资源均未发现退役 Key 页面/仓库/存储/签名展示类或 Key 文案资源；保留的旧导航标识不误判为活跃能力。两个 APK 各仅有 graphics.path 与 datastore counter 原生库，打包 Manifest 无高德组件，zipalign -c -P 16 -v 4 均通过；Gradle 的 checkDebug16kbPageAlignment 通过。重新生成 debug/release runtime 依赖图并检查两份合并 Manifest，均无高德依赖/组件。未生成 release APK。
+- SignatureUtils、AndroidAppUpdateInstaller 及各自测试、两份备份规则、RouteAlignmentService 逐字未改；LegacySettingsMigration.copySettings 普通设置迁移体未改。Android 构建、安装器签名/包名/版本/下载验证随完整套件通过，但不代表真机升级验收。未连接真实公交接口，无 remote，不推送。
+- 日志/汇总均在忽略目录 build/rtbus-validation/，前缀 key-privacy-：module-summary.json、suite-summary.json、test-changes.json、preservation-check.json、function-check.json、static-final.log、boundary-baseline-red.log、verified-host.log、debug-dependencies.log / release-dependencies.log、artifact-checks.log / artifact-summary.json 及各 APK Manifest/ZIP 对齐日志。git diff --check 通过。
+
 ## 7. 唯一明确的下一步
 
-独立清理高德 Key 设置入口/页面、导航与 DI、仓库/存储/迁移装配和专属隐私流程，移除 Android AMAP_WEB_KEY 等剩余构建配置。保护普通设置、收藏/数据库、追踪会话及升级签名校验；审查旧 Key 文件的备份排除，不能因停止使用而把旧敏感文件纳入备份。旧导航状态要安全回落，不破坏普通路线详情。不要重做 SDK/CocoaPods 或此前 UI/数据链删除；按新旧存储、备份、导航恢复、启动和完整主机套件验证后本地提交。不配置 remote、不推送。
+独立处理应用内更新源：本地阶段将正式/测试更新源设为显式未配置，不请求原作者更新清单，不编造 RTBus 仓库；保留检查/下载/授权恢复/取消流程以及 HTTPS、受信任下载源、包名、版本号和签名校验。使用 MockEngine 与本地测试夹具覆盖“未配置”及安全拒绝路径，按独立增量验证后本地提交。不要重做已完成的 Key/隐私、SDK/CocoaPods 或规划 UI/数据链删除；保留全国城市、普通公交及辅助功能。release APK、真机/iOS 和自己的签名/升级仍待后续验收。不配置 remote、不推送。
 
 ## 8. 记录维护
 

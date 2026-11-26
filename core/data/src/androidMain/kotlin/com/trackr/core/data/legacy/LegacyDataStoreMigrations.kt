@@ -1,15 +1,13 @@
 package com.trackr.core.data.legacy
 
 import android.content.Context
-import android.content.SharedPreferences
 import androidx.datastore.core.DataMigration
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
-import com.trackr.core.datastore.AmapKeyKeys
 import com.trackr.core.datastore.SettingsKeys
 
 /*
- * 设置和高德 Key 从旧 SharedPreferences 导入 DataStore（重构计划 §2.4）。
+ * 普通设置从旧 SharedPreferences 导入 DataStore；退役 Key 不再迁移（重构计划 §2.4）。
  *
  * 不用 DataStore 自带的 SharedPreferencesMigration：它迁完会删掉旧 key，和「旧 key 不删」冲突。
  * 这里的 DataMigration 只读不删，cleanUp 什么都不做。
@@ -66,56 +64,6 @@ class LegacySettingsMigration(
             (legacy[LegacyPrefs.KEY_FAVORITES_GROUP_MIGRATION_VERSION] as? Int)?.let {
                 target[SettingsKeys.FAVORITES_GROUP_MIGRATION_VERSION] = it
             }
-        }
-    }
-}
-
-/**
- * 高德 Key：`trackr_amap_keys`（SharedPreferences）-> `trackr_amap_keys`（DataStore）。
- *
- * 0a4fdab 之前 Key 在 `trackr_prefs` 里。旧 SharedPreferences 的 `trackr_amap_keys` 没有 `migrated_from_trackr_prefs`
- * 标记时（用户从 0a4fdab 之前直接升到这一版），某个槽在 `trackr_amap_keys` 里是空的，就用 `trackr_prefs` 里的值；
- * `trackr_amap_keys` 里有值时以它为准（和 `AmapKeyStorage.migrateFromLegacy` 的规则一样）。
- * 只写非空值：旧文件里是空的，不会清掉新存储里已经填好的 Key。
- */
-class LegacyAmapKeyMigration(
-    context: Context,
-    private val generation: Int
-) : DataMigration<Preferences> {
-
-    private val appContext: Context = context.applicationContext ?: context
-
-    override suspend fun shouldMigrate(currentData: Preferences): Boolean =
-        currentData[AmapKeyKeys.LEGACY_IMPORT_GEN] != generation
-
-    override suspend fun migrate(currentData: Preferences): Preferences {
-        val (androidKey, webKey) = readLegacyKeys(
-            keyFile = appContext.getSharedPreferences(LegacyPrefs.AMAP_KEYS, Context.MODE_PRIVATE),
-            transitPrefs = appContext.getSharedPreferences(LegacyPrefs.TRANSIT, Context.MODE_PRIVATE)
-        )
-        val result = currentData.toMutablePreferences()
-        androidKey?.let { result[AmapKeyKeys.ANDROID] = it }
-        webKey?.let { result[AmapKeyKeys.WEB] = it }
-        result[AmapKeyKeys.LEGACY_IMPORT_GEN] = generation
-        return result.toPreferences()
-    }
-
-    override suspend fun cleanUp() {
-        // 旧 key 不删
-    }
-
-    companion object {
-        /** 返回 (Android Key, Web Key)，空串当没填 */
-        fun readLegacyKeys(keyFile: SharedPreferences, transitPrefs: SharedPreferences): Pair<String?, String?> {
-            fun SharedPreferences.slot(key: String): String? =
-                (all[key] as? String)?.trim()?.ifBlank { null }
-
-            val migratedFromTransit = keyFile.all[LegacyPrefs.KEY_AMAP_MIGRATED_FROM_TRACKR_PREFS] == true
-            val androidKey = keyFile.slot(LegacyPrefs.KEY_AMAP_ANDROID)
-                ?: if (migratedFromTransit) null else transitPrefs.slot(LegacyPrefs.KEY_AMAP_ANDROID)
-            val webKey = keyFile.slot(LegacyPrefs.KEY_AMAP_WEB)
-                ?: if (migratedFromTransit) null else transitPrefs.slot(LegacyPrefs.KEY_AMAP_WEB)
-            return androidKey to webKey
         }
     }
 }

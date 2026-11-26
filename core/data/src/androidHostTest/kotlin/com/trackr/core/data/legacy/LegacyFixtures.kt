@@ -67,9 +67,9 @@ object LegacyFixtures {
 
     /** 五个旧文件当前的全部内容（用来核对迁移前后一字不差） */
     fun snapshot(context: Context): Map<String, Map<String, Any?>> =
-        LegacyPrefs.ALL_FILES.associateWith { prefs(context, it).all.toMap() }
+        (LegacyPrefs.ALL_FILES + LegacyPrefs.AMAP_KEYS).associateWith { prefs(context, it).all.toMap() }
 
     fun clearAll(context: Context) {
-        LegacyPrefs.ALL_FILES.forEach { prefs(context, it).edit().clear().commit() }
+        (LegacyPrefs.ALL_FILES + LegacyPrefs.AMAP_KEYS).forEach { prefs(context, it).edit().clear().commit() }
     }
 }

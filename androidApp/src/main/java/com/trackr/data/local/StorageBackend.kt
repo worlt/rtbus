@@ -2,11 +2,8 @@ package com.trackr.data.local
 
 import android.content.Context
 import android.util.Log
-import com.trackr.BuildConfig
-import com.trackr.core.data.legacy.LegacyAmapKeyMigration
 import com.trackr.core.data.legacy.LegacyLibraryMigration
 import com.trackr.core.data.legacy.LegacySettingsMigration
-import com.trackr.core.data.local.DataStoreAmapKeyStore
 import com.trackr.core.data.local.FavoritesStore
 import com.trackr.core.data.local.ReminderStore
 import com.trackr.core.data.local.RoomDataStoreTransitStore
@@ -15,10 +12,7 @@ import com.trackr.core.data.local.RoomReminderScheduleStateStore
 import com.trackr.core.data.local.RoomReminderStore
 import com.trackr.core.data.local.SerialWriter
 import com.trackr.core.data.local.TransitLocalStore
-import com.trackr.core.data.repository.AmapKeyDefaults
-import com.trackr.core.data.repository.AmapKeyRepository
 import com.trackr.core.data.repository.DataStoreTrackingSessionStore
-import com.trackr.core.data.repository.DefaultAmapKeyRepository
 import com.trackr.core.data.repository.InMemoryTrackingSessionStore
 import com.trackr.core.data.repository.TrackingSessionStore
 import com.trackr.core.data.local.LineStopsCache
@@ -42,7 +36,7 @@ import kotlinx.coroutines.runBlocking
 /**
  * 这次启动用的整套本地存储（第 9 步）。按 [StoreSwitch] 选新旧：
  *
- * - 新：Room `trackr.db` + DataStore `trackr_settings` / `trackr_amap_keys` / `tracking_session`。打开时先跑 [LegacyLibraryMigration]
+ * - 新：Room `trackr.db` + DataStore `trackr_settings` / `tracking_session`。打开时先跑 [LegacyLibraryMigration]
  *   （旧 SharedPreferences -> 新存储，只读不删）。**迁移出任何错，这次启动就退回旧存储**，用户看到的还是原来的数据，
  *   下次启动再试。
  * - 旧：原来的 SharedPreferences（`SharedPrefs*Store`）。
@@ -57,7 +51,6 @@ class StorageBackend private constructor(
     val favoritesStore: FavoritesStore,
     val reminderStore: ReminderStore,
     val reminderScheduleState: ReminderScheduleState,
-    val amapKeys: AmapKeyRepository,
     /** 追踪会话（第 12 步）：新存储落 DataStore `tracking_session.json`；旧存储只在内存里（和之前一样，进程没了就没了） */
     val trackingSessionStore: TrackingSessionStore,
     /** 线路站表磁盘缓存（第 20 步）：新存储落 Room `line_stops_cache`；旧存储没有 */
@@ -97,13 +90,6 @@ class StorageBackend private constructor(
             return openLegacy(appContext, writeScope)
         }
 
-        /** 原生 SDK 已移除；Web Key/旧存储留待后续独立清理，不再启用地图能力。 */
-        private fun amapKeyDefaults() = AmapKeyDefaults(
-            androidKey = "",
-            webKey = BuildConfig.AMAP_WEB_KEY,
-            hasAndroidMapSdk = false
-        )
-
         private fun newWriter(scope: CoroutineScope) = SerialWriter(scope).apply {
             onError = { Log.e(TAG, "写盘失败", it) }
         }
@@ -114,16 +100,12 @@ class StorageBackend private constructor(
             recordSession: Boolean = true
         ): StorageBackend {
             if (recordSession) StoreSwitch.recordOldStoreSession(context)
-            val amapKeys = runBlocking(Dispatchers.IO) {
-                DefaultAmapKeyRepository.create(SharedPrefsAmapKeyStore(context), newWriter(writeScope), amapKeyDefaults())
-            }
             return StorageBackend(
                 usesNewStore = false,
                 transitStore = SharedPrefsTransitStore(context),
                 favoritesStore = SharedPrefsFavoritesStore(context),
                 reminderStore = SharedPrefsReminderStore(context),
                 reminderScheduleState = SharedPrefsReminderScheduleState(context),
-                amapKeys = amapKeys,
                 trackingSessionStore = InMemoryTrackingSessionStore(),
                 lineStopsCache = NoLineStopsCache,
                 migrationReport = null,
@@ -142,11 +124,6 @@ class StorageBackend private constructor(
                     scope = dataStoreScope,
                     migrations = listOf(LegacySettingsMigration(context, generation))
                 )
-                val keys = createPreferencesDataStore(
-                    path = context.trackrDataStorePath(TrackrDataStoreFiles.AMAP_KEYS),
-                    scope = dataStoreScope,
-                    migrations = listOf(LegacyAmapKeyMigration(context, generation))
-                )
                 val trackingSession = createTrackingSessionDataStore(
                     path = context.trackrDataStorePath(TrackrDataStoreFiles.TRACKING_SESSION),
                     scope = dataStoreScope
@@ -158,7 +135,6 @@ class StorageBackend private constructor(
                         context = context,
                         db = database,
                         settings = settings,
-                        amapKeys = keys,
                         generation = generation,
                         log = { Log.i(TAG, it) }
                     ).runIfNeeded()
@@ -171,7 +147,6 @@ class StorageBackend private constructor(
                             RoomReminderScheduleStateStore(database),
                             newWriter(writeScope)
                         ),
-                        amapKeys = DefaultAmapKeyRepository.create(DataStoreAmapKeyStore(keys), newWriter(writeScope), amapKeyDefaults()),
                         trackingSessionStore = DataStoreTrackingSessionStore(trackingSession),
                         lineStopsCache = RoomLineStopsCache(database.lineStopsCache()) { System.currentTimeMillis() },
                         migrationReport = report,

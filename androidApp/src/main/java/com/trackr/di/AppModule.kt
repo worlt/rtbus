@@ -5,7 +5,6 @@ import com.trackr.core.data.local.LineStopsCache
 import com.trackr.core.data.local.ReminderStore
 import com.trackr.core.data.local.TransitLocalStore
 import com.trackr.core.data.provider.TransitProviderCoordinator
-import com.trackr.core.data.repository.AmapKeyRepository
 import com.trackr.core.data.repository.DefaultFavoritesRepository
 import com.trackr.core.data.repository.DefaultLocationRepository
 import com.trackr.core.data.repository.FavoritesRepository
@@ -92,7 +91,6 @@ val appModule: Module = module {
     single<FavoritesStore> { get<StorageBackend>().favoritesStore }
     single<ReminderStore> { get<StorageBackend>().reminderStore }
     single<ReminderScheduleState> { get<StorageBackend>().reminderScheduleState }
-    single<AmapKeyRepository> { get<StorageBackend>().amapKeys }
     // 线路站表磁盘缓存（第 20 步，只用来先显示）
     single<LineStopsCache> { get<StorageBackend>().lineStopsCache }
 

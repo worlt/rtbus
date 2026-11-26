@@ -130,7 +130,7 @@ class UiModeSwitchNavigationTest {
         "站点页 + 上了哪辆弹层" to { open(stop); open(ScreenKey.ChooseBoardedBus("s1")) },
         "路线详情" to { open(ScreenKey.RouteDetail("g1")) },
         "设置 · 关于" to { open(ScreenKey.More); open(ScreenKey.About) },
-        "设置 · 高德 Key" to { open(ScreenKey.More); open(ScreenKey.AmapKey) },
+        "设置 · 主题" to { open(ScreenKey.More); open(ScreenKey.ThemeSettings) },
     )
 
     @Test

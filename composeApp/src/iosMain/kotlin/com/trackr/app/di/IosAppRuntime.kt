@@ -63,10 +63,6 @@ internal class IosAppRuntime(val module: Module, val resolveFavorite: (String) -
                         val settings = DefaultSettingsRepository.create(store, writer)
                         val history = DefaultSearchHistoryRepository.create(store, writer)
                         val favorites = DefaultFavoritesRepository.create(RoomFavoritesStore(db))
-                        val defaults = AmapKeyDefaults(hasAndroidMapSdk = false, hasIosMapSdk = false)
-                        val keys = DefaultAmapKeyRepository.create(
-                            DataStoreAmapKeyStore(createPreferencesDataStore("$privateDir/trackr_amap_keys.preferences_pb", scope)), writer, defaults
-                        )
                         val locationStore = IosUserLocationStore()
                         val coordinator = TransitProviderCoordinator(
                             ChelaileTransitProvider(ChelaileApiClient(http, monotonicClock = IosMonotonicClock), IosMonotonicClock),
@@ -124,8 +120,6 @@ internal class IosAppRuntime(val module: Module, val resolveFavorite: (String) -
                             single<IRouteGroupRepository> { DefaultRouteGroupRepository(favorites) }
                             single { coordinator }
                             single<LocalMigrationFlags> { StoreMigrationFlags(store) }
-                            single<AmapKeyRepository> { keys }
-                            single { defaults }
                             single<UserLocationStore> { locationStore }
                             single<MonotonicClock> { IosMonotonicClock }
                             single { location }
@@ -153,7 +147,6 @@ internal class IosAppRuntime(val module: Module, val resolveFavorite: (String) -
                             single<TransitCodeLauncher> { IosTransitCodeLauncher }
                             single<Announcer> { announcer }
                             single<SystemSettingsLauncher> { IosSystemSettingsLauncher }
-                            single<AppSigningInfo> { IosAppSigningInfo }
                             single { AppVersionInfo(
                                 (NSBundle.mainBundle.objectForInfoDictionaryKey("CFBundleVersion") as? String)?.toIntOrNull() ?: 1,
                                 NSBundle.mainBundle.objectForInfoDictionaryKey("CFBundleShortVersionString") as? String ?: "0.1.0"

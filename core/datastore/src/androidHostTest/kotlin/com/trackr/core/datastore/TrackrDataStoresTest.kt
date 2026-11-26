@@ -35,7 +35,7 @@ import java.nio.file.Files
 import java.nio.file.StandardCopyOption.ATOMIC_MOVE
 import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 
-/** 三个 DataStore 文件：读写、重开读回、文件损坏不崩 */
+/** 活动 DataStore：读写、重开读回、文件损坏不崩；旧 Key 文件不再打开 */
 class TrackrDataStoresTest {
 
     private lateinit var dir: File
@@ -107,14 +107,15 @@ class TrackrDataStoresTest {
     }
 
     @Test
-    fun amapKeys_areSeparateFileFromSettings() = runBlocking {
+    fun settings_neverOpensOrRewritesRetiredKeyFile() = runBlocking {
+        val oldKeys = File(dir, TrackrDataStoreFiles.AMAP_KEYS)
+        val original = byteArrayOf(0x7f, 0x01, 0x02)
+        oldKeys.writeBytes(original)
         val settings = createPreferencesDataStore(File(dir, TrackrDataStoreFiles.SETTINGS).absolutePath, newScope())
-        val keys = createPreferencesDataStore(File(dir, TrackrDataStoreFiles.AMAP_KEYS).absolutePath, newScope())
-        keys.edit { it[AmapKeyKeys.ANDROID] = "android-key" }
+        settings.edit { it[SettingsKeys.NEARBY_STOPS_COUNT] = 6 }
 
-        assertNull(settings.data.first()[AmapKeyKeys.ANDROID])
-        assertEquals("android-key", keys.data.first()[AmapKeyKeys.ANDROID])
-        assertTrue(File(dir, TrackrDataStoreFiles.AMAP_KEYS).exists())
+        assertEquals(6, settings.data.first()[SettingsKeys.NEARBY_STOPS_COUNT])
+        assertTrue(original.contentEquals(oldKeys.readBytes()))
     }
 
     @Test

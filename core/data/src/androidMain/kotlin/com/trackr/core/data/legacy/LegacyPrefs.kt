@@ -9,11 +9,12 @@ object LegacyPrefs {
     const val TRANSIT = "trackr_prefs"
     const val ROUTE_GROUPS = "trackr_route_groups"
     const val REMINDERS = "trackr_scheduled_reminders"
+    /** 历史敏感文件名：仅用于升级保护测试，已从迁移输入排除。 */
     const val AMAP_KEYS = "trackr_amap_keys"
     const val REMINDER_SCHEDULE_STATE = "trackr_reminder_schedule_state"
 
-    /** 迁移要看的全部旧文件 */
-    val ALL_FILES = listOf(TRANSIT, ROUTE_GROUPS, REMINDERS, AMAP_KEYS, REMINDER_SCHEDULE_STATE)
+    /** 迁移要看的普通旧文件；退役 Key 文件不再读取，也不复制其损坏备份。 */
+    val ALL_FILES = listOf(TRANSIT, ROUTE_GROUPS, REMINDERS, REMINDER_SCHEDULE_STATE)
 
     // trackr_prefs
     const val KEY_FAVORITES = "favorites_json"
@@ -48,11 +49,6 @@ object LegacyPrefs {
 
     // trackr_reminder_schedule_state
     const val KEY_PREFIX_NEXT_TRIGGER = "next_trigger_"
-
-    // trackr_amap_keys（trackr_prefs 里同名的两个 key 是 0a4fdab 之前的位置）
-    const val KEY_AMAP_ANDROID = "custom_amap_android_key"
-    const val KEY_AMAP_WEB = "custom_amap_web_key"
-    const val KEY_AMAP_MIGRATED_FROM_TRACKR_PREFS = "migrated_from_trackr_prefs"
 
     /** 148d67c 起 JSON 解析失败时的原文备份：`<key>_corrupt_backup_<时间戳>` */
     const val CORRUPT_BACKUP_MARK = "_corrupt_backup_"

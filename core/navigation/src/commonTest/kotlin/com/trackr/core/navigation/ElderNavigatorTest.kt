@@ -65,7 +65,7 @@ class ElderNavigatorTest {
 
     @Test
     fun unsupportedKeys_fallBackToHome_withNotice() {
-        listOf(ScreenKey.RoutePlan, ScreenKey.FavoritesEdit, ScreenKey.ReminderEdit("r1"), ScreenKey.FavoritesGroup).forEach { key ->
+        listOf(ScreenKey.RoutePlan, ScreenKey.AmapKey, ScreenKey.FavoritesEdit, ScreenKey.ReminderEdit("r1"), ScreenKey.FavoritesGroup).forEach { key ->
             val stack = newStack()
             val nav = ElderNavigator(stack)
             nav.open(ScreenKey.More)

@@ -32,8 +32,8 @@ import java.io.File
  * 1. **旧文件一个 key 都不删、不改**。回退旧版本、或把 USE_NEW_STORE 关掉，都还能读到原样的数据。
  * 2. 列表类（收藏的车、搜索历史、路线、收藏分组、收藏合一索引、定时提醒 + 计划触发时刻）在**一个** Room 事务里写入，连同导入标记；
  *    中途失败什么都不变，下次启动重来。
- * 3. 设置和高德 Key 由 [LegacySettingsMigration]、[LegacyAmapKeyMigration] 在 DataStore 第一次读时导入；
- *    这里先读一次两个 DataStore，确保它们已经导完。
+ * 3. 普通设置由 [LegacySettingsMigration] 在 DataStore 第一次读时导入；
+ *    这里先读一次设置 DataStore，确保已经导完。
  * 4. 某个 JSON 坏了：跳过这一项（那张表不动），其他照迁；原文复制到 `files/legacy_backup/<文件>_<key>.json`，
  *    记进设置的 `legacy_corrupt_keys`。148d67c 留下的 `<key>_corrupt_backup_<时间戳>` 也原样复制过去。
  * 5. 全部成功后在设置里记 `legacy_migrated = 1`。
@@ -49,7 +49,6 @@ class LegacyLibraryMigration(
     context: Context,
     private val db: TrackrDatabase,
     private val settings: DataStore<Preferences>,
-    private val amapKeys: DataStore<Preferences>,
     private val generation: Int,
     private val log: (String) -> Unit = {}
 ) {
@@ -69,9 +68,8 @@ class LegacyLibraryMigration(
     private val backupDir: File get() = File(appContext.filesDir, LegacyPrefs.BACKUP_DIR)
 
     suspend fun runIfNeeded(): Report {
-        // 先让两个 DataStore 跑完各自的 DataMigration（设置、Key）
+        // 先让普通设置 DataStore 跑完 DataMigration；旧 Key 文件不再读取。
         settings.data.first()
-        amapKeys.data.first()
 
         val doneGen = db.storeMeta().get(META_LEGACY_IMPORT_GEN)?.toIntOrNull()
         // A restored device can carry a newer store generation than the local

@@ -8,13 +8,10 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
-import com.trackr.BuildConfig
 import com.trackr.core.data.local.LocalMigrationFlags
 import com.trackr.core.data.local.StoreMigrationFlags
-import com.trackr.core.data.repository.AmapKeyDefaults
 import com.trackr.core.data.repository.UserLocationStore
 import com.trackr.core.domain.platform.Announcer
-import com.trackr.core.domain.platform.AppSigningInfo
 import com.trackr.core.domain.platform.AppVersionInfo
 import com.trackr.core.domain.platform.BoardingTraceLog
 import com.trackr.core.domain.platform.SystemSettingsLauncher
@@ -33,7 +30,6 @@ import com.trackr.ui.platform.LiveUpdateSettings
 import com.trackr.ui.platform.LiveUpdateStatus
 import com.trackr.ui.platform.NotificationHealth
 import com.trackr.ui.platform.NotificationHealthAccess
-import com.trackr.util.SignatureUtils
 import com.trackr.util.TransitCodeHelper
 import kotlinx.coroutines.flow.StateFlow
 import org.koin.android.ext.koin.androidContext
@@ -49,7 +45,6 @@ val platformBridgeModule: Module = module {
     single<TransitCodeLauncher> { AndroidTransitCodeLauncher(androidContext()) }
     // 定位提示里的「去授权 / 去开启」：跳应用详情页或系统位置信息页（issue #34）
     single<SystemSettingsLauncher> { AndroidSystemSettingsLauncher(androidContext()) }
-    single<AppSigningInfo> { AndroidAppSigningInfo(androidContext()) }
     // 「读给我听」（第 33 步）：进程级一个，第一次读才建引擎；Koin 关闭时释放
     single<Announcer> { AndroidTtsAnnouncer(androidContext(), get(AppScopeQualifier)) } onClose {
         (it as? AndroidTtsAnnouncer)?.shutdown()
@@ -65,8 +60,6 @@ val platformBridgeModule: Module = module {
     // 收藏分组一次性数据修复的版本号（原来在 viewModelModule 里给 FavoritesGroupViewModel 现建）
     single<LocalMigrationFlags> { StoreMigrationFlags(get()) }
     factory { androidAppVersion(androidContext()) }
-    // 与 StorageBackend 保持一致：没有原生地图 SDK，Key 页面/存储另行清理。
-    single { AmapKeyDefaults(androidKey = "", webKey = BuildConfig.AMAP_WEB_KEY, hasAndroidMapSdk = false) }
 }
 
 /** 乘车码：转调 [TransitCodeHelper]（Intent 都带 NEW_TASK，用 applicationContext 打开和原来一样） */
@@ -110,15 +103,6 @@ class AndroidSystemSettingsLauncher(context: Context) : SystemSettingsLauncher {
     } catch (_: Exception) {
         false
     }
-}
-
-/** 包名 + 签名 SHA-1：转调 [SignatureUtils]（取不到时为空串，和原来一样） */
-class AndroidAppSigningInfo(context: Context) : AppSigningInfo {
-    private val appContext: Context = context.applicationContext ?: context
-
-    override val appId: String get() = SignatureUtils.getPackageName(appContext)
-
-    override fun certificateSha1(): String = SignatureUtils.getSigningCertificateSha1(appContext)
 }
 
 /** 实时活动的设备判断与设置跳转：转调三个厂商适配对象 */

@@ -3,7 +3,6 @@ package com.trackr.core.data.legacy
 import android.content.Context
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.mutablePreferencesOf
-import com.trackr.core.datastore.AmapKeyKeys
 import com.trackr.core.datastore.SettingsKeys
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -16,7 +15,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 
-/** 设置和高德 Key 的只读 DataMigration（不用会删旧 key 的 SharedPreferencesMigration） */
+/** 普通设置的只读 DataMigration（不导入退役 Key）（不用会删旧 key 的 SharedPreferencesMigration） */
 @RunWith(RobolectricTestRunner::class)
 class SettingsMigrationTest {
 
@@ -159,33 +158,19 @@ class SettingsMigrationTest {
         assertEquals("ALL", LegacyFixtures.prefs(context, LegacyPrefs.TRANSIT).getString(LegacyPrefs.KEY_ENGINE_MODE, null))
     }
 
-    @Test
-    fun amapKeys_blankLegacyValue_doesNotClearNewKey() = runBlocking {
-        LegacyFixtures.prefs(context, LegacyPrefs.AMAP_KEYS).edit()
-            .putString("custom_amap_android_key", "  ")
-            .putBoolean("migrated_from_trackr_prefs", true)
-            .commit()
-        val current = mutablePreferencesOf(AmapKeyKeys.ANDROID to "typed-in-new-store", AmapKeyKeys.LEGACY_IMPORT_GEN to 0)
-        val result = LegacyAmapKeyMigration(context, generation = 1).migrate(current)
-        assertEquals("typed-in-new-store", result[AmapKeyKeys.ANDROID])
-        assertEquals(1, result[AmapKeyKeys.LEGACY_IMPORT_GEN])
-    }
 
     @Test
     fun amapKeys_neverWrittenToSettingsMigration() = runBlocking {
         LegacyFixtures.writeAll(context)
+        LegacyFixtures.prefs(context, LegacyPrefs.TRANSIT).edit()
+            .putString("custom_amap_android_key", "legacy-android")
+            .putString("custom_amap_web_key", "legacy-web")
+            .putBoolean("amap_privacy_consent", true)
+            .commit()
         val result = LegacySettingsMigration(context, generation = 0).migrate(emptyPreferences())
-        assertNull(result[AmapKeyKeys.ANDROID])
-        assertNull(result[AmapKeyKeys.WEB])
+        assertNull(result[androidx.datastore.preferences.core.booleanPreferencesKey("amap_privacy_consent")])
+        assertNull(result[androidx.datastore.preferences.core.stringPreferencesKey("custom_amap_android_key")])
+        assertNull(result[androidx.datastore.preferences.core.stringPreferencesKey("custom_amap_web_key")])
     }
 
-    @Test
-    fun amapKeys_trimmed_andLegacyKept() = runBlocking {
-        LegacyFixtures.prefs(context, LegacyPrefs.AMAP_KEYS).edit()
-            .putString("custom_amap_web_key", " web ")
-            .commit()
-        val result = LegacyAmapKeyMigration(context, generation = 0).migrate(emptyPreferences())
-        assertEquals("web", result[AmapKeyKeys.WEB])
-        assertEquals(" web ", LegacyFixtures.prefs(context, LegacyPrefs.AMAP_KEYS).getString("custom_amap_web_key", null))
-    }
 }

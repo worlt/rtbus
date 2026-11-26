@@ -127,7 +127,7 @@ private fun TrackrNavApp(
 ) {
     // 只为保留的公交 / 我的创建栈；decorator 会解析全部栈，隐藏 RoutePlan 栈也会要求已删除的 entry。
     // 旧版当前页签若是 RoutePlan，rememberNavigationState 会回到首页，其他栈按 Key 恢复。
-    val navigationState = rememberNavigationState(topLevel = TopLevel.visibleTabs(hasMapKey = false))
+    val navigationState = rememberNavigationState(topLevel = TopLevel.visibleTabs())
     val navigator = remember(navigationState) { Navigator(navigationState) }
 
     // 跨页共享的 ViewModel：首页和路线详情。

@@ -2,7 +2,6 @@ package com.trackr.ui.screens.me
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.trackr.core.data.repository.AmapKeyRepository
 import com.trackr.core.data.repository.SettingsRepository
 import com.trackr.core.domain.platform.BoardingTraceLog
 import com.trackr.core.domain.platform.LocationSource
@@ -25,13 +24,12 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
- * 「我的」页状态（v3 分组：出行、通知、地图、关于）。
+ * 「我的」页状态（v3 分组：出行、通知、关于）。
  *
  * @param alertThresholdStops 到站前提醒：车离上车站还有几站时提醒（1–3）
  * @param remindersSubtitle 「定时提醒」那一行的副标题（最早一条开着的提醒）；没有提醒为 null
  * @param liveUpdate 实时活动通知支持没支持、开没开；平台没有这项（iOS）或实时通知关着时为 null，不显示那一行
  * @param notificationHealth 通知可靠性体检；全正常或平台没有这项（iOS）时为 null，不显示那一行
- * @param amapKeyStatus 「高德 Key」那一行的状态文字
  * @param versionName 「关于」那一行显示的版本号；读不到为 null
  * @param showTransitCodeButton 「乘车码」按钮显不显示：首页悬浮按钮和线路页、站点页底栏的圆钮都听它（`SettingsRepository.showTransitCodeButton`）
  * @param autoStopAfterBoarding 上车后自动结束追踪（issue #32）：单线路和一起等判出已上车就结束，路线不受影响
@@ -56,7 +54,6 @@ data class MeUiState(
     val liveUpdate: LiveUpdateStatus? = null,
     /** 只在系统那边确实断了（没权限 / 渠道被降级）时才有值，正常时 null */
     val notificationHealth: NotificationHealth? = null,
-    val amapKeyStatus: String = amapKeyStatusText(hasMapKey = false, canShowMap = false),
     val versionName: String? = null,
     val elderMode: Boolean = false,
     val railMode: RailMode = RailMode.Horizontal,
@@ -89,7 +86,6 @@ sealed interface MeEvent {
     data class MessageShown(val id: Long) : MeEvent
 
     data class OpenReminder(val id: String) : MeEvent
-    data object OpenAmapKey : MeEvent
     data object OpenAbout : MeEvent
     data object OpenThemeSettings : MeEvent
 }
@@ -103,7 +99,6 @@ val ALERT_THRESHOLD_CHOICES: List<Int> = listOf(1, 2, 3)
 class MeViewModel(
     private val settings: SettingsRepository,
     private val reminderRepository: IScheduledReminderRepository,
-    private val amapKeys: AmapKeyRepository,
     private val notices: MeNotices,
     private val liveUpdateAccess: LiveUpdateAccess? = null,
     private val versionName: String? = null,
@@ -139,18 +134,13 @@ class MeViewModel(
         .combine(settings.railMode) { part, mode -> part.copy(railMode = mode) }
         .combine(settings.themeMode) { part, mode -> part.copy(themeMode = mode) }
 
-    private val mapKeyStatus = combine(amapKeys.hasMapKey, amapKeys.canShowMap) { has, canShow ->
-        amapKeyStatusText(has, canShow)
-    }
-
     val uiState: StateFlow<MeUiState> = combine(
         settingsPart,
         reminderRepository.reminders,
         platformStatus,
-        mapKeyStatus,
         notices.messages
-    ) { part, reminders, platform, keyStatus, messages ->
-        buildState(part, reminders, platform, keyStatus, messages)
+    ) { part, reminders, platform, messages ->
+        buildState(part, reminders, platform, messages)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.Eagerly,
@@ -170,7 +160,6 @@ class MeViewModel(
             ),
             reminderRepository.reminders.value,
             PlatformStatus(liveUpdateStatus.value, notificationHealthStatus.value, backgroundLocationGranted.value),
-            amapKeyStatusText(amapKeys.hasMapKey.value, amapKeys.canShowMap.value),
             notices.messages.value
         )
     )
@@ -213,7 +202,6 @@ class MeViewModel(
             is MeEvent.MessageShown -> notices.consume(event.id)
             // 导航与系统权限申请由 Route 处理
             is MeEvent.OpenReminder,
-            MeEvent.OpenAmapKey,
             MeEvent.OpenAbout,
             MeEvent.OpenThemeSettings,
             MeEvent.RequestBackgroundLocation -> Unit
@@ -231,7 +219,6 @@ class MeViewModel(
         part: SettingsPart,
         reminders: List<ScheduledReminder>,
         platform: PlatformStatus,
-        keyStatus: String,
         messages: List<UserMessage>
     ) = MeUiState(
         engineMode = part.engineMode,
@@ -253,7 +240,6 @@ class MeViewModel(
         liveUpdate = platform.liveUpdate?.takeIf { part.liveNotification },
         // 只在真有问题时出现，正常时那一行不该占地方
         notificationHealth = platform.notificationHealth?.takeIf { !it.healthy },
-        amapKeyStatus = keyStatus,
         versionName = versionName,
         userMessages = messages
     )

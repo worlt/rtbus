@@ -3,7 +3,6 @@ package com.trackr.core.data.repository
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
-import com.trackr.core.data.legacy.LegacyAmapKeyMigration
 import com.trackr.core.data.legacy.LegacyFixtures
 import com.trackr.core.data.legacy.LegacyLibraryMigration
 import com.trackr.core.data.legacy.LegacyPrefs
@@ -436,7 +435,7 @@ class FavoritesRepositoryTest {
 
     // ---- 旧数据迁入后顺序不变 ----
 
-    /** 和 LegacyLibraryMigrationTest 一样建两个 DataStore，跑一次旧数据导入 */
+    /** 和 LegacyLibraryMigrationTest 一样只建普通设置 DataStore，跑一次旧数据导入 */
     private suspend fun runLegacyMigration(): LegacyLibraryMigration.Report {
         val newScope = CoroutineScope(SupervisorJob() + Dispatchers.IO).also { scope = it }
         val settings: DataStore<Preferences> = createPreferencesDataStore(
@@ -444,12 +443,7 @@ class FavoritesRepositoryTest {
             newScope,
             listOf(LegacySettingsMigration(context, 0))
         )
-        val keys: DataStore<Preferences> = createPreferencesDataStore(
-            context.trackrDataStorePath(TrackrDataStoreFiles.AMAP_KEYS),
-            newScope,
-            listOf(LegacyAmapKeyMigration(context, 0))
-        )
-        return LegacyLibraryMigration(context, db, settings, keys, generation = 0).runIfNeeded()
+        return LegacyLibraryMigration(context, db, settings, generation = 0).runIfNeeded()
     }
 
     /**

@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
 import com.trackr.core.data.legacy.LegacyDataSource
-import com.trackr.core.data.local.AmapKeyStore
 import com.trackr.core.data.local.FavoritesSnapshot
 import com.trackr.core.data.local.FavoritesStore
 import com.trackr.core.data.local.FavoritesWrite
@@ -20,7 +19,6 @@ import com.trackr.core.model.TransitGroup
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import com.trackr.data.remote.amap.AmapKeyStorage as LegacyAmapKeyStore
 
 /*
  * 旧存储：原来的 SharedPreferences + JSON（USE_NEW_STORE 关掉时用，风险 R1）。
@@ -408,33 +406,5 @@ class SharedPrefsReminderStore(private val prefs: SharedPreferences) : ReminderS
         const val PREFS_NAME = "trackr_scheduled_reminders"
         private const val KEY_REMINDERS_JSON = "reminders_list_json"
         const val KEY_CORRUPT_BACKUP_PREFIX = "reminders_list_json_corrupt_backup_"
-    }
-}
-
-/**
- * 高德 Key 的旧存储：`trackr_amap_keys`（SharedPreferences）。读写走原来的 `AmapKeyStorage` 函数，
- * 打开时照旧把 0a4fdab 之前存在 `trackr_prefs` 里的 Key 搬过来（[LegacyAmapKeyStore.prefs]）。
- */
-class SharedPrefsAmapKeyStore(private val prefs: SharedPreferences?) : AmapKeyStore {
-
-    constructor(context: Context) : this(LegacyAmapKeyStore.prefs(context))
-
-    override suspend fun loadAndroidKey(): String? = LegacyAmapKeyStore.readAndroidKey(prefs)
-
-    override suspend fun loadWebKey(): String? = LegacyAmapKeyStore.readWebKey(prefs)
-
-    override suspend fun saveAndroidKey(key: String?) = LegacyAmapKeyStore.writeAndroidKey(prefs, key)
-
-    override suspend fun saveWebKey(key: String?) = LegacyAmapKeyStore.writeWebKey(prefs, key)
-
-    override suspend fun loadPrivacyConsent(): Boolean? = prefs?.takeIf { it.contains(KEY_PRIVACY_CONSENT) }
-        ?.getBoolean(KEY_PRIVACY_CONSENT, false)
-
-    override suspend fun savePrivacyConsent(consented: Boolean) {
-        prefs?.edit()?.putBoolean(KEY_PRIVACY_CONSENT, consented)?.apply()
-    }
-
-    private companion object {
-        const val KEY_PRIVACY_CONSENT = "amap_privacy_consent"
     }
 }

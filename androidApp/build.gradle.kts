@@ -20,12 +20,6 @@ val localProperties = Properties().apply {
     }
 }
 
-fun localOrEnv(name: String): String =
-    System.getenv(name)?.trim().orEmpty().ifBlank { localProperties.getProperty(name, "").trim() }
-
-// 规划数据链已退役；保留 Web Key 配置到后续 Key 页面/存储清理增量。
-val amapWebServiceKey = localOrEnv("AMAP_WEB_KEY")
-
 android {
     namespace = "com.trackr"
 
@@ -34,7 +28,6 @@ android {
         versionCode = 21
         versionName = "0.1.13"
 
-        buildConfigField("String", "AMAP_WEB_KEY", "\"$amapWebServiceKey\"")
         // 第 9 步存储开关 USE_NEW_STORE 的默认值（true = Room + DataStore）；运行时可用 files/store_switch 覆盖，见 StoreSwitch
         buildConfigField(
             "boolean",

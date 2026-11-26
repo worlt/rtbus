@@ -6,7 +6,7 @@
 
 ## RTBus 本地裁剪状态（2026-11-25）
 
-高德规划页面、Android/iOS 地图 UI、Swift 地图安装桥接及规划专属仓库/网关/模型/Web 客户端均已移除，iOS runtime 不再注册 Web 规划网关。普通路线详情、收藏、前台追踪和共享投影/坐标工具保留。CocoaPods 高德依赖、Pods 工程/构建阶段及专属链接/Key 注入配置已移除，Key 设置页/隐私存储待后续清理；下方既有运行/打包记录不能视为当前裁剪版本已通过 iOS 验收。本轮在 Windows 仅完成可用的 Android/主机验证，未执行 Xcode 构建或模拟器运行。
+高德规划页面、Android/iOS 地图 UI、Swift 地图安装桥接及规划专属仓库/网关/模型/Web 客户端均已移除，iOS runtime 不再注册 Web 规划网关。普通路线详情、收藏、前台追踪和共享投影/坐标工具保留。CocoaPods 高德依赖、Pods 工程/构建阶段及专属链接/Key 注入配置已移除，Key 设置页、Key/隐私存储读写和运行时装配也已移除；下方既有运行/打包记录不能视为当前裁剪版本已通过 iOS 验收。本轮在 Windows 仅完成可用的 Android/主机验证，未执行 Xcode 构建或模拟器运行。
 
 ## 在模拟器运行
 
@@ -58,7 +58,7 @@ ditto iosApp/DerivedData/Build/Products/Release-iphoneos/Trackr.app /tmp/trackr-
 - 共享公交首页、城市选择、搜索、站点和线路详情、收藏管理、我的与主题设置。
 - Ktor Darwin 直连已有公交接口；沿用现有 ViewModel、业务规则和页面轮询。
 - Core Location 的前台定位、原生权限申请、跳系统设置，以及与共享层一致的单调时钟。
-- Room 保存收藏、路线、搜索历史和站表缓存；DataStore 保存设置与高德 Key。
+- Room 保存收藏、路线、搜索历史和站表缓存；DataStore 保存普通设置和追踪会话。
 - `trackr://` 链接由共享 `DeepLinkParser` 校验后交给根导航，支持冷启动和运行中打开。
 - 普通路线详情复用共享 CMP 页面，保留多程候选线、收藏和追踪。高德规划与地图页面已从 RTBus 删除，不再提供 Web 算路入口。
 
@@ -71,11 +71,11 @@ ditto iosApp/DerivedData/Build/Products/Release-iphoneos/Trackr.app /tmp/trackr-
 - `AVSpeechSynthesizer` 朗读，`SFSpeechRecognizer` 语音搜索（授权失败返回现有提示），支付宝/云闪付 Scheme 跳转。模拟器不能代表实际麦克风、中文声音与第三方 App 的表现。
 - `TrackrWidgets` 提供 ActivityKit 实时活动与收藏小组件。App 原子写入 App Group JSON，扩展不打开 Room。暂停、90 秒过期和时间倒退均明确降级；刷新失败不会把旧 ETA 变成“刚刚更新”。
 
-## 本机 Key 与签名
+## 本机签名与 App Group
 
 将 `iosApp/Configuration/Local.xcconfig.example` 复制为 `Local.xcconfig`，按需填写 `DEVELOPMENT_TEAM`、`TRACKR_APP_GROUP`。构建不再注入 `AMAP_WEB_KEY` 或 `AMAP_IOS_KEY`；普通公交查询/路线详情不需要高德 Key。该文件已被 Git 忽略；不要提交个人 Key、Team 或 provisioning profile。
 
-三个 Key 槽及高德 Key 设置页/授权撤回仍留在代码中，等待独立的 Key/隐私清理增量；不能据此推断仍可规划或显示地图。当前 runtime 已无高德 Web 请求通道，普通路线详情与追踪不依赖这些 Key。
+Key 页面、三个 Key 槽的仓库/存储、专属隐私及 runtime 装配均已移除，不再创建或读取旧 Key 文件。`ScreenKey.AmapKey` 仅保留旧存档反序列化兼容，标准版和长辈版恢复时剔除该页并保留其他页面；iOS 实际恢复行为仍需 Xcode 验收。
 
 真机需同时为 `Trackr` 和 `TrackrWidgets` 配置同一开发团队，并在开发者账户中给两个 Bundle ID 启用相同 App Group。更换 Bundle ID 时同时更新扩展 ID 和 App Group。`CODE_SIGNING_ALLOWED=NO` 只验证构建，不能作为真机安装或 App Group 授权通过记录。
 
@@ -86,7 +86,7 @@ ditto iosApp/DerivedData/Build/Products/Release-iphoneos/Trackr.app /tmp/trackr-
 - `composeApp/src/iosMain/kotlin/com/trackr/app/di/IosAppRuntime.kt` 初始化本地数据后提供 Koin 平台模块，再安装 `trackrModules`。
 - `MainViewController.kt` 在装配期间展示加载状态，初始化失败可重试。
 - `Application Support/trackr.db` 与 `Application Support/datastore/trackr_settings.preferences_pb` 是普通应用数据。
-- Key 与追踪文件位于 `Application Support/private/`，整个目录设置不参与 iCloud 备份，避免原子写入替换文件后丢失排除标记。
+- 追踪会话继续位于 `Application Support/private/`；既有 Key 文件不再打开，也不主动删除。整个目录仍设置不参与 iCloud 备份，避免原子写入替换文件后丢失排除标记。
 - iOS 不读取 Android 的 SharedPreferences，也不执行 Android 旧数据导入。
 
 ## 原生底部页签与安全区

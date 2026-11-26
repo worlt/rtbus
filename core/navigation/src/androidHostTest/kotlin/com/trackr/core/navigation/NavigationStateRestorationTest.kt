@@ -106,6 +106,67 @@ class NavigationStateRestorationTest {
     }
 
     @Test
+    fun retiredKeyPage_restorePreservesOtherTabsAndReturnsToPreviousMePage() {
+        val tester = StateRestorationTester(composeTestRule)
+        tester.setContent { Host(TopLevel.visibleTabs()) }
+        act {
+            navigator.open(line49)
+            navigator.selectTab(ScreenKey.More)
+            navigator.open(ScreenKey.About)
+            navigator.open(ScreenKey.AmapKey) // 模拟升级前保存的栈顶
+        }
+        tester.emulateSavedInstanceStateRestore()
+        composeTestRule.waitForIdle()
+
+        assertEquals(ScreenKey.More, state.topLevel)
+        assertEquals(listOf<NavKey>(ScreenKey.More, ScreenKey.About), state.currentStack.toList())
+        assertEquals(listOf<NavKey>(ScreenKey.Home, line49), state.stacks.getValue(ScreenKey.Home).toList())
+        act { navigator.back() }
+        assertEquals(ScreenKey.More, state.currentKey)
+    }
+
+    @Test
+    fun retiredKeyPage_restoreRemovesIntermediateAndInactiveEntriesOnly() {
+        val tester = StateRestorationTester(composeTestRule)
+        tester.setContent { Host(TopLevel.visibleTabs()) }
+        act {
+            navigator.open(ScreenKey.AmapKey)
+            navigator.open(line49)
+            navigator.selectTab(ScreenKey.More)
+            navigator.open(ScreenKey.AmapKey)
+            navigator.open(ScreenKey.ReminderEdit("r1"))
+            navigator.selectTab(ScreenKey.Home)
+        }
+        tester.emulateSavedInstanceStateRestore()
+        composeTestRule.waitForIdle()
+
+        assertEquals(listOf<NavKey>(ScreenKey.Home, line49), state.currentStack.toList())
+        assertEquals(listOf<NavKey>(ScreenKey.More, ScreenKey.ReminderEdit("r1")), state.stacks.getValue(ScreenKey.More).toList())
+    }
+
+    @Test
+    fun retiredKeyPage_elderRestorePreservesSettingsAndAbout() {
+        lateinit var stack: NavBackStack<NavKey>
+        val tester = StateRestorationTester(composeTestRule)
+        tester.setContent {
+            val restored = rememberElderBackStack()
+            SideEffect { stack = restored }
+        }
+        act {
+            stack.add(ScreenKey.More)
+            stack.add(ScreenKey.About)
+            stack.add(ScreenKey.AmapKey) // 直接注入旧存档，当前导航已禁止打开
+        }
+        tester.emulateSavedInstanceStateRestore()
+        composeTestRule.waitForIdle()
+
+        assertEquals(listOf<NavKey>(ScreenKey.Home, ScreenKey.More, ScreenKey.About), stack.toList())
+        val nav = ElderNavigator(stack)
+        assertTrue(nav.back())
+        assertEquals(ScreenKey.More, nav.currentKey)
+    }
+
+    @Test
     fun emulatedRestore_keepsAllStacksAndCurrentTab() {
         val restorationTester = StateRestorationTester(composeTestRule)
         restorationTester.setContent { Host() }
@@ -180,7 +241,7 @@ class NavigationStateRestorationTest {
             navigator.selectTab(ScreenKey.RoutePlan)
         }
 
-        tabs = TopLevel.visibleTabs(hasMapKey = false)
+        tabs = TopLevel.visibleTabs()
         restorationTester.emulateSavedInstanceStateRestore()
         composeTestRule.waitForIdle()
 

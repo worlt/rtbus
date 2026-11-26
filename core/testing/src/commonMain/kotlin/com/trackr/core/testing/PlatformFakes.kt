@@ -2,7 +2,6 @@ package com.trackr.core.testing
 
 import com.trackr.core.data.repository.TrackingRepository
 import com.trackr.core.domain.platform.Announcer
-import com.trackr.core.domain.platform.AppSigningInfo
 import com.trackr.core.domain.platform.AppUpdateInstaller
 import com.trackr.core.domain.platform.LocationSource
 import com.trackr.core.domain.platform.ReminderAlarms
@@ -337,11 +336,4 @@ class FakeAppUpdateInstaller(
     override fun discardPending() {
         discardCount++
     }
-}
-
-class FakeAppSigningInfo(
-    override val appId: String = "com.github.u5151561.trackr",
-    private val sha1: String? = "AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD"
-) : AppSigningInfo {
-    override fun certificateSha1(): String? = sha1
 }

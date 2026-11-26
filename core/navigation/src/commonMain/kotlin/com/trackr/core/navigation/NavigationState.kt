@@ -54,6 +54,8 @@ fun rememberNavigationState(
             rememberSaveable(saver = stackSaver) { NavBackStack<NavKey>(tab) }.also { stack ->
                 // 兜底：恢复出来的栈底不是这个页签（旧版存档、页签改动）就丢掉，从页签根页重来
                 remember(stack) {
+                    // 旧版本可能停在 Key 页；只移除退役项，保留同栈的其他页面。
+                    stack.removeAll { it == ScreenKey.AmapKey }
                     if (stack.firstOrNull() != tab) {
                         stack.clear()
                         stack.add(tab)

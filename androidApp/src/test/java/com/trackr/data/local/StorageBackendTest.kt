@@ -179,8 +179,6 @@ class StorageBackendTest {
         val favoriteGroups: List<FavoriteGroup>,
         val reminders: List<ScheduledReminder>,
         val trigger: Long?,
-        val androidKey: String?,
-        val webKey: String?,
         val migrationVersion: Int
     )
 
@@ -204,8 +202,6 @@ class StorageBackendTest {
             favoriteGroups = groups.favoriteGroups.value,
             reminders = rem.reminders.value,
             trigger = backend.reminderScheduleState.get("rem-1"),
-            androidKey = backend.amapKeys.androidKey.value,
-            webKey = backend.amapKeys.webKey.value,
             migrationVersion = runBlocking { backend.transitStore.favoritesGroupMigrationVersion() }
         )
     }
@@ -227,7 +223,6 @@ class StorageBackendTest {
         assertEquals(viaLegacy, viaNew)
         assertEquals(favorites, viaNew.favorites)
         assertEquals(routes, viaNew.routes)
-        assertEquals("android-key", viaNew.androidKey)
         assertEquals(1_800_000_000_000L, viaNew.trigger)
         assertTrue(viaNew.hasSavedCity)
     }
@@ -250,15 +245,33 @@ class StorageBackendTest {
         assertEquals(before, legacySnapshot())
     }
 
+
     @Test
-    fun retiredNativeSdk_storedAndroidKeyCannotEnableMaps_inEitherBackend() {
+    fun retiredKeys_bothBackendsLeaveOldFilesUntouchedWhileOrdinarySettingsWork() {
         writeLegacy()
+        val before = legacySnapshot()
+        val keyFile = File(context.filesDir, "${TrackrDataStoreFiles.DIRECTORY}/${TrackrDataStoreFiles.AMAP_KEYS}")
+        keyFile.parentFile!!.mkdirs()
+        val original = byteArrayOf(0x7f, 0x01, 0x02)
+        keyFile.writeBytes(original)
         for (forceLegacy in listOf(false, true)) {
             val backend = open(forceLegacy = forceLegacy)
-            assertEquals("android-key", backend.amapKeys.androidKey.value)
-            assertEquals("", backend.amapKeys.effectiveAndroidKey.value)
-            assertFalse(backend.amapKeys.canShowMap.value)
+            assertEquals(6, seen(backend).nearby)
             closeAll()
+            assertTrue(original.contentEquals(keyFile.readBytes()))
+            assertEquals(before, legacySnapshot())
+        }
+    }
+
+    @Test
+    fun retiredKeys_freshInstallCreatesNoKeyDataStoreInEitherBackend() {
+        val keyFile = File(context.filesDir, "${TrackrDataStoreFiles.DIRECTORY}/${TrackrDataStoreFiles.AMAP_KEYS}")
+        for (forceLegacy in listOf(false, true)) {
+            val backend = open(forceLegacy = forceLegacy)
+            seen(backend)
+            closeAll()
+            assertFalse(keyFile.exists())
+            assertTrue(context.getSharedPreferences("trackr_amap_keys", Context.MODE_PRIVATE).all.isEmpty())
         }
     }
 
@@ -284,9 +297,7 @@ class StorageBackendTest {
         transit.addSearchHistory("万达")
         transit.setShowOnLockScreen(false)
         transit.setAlertThresholdStops(3)
-        backend.amapKeys.setWebKey("web-new")
         transit.flushWrites()
-        (backend.amapKeys as com.trackr.core.data.repository.DefaultAmapKeyRepository).flush()
         closeAll()
 
         assertEquals(before, legacySnapshot())
@@ -296,8 +307,6 @@ class StorageBackendTest {
         assertEquals(listOf("051_100_7"), reopened.favorites.map { it.id })
         assertEquals(EngineMode.CHELAILE, reopened.engine)
         assertEquals(listOf("万达", "59", "7路"), reopened.history)
-        assertEquals("web-new", reopened.webKey)
-        assertEquals("android-key", reopened.androidKey)
     }
 
     @Test

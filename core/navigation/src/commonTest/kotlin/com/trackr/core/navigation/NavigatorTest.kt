@@ -379,28 +379,27 @@ class NavigatorTest {
     }
 
     @Test
-    fun visibleTabs_withoutMapKey_dropsOnlyRoutePlan_keepingOrder() {
-        assertEquals(TopLevel.tabs, TopLevel.visibleTabs(hasMapKey = true))
+    fun visibleTabs_dropsRetiredRoutePlan_keepingOrder() {
         assertEquals(
             listOf(ScreenKey.Home, ScreenKey.More),
-            TopLevel.visibleTabs(hasMapKey = false)
+            TopLevel.visibleTabs()
         )
-        assertTrue(TopLevel.start in TopLevel.visibleTabs(hasMapKey = false), "起始页签总在")
+        assertTrue(TopLevel.start in TopLevel.visibleTabs(), "起始页签总在")
     }
 
     @Test
-    fun visibleTabs_keyClearedWhileOnRoutePlan_returnsHome_andKeyBackLeavesStateAlone() {
+    fun visibleTabs_restoredRoutePlan_returnsHome_andRepeatedCleanupIsStable() {
         val state = newState()
         val navigator = Navigator(state)
         navigator.selectTab(ScreenKey.RoutePlan)
         navigator.open(line49)
 
-        navigator.onTabsChanged(TopLevel.visibleTabs(hasMapKey = false).toSet())
+        navigator.onTabsChanged(TopLevel.visibleTabs().toSet())
         assertEquals(ScreenKey.Home, state.topLevel)
         assertEquals(listOf<NavKey>(ScreenKey.RoutePlan), state.stacks.getValue(ScreenKey.RoutePlan).toList())
 
-        // Key 填回来：页签重新出现，但不自动切过去
-        navigator.onTabsChanged(TopLevel.visibleTabs(hasMapKey = true).toSet())
+        // 重复清理不改变当前页签
+        navigator.onTabsChanged(TopLevel.visibleTabs().toSet())
         assertEquals(ScreenKey.Home, state.topLevel)
     }
 

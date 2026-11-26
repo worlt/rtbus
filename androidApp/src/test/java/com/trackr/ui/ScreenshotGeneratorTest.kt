@@ -36,7 +36,6 @@ import com.trackr.core.model.TrackingSessionState
 import com.trackr.core.model.TrackingTarget
 import com.trackr.core.model.TransitCity
 import com.trackr.core.model.TransitSearchResult
-import com.trackr.core.testing.FakeAmapKeyRepository
 import com.trackr.core.testing.FakeTrackingController
 import com.trackr.core.testing.FakeTransitCodeLauncher
 import com.trackr.data.location.AndroidLocationSource
@@ -977,7 +976,6 @@ class ScreenshotGeneratorTest {
         val vm = MeViewModel(
             settings = FakeTransitRepository(initialCity = shanghai),
             reminderRepository = FakeScheduledReminderRepository(initialReminders = initialReminders),
-            amapKeys = FakeAmapKeyRepository(),
             notices = MeNotices(),
             liveUpdateAccess = object : LiveUpdateAccess {
                 override fun status() = LiveUpdateStatus(supported = true, allowed = false)

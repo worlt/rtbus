@@ -66,7 +66,7 @@ sealed interface ScreenKey : NavKey {
     @Serializable
     data class ReminderEdit(val reminderId: String) : ScreenKey
 
-    /** 高德 Key（§3.1「我的」页签子页，第 25 步；原「更多」页的对话框） */
+    /** 仅用于反序列化旧返回栈；页面已退役，恢复时移除。 */
     @Serializable
     data object AmapKey : ScreenKey
 

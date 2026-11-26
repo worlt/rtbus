@@ -5,13 +5,12 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import com.trackr.core.database.TrackrDatabase
 import com.trackr.core.database.entity.SearchHistoryEntity
-import com.trackr.core.datastore.AmapKeyKeys
 import com.trackr.core.datastore.SettingsKeys
 import com.trackr.core.model.ScheduledReminder
 import kotlinx.coroutines.flow.first
 
 /*
- * 新存储（USE_NEW_STORE 打开时用）：列表类进 Room，设置和高德 Key 进 DataStore（重构计划 §2.4）。
+ * 新存储（USE_NEW_STORE 打开时用）：列表类进 Room，普通设置进 DataStore（重构计划 §2.4）。
  */
 
 /** 设置在 `trackr_settings`，搜索历史在 Room（收藏的车第 14 步挪到 [RoomFavoritesStore]） */
@@ -192,35 +191,5 @@ class RoomReminderScheduleStateStore(private val db: TrackrDatabase) : ReminderS
 
     override suspend fun remove(reminderId: String) {
         db.reminders().setLastScheduledTriggerAt(reminderId, null)
-    }
-}
-
-/** 高德 Key 在单独的 `trackr_amap_keys`（备份排除）。空串按没填处理，存的时候也不写空串 */
-class DataStoreAmapKeyStore(private val keys: DataStore<Preferences>) : AmapKeyStore {
-    override suspend fun loadIosKey(): String? = keys.data.first()[AmapKeyKeys.IOS]?.trim()?.ifBlank { null }
-    override suspend fun saveIosKey(key: String?) {
-        val value = key?.trim()?.ifBlank { null }
-        keys.edit { if (value == null) it.remove(AmapKeyKeys.IOS) else it[AmapKeyKeys.IOS] = value }
-    }
-
-
-    override suspend fun loadAndroidKey(): String? = keys.data.first()[AmapKeyKeys.ANDROID]?.trim()?.ifBlank { null }
-
-    override suspend fun loadWebKey(): String? = keys.data.first()[AmapKeyKeys.WEB]?.trim()?.ifBlank { null }
-
-    override suspend fun saveAndroidKey(key: String?) {
-        val value = key?.trim()?.ifBlank { null }
-        keys.edit { if (value == null) it.remove(AmapKeyKeys.ANDROID) else it[AmapKeyKeys.ANDROID] = value }
-    }
-
-    override suspend fun saveWebKey(key: String?) {
-        val value = key?.trim()?.ifBlank { null }
-        keys.edit { if (value == null) it.remove(AmapKeyKeys.WEB) else it[AmapKeyKeys.WEB] = value }
-    }
-
-    override suspend fun loadPrivacyConsent(): Boolean? = keys.data.first()[AmapKeyKeys.PRIVACY_CONSENT]
-
-    override suspend fun savePrivacyConsent(consented: Boolean) {
-        keys.edit { it[AmapKeyKeys.PRIVACY_CONSENT] = consented }
     }
 }

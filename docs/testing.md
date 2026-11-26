@@ -4,13 +4,15 @@
 
 ---
 
-## RTBus 退役能力边界（2026-11-25）
+## RTBus 退役能力边界（2026-11-26）
 
 规划 UI/地图及其数据链的专属测试随退役能力移除；普通路线详情/追踪、对齐/返程/缓存及共享投影工具测试保留。真实 Application 的 `KoinGraphVerifyTest` 继续验证普通实时查询、追踪、路线对齐与保存可解析，并禁止装配高德 Web 客户端。
 
 离线边界检查：`python .github/scripts/test_route_feature_boundary.py` 与 `python .github/scripts/test_route_data_boundary.py`（各 3 项）。它们只保护源码/装配边界，不代替 Gradle 测试、构建、真机或 iOS 验收。
 
-`python .github/scripts/test_native_sdk_boundary.py` 的 9 项检查覆盖 Android SDK 依赖/镜像/Manifest/R8、明文例外、iOS Pods/工程引用，以及产物检查器对遗留依赖、原生库和次级 DEX 的拒绝。真实 Application 的 Koin 默认能力和新旧存储回归验证：已存 Android Key 仍被保留，但不能重新启用原生地图；Key 页也不会将“无 Android SDK”误认为“有 iOS SDK”。
+`python .github/scripts/test_native_sdk_boundary.py` 的 9 项检查覆盖 Android SDK 依赖/镜像/Manifest/R8、明文例外、iOS Pods/工程引用，以及产物检查器对遗留依赖、原生库和次级 DEX 的拒绝。Key 页面、仓库、存储读写/迁移、两端 runtime 装配及专属隐私现已退役，其专属测试随实现移除。普通设置/新旧存储/备份/导航恢复/启动和安装器签名校验测试保留。
+
+`python .github/scripts/test_key_privacy_boundary.py` 的 5 项检查禁止重新引入 Key 页面/资源、仓库/存储/隐私/签名展示接口和构建注入，同时保留历史文件的三段备份排除和旧导航序列化标识。新增运行回归验证旧 Key 文件不再打开或创建、损坏 Key 文件不影响普通设置和收藏迁移、旧敏感文件不进入普通损坏备份，以及标准版/长辈版恢复时只剔除退役页。备份规则继续排除旧文件，不能因代码退役取消排除；普通设置/数据库仍参与备份。
 
 实际产物另行检查（必须先构建并保存成功的依赖报告；不是仅扫描源码）：
 
@@ -35,7 +37,7 @@ python .github/scripts/check_native_sdk_artifacts.py \
 
 ## 2. 内存隔离机制（Fake 仓库）
 
-单元测试不发起真实网络请求，也不依赖本地存储。功能模块的 ViewModel 测试直接用 `:core:testing` 里按接口拆开的 Fake（`FakeSettingsRepository`、`FakeFavoritesRepository`、`FakeRealtimeRepository`、`FakeSearchHistoryRepository`、`FakeLocationRepository`、`FakeAmapKeyRepository`）。`:androidApp` 里还拿合并接口 `ITransitRepository` 的代码（追踪服务、接收器、导航测试）用 `FakeTransitRepository`（位于 `androidApp/src/test/java/com/trackr/data/repository/FakeTransitRepository.kt`），它把上面几个 Fake 合在一起。
+单元测试不发起真实网络请求，也不依赖本地存储。功能模块的 ViewModel 测试直接用 `:core:testing` 里按接口拆开的 Fake（`FakeSettingsRepository`、`FakeFavoritesRepository`、`FakeRealtimeRepository`、`FakeSearchHistoryRepository`、`FakeLocationRepository`）。`:androidApp` 里还拿合并接口 `ITransitRepository` 的代码（追踪服务、接收器、导航测试）用 `FakeTransitRepository`（位于 `androidApp/src/test/java/com/trackr/data/repository/FakeTransitRepository.kt`），它把上面几个 Fake 合在一起。
 
 支持配置以下模拟响应：
 - `supportedCitiesResult`：城市列表
@@ -79,7 +81,7 @@ python .github/scripts/check_native_sdk_artifacts.py \
 - Compose UI 测试放 `src/androidHostTest`，跑 Robolectric。新模块的 Robolectric 配置在各自 `src/androidHostTest/resources/robolectric.properties`（`sdk=34`）。
 - 单跑某个模块：`./gradlew :feature:route:testAndroidHostTest`（其他模块同理）。
 
-Koin 由 `TrackrApp.onCreate` 启动，Robolectric 用例里每个用例都会重新启动一次。第 4 步留下的 object 转发第 12 步删了：通知、提醒用 Koin 里的 `LiveProgressNotifier`、`ArrivalAlertNotifier` 实例（Robolectric 用例里 `GlobalContext.get().get()`），纯函数和常量在 `ReminderAlarmScheduler`、`AmapKeyStorage` 的伴生对象里。要换掉某个依赖（如定位、实时数据、`TrackingController`）时，在用例里 `loadKoinModules(module { single<接口> { fake } })` 覆盖，下一个用例重启 Koin 后自动恢复。
+Koin 由 `TrackrApp.onCreate` 启动，Robolectric 用例里每个用例都会重新启动一次。第 4 步留下的 object 转发第 12 步删了：通知、提醒用 Koin 里的 `LiveProgressNotifier`、`ArrivalAlertNotifier` 实例（Robolectric 用例里 `GlobalContext.get().get()`），纯函数和常量在 `ReminderAlarmScheduler` 的伴生对象里。要换掉某个依赖（如定位、实时数据、`TrackingController`）时，在用例里 `loadKoinModules(module { single<接口> { fake } })` 覆盖，下一个用例重启 Koin 后自动恢复。
 
 追踪会话只有一份，在 `TrackingRepository`（`:core:data`）。ViewModel 测试用真实的 `DefaultTrackingRepository(InMemoryTrackingSessionStore(), scope)` 加 `FakeTrackingController(repository)`（命令转给仓库，不启动服务）；要造某个追踪状态时 `start` 一个目标后用 `update(generation) { it.copy(state = ...) }` 改。
 
@@ -96,7 +98,6 @@ Koin 由 `TrackrApp.onCreate` 启动，Robolectric 用例里每个用例都会�
 |  | `MainActivityDeepLinkTest` | 真实的 `MainActivity`：启动器冷启动只显示保留的公交/我的页签、不要求规划 entry；冷启动带 `trackr://line` 打开对应线路详情、Intent 里的链接被清掉、返回回首页根页；旧版 6 个 extra 仍能打开；热启动 `onNewIntent` 同样；带保存状态重建时不重放；`trackr://transit-code` 直接拉起支付宝乘车码、不动栈；坏链接忽略 | Robolectric Compose UI |
 |  | `ShortcutsXmlTest` | 静态快捷方式 `res/xml/shortcuts.xml`（issue #50）：`targetPackage` / `targetClass` 写的是字面量且指向本包的 `MainActivity`、两个快捷方式分别解析成支付宝和云闪付乘车码、debug 版除包名外和 main 一致 | Robolectric (JVM) |
 | `deeplink` | `DeepLinkIntentsTest` | Intent ↔ `trackr://` 链接（第 18 步）：data 里的新链接；旧版 6 个 extra、两种拼法的旧 `OPEN_TRANSIT_CODE` action 兼容（只有 alipay 是支付宝）；`consume` 后同一个 Intent 不重放、不碰非 `trackr` 的 data；别的 App 传来的坏 Intent 忽略；动态快捷方式发的是 `ACTION_VIEW` + `trackr://line` | Robolectric (JVM) |
-| `data/remote/amap` | `AmapSdkManagerTest` | 高德 Key 本地持久化（`AmapKeyStorage`）：Android / Web 两槽分开存、读 Android Key 不回落到 Web 槽、旧 Key 从 `trackr_prefs` 挪出只做一次、新文件里已有的 Key 不被旧值覆盖（SDK 封装的用例第 17 步搬到 `:feature:route`） | Robolectric (JVM) |
 | `data/remote/update` | `GithubUpdateCheckerTest` | 更新检查并发多源择新（旧缓存 / 已最新响应不遮挡新版本）、部分源失败或无效时保留有效结果、强制更新判定、下载地址 https 与域名白名单校验、取消全部在途请求（Ktor `MockEngine`） | Robolectric (JVM) |
 |  | `AndroidAppUpdateInstallerTest` | 更新包下载安装：地址不在白名单或是 Release 页面时不下载、HTTP 出错报状态码、下回来的不是 APK 时校验失败、没下载过时重试 / 丢弃都安全 | Robolectric (JVM) |
 | `data/local` | `StorageBackendTest` | 整套存储端到端：同一份旧数据经新存储和旧存储读出来完全相同、旧文件不被改动、新存储写入重开读回、USE_NEW_STORE 关了再开能带回旧存储期间的改动、库打不开时退回旧存储、旧的聚合配置在新旧存储里读成同一个主数据源 | Robolectric (JVM) |
@@ -173,7 +174,6 @@ Koin 由 `TrackrApp.onCreate` 启动，Robolectric 用例里每个用例都会�
 |  | `ReorderShiftTest` | 拖动排序的位移计算（纯函数）：被拖那行跟手、中间的行各让一格、松手后只有被拖那行补零头、靠近上下边自动滚 | commonTest（JVM；iOS 只编译和链接测试，不跑） |
 | `:feature:me` `ui/screens/me` | `MeViewModelTest` | 「我的」页（第 25 步）：数据源只有车来了 / 掌上公交二选一、乘车码偏好、到站前提醒全局设置（1–3 站）、定时提醒行显示最早一条开着的提醒和开关、实时通知 / 锁屏开关、状态栏胶囊（实时通知关着或 iOS 不显示、去设置、回前台重查）、高德 Key 状态文字跟着仓库、子页提示显示一次就删、提醒短文字；长辈版开关写界面模式 | commonTest（JVM） |
 |  | `ReminderEditViewModelTest` | 定时提醒编辑：读出已有提醒、提醒已删、改时间 / 重复日后保存是原位替换并给「我的」发提示、预设重复日、开了「到点自动开始追踪」又没有精确闹钟权限时提示（回前台重查、去设置、打不开设置时给提示）、删除要确认、连点保存只存一次 | commonTest（JVM） |
-|  | `AmapKeyViewModelTest` | 高德 Key 页：包名 + SHA-1 来自 `AppSigningInfo`、iOS 没有 Android 槽和 SHA-1、只写改过的那一槽、清空一槽不动另一槽、长度不对不让存、提示文字跟输入和内置 Key、复制 / 打不开浏览器的提示 | commonTest（JVM） |
 |  | `AboutViewModelTest` | 关于页更新检查：初始空闲、有更新 / 已最新 / 出错、关弹窗回空闲、检查中不重复检查、没有 `UpdateChecker`（iOS）时不显示「检查更新」 | commonTest（JVM） |
 |  | `ThemeSettingsViewModelTest` | 主题设置：连续切换各项偏好互不覆盖、跟随系统和换取色来源时保留之前的选择、非法 RGB 不覆盖上一个颜色、长辈版下偏好保留 | commonTest（JVM） |
 |  | `ThemeSettingsScreenTest` / `MeLiveUpdateGuideTest` | 主题设置页（9 种配色风格都能直接选、跟随系统时隐藏风格选择、非法十六进制保留上一个颜色并报错）；「我的 → 实时活动通知」（没开时点这一行先说明再跳系统设置、已开或系统不支持直接跳，issue #29） | Robolectric Compose UI |
@@ -213,7 +213,6 @@ Koin 由 `TrackrApp.onCreate` 启动，Robolectric 用例里每个用例都会�
 |  | `MygolbsIdsTest` / `MygolbsServiceHoursTest` | 掌上公交线路 id 拼 / 拆（线名里带冒号、非法 id 拒绝）、站名清洗；末班之后不再说「等待发车」、首班之前照旧 | commonTest（JVM + iOS 模拟器） |
 |  | `RecordedResponsesTest` | 录好的真实响应（`RecordedResponses`，车来了 5 个接口、掌上公交 4 个 CMD）走一遍客户端和解析，并核对发出去的请求头和表单 | commonTest（JVM + iOS 模拟器） |
 | `:core:data` `provider` | `TransitProviderCoordinatorTest` | 数据源二选一（D1）：搜索、附近站、站点详情只查当前数据源，搜索去掉地铁并按线路名自然排序；线路详情按来源 / id 前缀路由，认不出来走当前数据源；逆地理先车来了、空了再掌上公交；城市列表两家合并 | commonTest（JVM + iOS 模拟器） |
-| `:core:data` `repository` | `AmapKeyRepositoryTest` | 高德 Key 两槽（§2.5）：各槽「用户填的 > 构建时的」、互不回落（含原 `customAmapApiKey_doesNotFallBackToLegacyWebSlot`）；`hasMapKey` / `canShowMap` 四种组合；setter 后立刻更新、只写自己的槽；没有 Android 地图 SDK 的平台不看 Android 槽 | commonTest（JVM + iOS 模拟器） |
 |  | `TrackingRepositoryTest` | 追踪会话：新实例读回（标成中断、服务接上后恢复且代际号 +1）、太旧的不读回、旧代际的结果被丢弃、停止后代际号不回退、update 在当前值上算、我上车了用最近一次轮询的车、切程和开始 / 停止清掉定位、换乘组视图；一起等「我上车了」两条线都在站写待选、选了上车代际号 +1、一条线在站直接上、会话带着几条线读回 | commonTest（JVM + iOS 模拟器） |
 |  | `ForegroundTrackingControllerTest` | iOS 前台追踪控制器（共用 `TrackingPoller`）：进后台停轮询、回前台代际号 +1、迟到的结果不写回、过期会话先清掉、重复回前台 / 开始不多开、失败退避后恢复、轮询跟着定位走并有兜底定时、上车后自动结束时同站在等的线一起停 | commonTest（JVM + iOS 模拟器） |
 |  | `FavoriteStationRealtimeTest` | 收藏的站（issue #47）：首页刷新时每个站查一次站点接口并找回默认站台；`StationPlatformMatcher` 先认站台 id、id 跳了按同名最近的认 | commonTest（JVM + iOS 模拟器） |

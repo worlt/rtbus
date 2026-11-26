@@ -264,13 +264,3 @@ interface AppUpdateInstaller {
     /** 删掉已下载的安装包（取消下载、离开页面时用） */
     fun discardPending()
 }
-
-/** 「高德 Key」页显示的应用标识，帮用户在高德控制台绑定 Key */
-interface AppSigningInfo {
-
-    /** Android：包名；iOS：Bundle ID */
-    val appId: String
-
-    /** Android：当前签名证书的 SHA-1（冒号分隔的大写十六进制）；iOS 没有，为 null */
-    fun certificateSha1(): String?
-}

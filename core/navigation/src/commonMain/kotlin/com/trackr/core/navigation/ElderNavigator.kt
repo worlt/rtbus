@@ -25,6 +25,7 @@ object ElderRoutes {
      */
     fun isSupported(key: ScreenKey): Boolean = when (key) {
         ScreenKey.RoutePlan,
+        ScreenKey.AmapKey,
         ScreenKey.FavoritesEdit,
         is ScreenKey.ReminderEdit,
         ScreenKey.FavoritesGroup -> false
@@ -141,6 +142,8 @@ fun rememberElderBackStack(
     val saver = remember(configuration) { navBackStackSaver(configuration) }
     val stack = rememberSaveable(saver = saver) { NavBackStack<NavKey>(ElderRoutes.root) }
     remember(stack) {
+        // 先剔除退役 Key 页，保留其下的设置/关于等普通页面。
+        stack.removeAll { it == ScreenKey.AmapKey }
         val valid = stack.firstOrNull() == ElderRoutes.root &&
             stack.all { it is ScreenKey && ElderRoutes.isSupported(it) }
         if (!valid) {

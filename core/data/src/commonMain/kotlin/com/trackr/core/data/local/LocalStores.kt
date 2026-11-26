@@ -19,7 +19,7 @@ import kotlinx.coroutines.sync.withLock
  *
  * 仓库的业务逻辑（加收藏放最前、搜索历史去重 20 条、清理假数据、默认分组、删分组后路线变不分组……）只有一份，
  * 存储有两套实现，由运行时开关 USE_NEW_STORE 选：
- * - 新：Room（列表类）+ DataStore（设置、高德 Key），本模块 `Room*Store` / `DataStore*Store`；
+ * - 新：Room（列表类）+ DataStore（设置），本模块 `Room*Store` / `DataStore*Store`；
  * - 旧：原来的 SharedPreferences + JSON，在 :androidApp 的 `SharedPrefs*Store`，开关关掉时用（风险 R1）。
  *
  * 所有方法都是挂起函数；仓库在构造时读一次（`load*`），之后每次改动整份写回。
@@ -151,18 +151,6 @@ interface ReminderScheduleStateStore {
     suspend fun loadAll(): Map<String, Long>
     suspend fun set(reminderId: String, triggerAtMillis: Long)
     suspend fun remove(reminderId: String)
-}
-
-/** 高德 Key 两槽（Android 槽、Web 槽，严格分开、互不回落）。值为 null 表示没填 */
-interface AmapKeyStore {
-    suspend fun loadIosKey(): String? = null
-    suspend fun saveIosKey(key: String?) = Unit
-    suspend fun loadAndroidKey(): String?
-    suspend fun loadWebKey(): String?
-    suspend fun saveAndroidKey(key: String?)
-    suspend fun saveWebKey(key: String?)
-    suspend fun loadPrivacyConsent(): Boolean? = null
-    suspend fun savePrivacyConsent(consented: Boolean) = Unit
 }
 
 /**

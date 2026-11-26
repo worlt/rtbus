@@ -8,7 +8,6 @@ import com.trackr.core.model.ThemeMode
 import com.trackr.core.model.ScheduledReminder
 import com.trackr.core.model.TransitCodeProvider
 import com.trackr.core.model.UiMode
-import com.trackr.core.testing.FakeAmapKeyRepository
 import com.trackr.core.testing.FakeLocationSource
 import com.trackr.core.testing.FakeSettingsRepository
 import com.trackr.core.testing.MainDispatcherHolder
@@ -32,7 +31,6 @@ class MeViewModelTest {
 
     private lateinit var settings: FakeSettingsRepository
     private lateinit var reminders: FakeScheduledReminderRepository
-    private lateinit var amapKeys: FakeAmapKeyRepository
     private lateinit var notices: MeNotices
     private lateinit var liveUpdate: FakeLiveUpdateAccess
 
@@ -41,7 +39,6 @@ class MeViewModelTest {
         main.install()
         settings = FakeSettingsRepository()
         reminders = FakeScheduledReminderRepository()
-        amapKeys = FakeAmapKeyRepository()
         notices = MeNotices()
         liveUpdate = FakeLiveUpdateAccess()
     }
@@ -59,7 +56,6 @@ class MeViewModelTest {
     ) = MeViewModel(
         settings = settings,
         reminderRepository = reminders,
-        amapKeys = amapKeys,
         notices = notices,
         liveUpdateAccess = liveUpdateAccess,
         versionName = versionName,
@@ -115,7 +111,6 @@ class MeViewModelTest {
         assertTrue(state.showOnLockScreen)
         // 首页「乘车码」按钮默认显示
         assertTrue(state.showTransitCodeButton)
-        assertEquals("没填，不显示「路线」页", state.amapKeyStatus)
         assertEquals("0.0.3", state.versionName)
         // 没存过界面模式 = 标准版，开关关着
         assertFalse(state.elderMode)
@@ -360,18 +355,6 @@ class MeViewModelTest {
         assertTrue(viewModel.uiState.value.liveUpdate!!.allowed)
     }
 
-    @Test
-    fun amapKeyStatus_followsRepository() = runTest(main.dispatcher) {
-        val viewModel = createViewModel()
-
-        amapKeys.setWebKey("w".repeat(32))
-        testScheduler.advanceUntilIdle()
-        assertEquals("只有 Web 服务 Key：能算路线，不显示地图", viewModel.uiState.value.amapKeyStatus)
-
-        amapKeys.setAndroidKey("a".repeat(32))
-        testScheduler.advanceUntilIdle()
-        assertEquals("已填，路线页显示地图", viewModel.uiState.value.amapKeyStatus)
-    }
 
     @Test
     fun noticesFromChildPages_showOnceThenConsumed() = runTest(main.dispatcher) {
@@ -397,12 +380,6 @@ class MeViewModelTest {
         assertEquals("工作日 07:05 · 325", reminderSummary(reminder("a", hour = 7, minute = 5, lineName = "325")))
     }
 
-    @Test
-    fun amapKeyStatusText_coversThreeStates() {
-        assertEquals("没填，不显示「路线」页", amapKeyStatusText(hasMapKey = false, canShowMap = false))
-        assertEquals("只有 Web 服务 Key：能算路线，不显示地图", amapKeyStatusText(hasMapKey = true, canShowMap = false))
-        assertEquals("已填，路线页显示地图", amapKeyStatusText(hasMapKey = true, canShowMap = true))
-    }
 
     private fun reminder(id: String, hour: Int, minute: Int, lineName: String) = ScheduledReminder(
         id = id,

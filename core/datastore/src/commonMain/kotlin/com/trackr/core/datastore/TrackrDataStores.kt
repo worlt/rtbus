@@ -18,17 +18,18 @@ import okio.FileSystem
 import okio.Path.Companion.toPath
 
 /**
- * 三个 DataStore 文件（重构计划 §2.4）。Android 上都在 `files/datastore/` 下，备份规则按这里的文件名写：
+ * 当前两个 DataStore 文件及旧 Key 文件名（重构计划 §2.4）。Android 上都在 `files/datastore/` 下，备份规则按这里的文件名写：
  *
  * | 文件 | 内容 | 备份 |
  * | --- | --- | --- |
  * | `trackr_settings.preferences_pb` | 城市、数据源、乘车码、开关、迁移标记 | 参与 |
- * | `trackr_amap_keys.preferences_pb` | 高德 Key（Android 槽、Web 槽） | 排除 |
+ * | `trackr_amap_keys.preferences_pb` | 历史敏感文件（不再打开/创建） | 排除 |
  * | `tracking_session.json` | 追踪会话（`TrackingRepository`） | 排除 |
  */
 object TrackrDataStoreFiles {
     const val DIRECTORY = "datastore"
     const val SETTINGS = "trackr_settings.preferences_pb"
+    /** 仅供备份排除及升级保护；禁止重新创建此存储。 */
     const val AMAP_KEYS = "trackr_amap_keys.preferences_pb"
     const val TRACKING_SESSION = "tracking_session.json"
 }
@@ -90,17 +91,6 @@ object SettingsKeys {
 
     /** 导入时解析失败的旧 key，格式 `<文件>/<key>`，原文在 `files/legacy_backup/` */
     val LEGACY_CORRUPT_KEYS = stringSetPreferencesKey("legacy_corrupt_keys")
-}
-
-/** `trackr_amap_keys` 的键，和旧 SharedPreferences `trackr_amap_keys` 同名 */
-object AmapKeyKeys {
-    val IOS = stringPreferencesKey("custom_amap_ios_key")
-    val ANDROID = stringPreferencesKey("custom_amap_android_key")
-    val WEB = stringPreferencesKey("custom_amap_web_key")
-    val PRIVACY_CONSENT = booleanPreferencesKey("privacy_consent")
-
-    /** 旧 Key 导入到第几代；没有 = 还没导入 */
-    val LEGACY_IMPORT_GEN = intPreferencesKey("legacy_import_gen")
 }
 
 /** 各平台的系统文件系统（Android / iOS 都是 FileSystem.SYSTEM） */

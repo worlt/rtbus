@@ -36,11 +36,6 @@ object IosSystemSettingsLauncher : SystemSettingsLauncher {
     }
 }
 
-object IosAppSigningInfo : AppSigningInfo {
-    override val appId get() = NSBundle.mainBundle.bundleIdentifier.orEmpty()
-    override fun certificateSha1(): String? = null
-}
-
 object IosTransitCodeLauncher : TransitCodeLauncher {
     private fun url(provider: TransitCodeProvider) = when (provider) {
         TransitCodeProvider.ALIPAY -> NSURL.URLWithString("alipays://platformapi/startapp?appId=200011235")

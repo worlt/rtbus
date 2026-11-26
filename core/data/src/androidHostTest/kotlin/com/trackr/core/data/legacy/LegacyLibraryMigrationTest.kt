@@ -12,7 +12,6 @@ import com.trackr.core.database.TrackrDatabase
 import com.trackr.core.database.createInMemoryTrackrDatabase
 import com.trackr.core.database.entity.FavoriteItemEntity
 import com.trackr.core.database.entity.StoreMetaEntity
-import com.trackr.core.datastore.AmapKeyKeys
 import com.trackr.core.datastore.SettingsKeys
 import com.trackr.core.datastore.TrackrDataStoreFiles
 import com.trackr.core.datastore.createPreferencesDataStore
@@ -56,7 +55,6 @@ class LegacyLibraryMigrationTest {
     private lateinit var db: TrackrDatabase
     private var scope: CoroutineScope? = null
     private lateinit var settings: DataStore<Preferences>
-    private lateinit var keys: DataStore<Preferences>
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -83,7 +81,7 @@ class LegacyLibraryMigrationTest {
         scope = null
     }
 
-    /** 和 StorageBackend 一样建两个 DataStore（带只读的 DataMigration） */
+    /** 和 StorageBackend 一样只建普通设置 DataStore（带只读的 DataMigration） */
     private suspend fun migrate(generation: Int = 0): LegacyLibraryMigration.Report {
         closeStores()
         val newScope = CoroutineScope(SupervisorJob() + Dispatchers.IO).also { scope = it }
@@ -92,16 +90,10 @@ class LegacyLibraryMigrationTest {
             newScope,
             listOf(LegacySettingsMigration(context, generation))
         )
-        keys = createPreferencesDataStore(
-            context.trackrDataStorePath(TrackrDataStoreFiles.AMAP_KEYS),
-            newScope,
-            listOf(LegacyAmapKeyMigration(context, generation))
-        )
-        return LegacyLibraryMigration(context, db, settings, keys, generation).runIfNeeded()
+        return LegacyLibraryMigration(context, db, settings, generation).runIfNeeded()
     }
 
     private suspend fun settingsNow() = settings.data.first()
-    private suspend fun keysNow() = keys.data.first()
 
     private fun backupFile(name: String) = File(File(context.filesDir, LegacyPrefs.BACKUP_DIR), name)
 
@@ -174,55 +166,58 @@ class LegacyLibraryMigrationTest {
     }
 
     @Test
-    fun amapKeys_fromKeyFile() = runBlocking {
+    fun retiredKeys_areNotMigratedIntoOrdinarySettingsOrNewKeyStore() = runBlocking {
         LegacyFixtures.writeAll(context)
+        val before = LegacyFixtures.snapshot(context)
         migrate()
-        assertEquals("android-key-123", keysNow()[AmapKeyKeys.ANDROID])
-        assertEquals("web-key-456", keysNow()[AmapKeyKeys.WEB])
-        // Key 不进设置文件（设置文件参与备份，R22）
-        assertNull(settingsNow()[AmapKeyKeys.ANDROID])
-        assertNull(settingsNow()[AmapKeyKeys.WEB])
+
+        assertEquals(before, LegacyFixtures.snapshot(context))
+        assertFalse(File(context.trackrDataStorePath(TrackrDataStoreFiles.AMAP_KEYS)).exists())
+        assertTrue(settingsNow().asMap().keys.none { it.name.contains("amap", ignoreCase = true) || it.name == "privacy_consent" })
+        assertEquals(LegacyFixtures.CITY_JSON, RoomDataStoreTransitStore(db, settings).load().selectedCityJson)
     }
 
     @Test
-    fun amapKeys_pre0a4fdab_readFromTrackrPrefs_andLeftInPlace() = runBlocking {
-        // 0a4fdab 之前：Key 在 trackr_prefs，trackr_amap_keys 还不存在
+    fun retiredKeys_existingCorruptDataStoreIsNotOpenedOrRewritten() = runBlocking {
+        val keyFile = File(context.trackrDataStorePath(TrackrDataStoreFiles.AMAP_KEYS))
+        keyFile.parentFile!!.mkdirs()
+        val original = byteArrayOf(0x7f, 0x01, 0x02)
+        keyFile.writeBytes(original)
+        LegacyFixtures.writeAll(context)
+
+        assertTrue(migrate().ran)
+        assertTrue(original.contentEquals(keyFile.readBytes()))
+        assertEquals(2, db.favoriteLines().getAll().size)
+    }
+
+    @Test
+    fun retiredKeys_earlyMixedPreferencesAreNotCopiedIntoSettings() = runBlocking {
         LegacyFixtures.prefs(context, LegacyPrefs.TRANSIT).edit()
-            .putString("custom_amap_android_key", " old-android ")
-            .putString("custom_amap_web_key", "old-web")
+            .putString("custom_amap_android_key", "legacy-android")
+            .putString("custom_amap_web_key", "legacy-web")
+            .putBoolean("amap_privacy_consent", true)
+            .putInt("nearby_stops_count", 5)
             .commit()
+        val before = LegacyFixtures.snapshot(context)
         migrate()
-        assertEquals("old-android", keysNow()[AmapKeyKeys.ANDROID])
-        assertEquals("old-web", keysNow()[AmapKeyKeys.WEB])
-        // 旧值不删：回退旧版本还能读到
-        assertEquals(" old-android ", LegacyFixtures.prefs(context, LegacyPrefs.TRANSIT).getString("custom_amap_android_key", null))
+
+        assertEquals(5, settingsNow()[SettingsKeys.NEARBY_STOPS_COUNT])
+        assertTrue(settingsNow().asMap().keys.none { it.name.contains("amap", ignoreCase = true) })
+        assertEquals(before, LegacyFixtures.snapshot(context))
     }
 
     @Test
-    fun amapKeys_keyFileWinsOverTrackrPrefs() = runBlocking {
+    fun retiredKeys_privateCorruptBackupsAreNotCopiedToOrdinaryBackupDirectory() = runBlocking {
+        LegacyFixtures.writeAll(context)
         LegacyFixtures.prefs(context, LegacyPrefs.AMAP_KEYS).edit()
-            .putString("custom_amap_android_key", "new-android")
+            .putString("custom_amap_web_key_corrupt_backup_123", "private-key-fixture")
             .commit()
-        LegacyFixtures.prefs(context, LegacyPrefs.TRANSIT).edit()
-            .putString("custom_amap_android_key", "stale-android")
-            .putString("custom_amap_web_key", "only-in-trackr-prefs")
-            .commit()
-        migrate()
-        assertEquals("new-android", keysNow()[AmapKeyKeys.ANDROID])
-        // 这个槽在 Key 文件里是空的，又没有搬迁标记，用 trackr_prefs 的
-        assertEquals("only-in-trackr-prefs", keysNow()[AmapKeyKeys.WEB])
-    }
+        val before = LegacyFixtures.snapshot(context)
+        val report = migrate()
 
-    @Test
-    fun amapKeys_afterMigratedFlag_trackrPrefsIgnored() = runBlocking {
-        LegacyFixtures.prefs(context, LegacyPrefs.AMAP_KEYS).edit()
-            .putBoolean("migrated_from_trackr_prefs", true)
-            .commit()
-        LegacyFixtures.prefs(context, LegacyPrefs.TRANSIT).edit()
-            .putString("custom_amap_android_key", "stale-android")
-            .commit()
-        migrate()
-        assertNull(keysNow()[AmapKeyKeys.ANDROID])
+        assertTrue(report.backupFiles.isEmpty())
+        assertFalse(File(context.filesDir, LegacyPrefs.BACKUP_DIR).exists())
+        assertEquals(before, LegacyFixtures.snapshot(context))
     }
 
     // ---- 旧数据保留 ----
@@ -426,8 +421,6 @@ class LegacyLibraryMigrationTest {
             .putString("selected_city_json", "{\"cityId\":\"034\",\"cityName\":\"上海\"}")
             .commit()
         LegacyFixtures.prefs(context, LegacyPrefs.REMINDERS).edit().clear().commit()
-        // 新存储里还有一个旧文件里没有的 Key 槽，不能被清掉
-        LegacyFixtures.prefs(context, LegacyPrefs.AMAP_KEYS).edit().remove("custom_amap_web_key").commit()
 
         val report = migrate(generation = 1)
 
@@ -436,8 +429,6 @@ class LegacyLibraryMigrationTest {
         assertEquals("{\"cityId\":\"034\",\"cityName\":\"上海\"}", settingsNow()[SettingsKeys.SELECTED_CITY_JSON])
         // 旧文件里没有提醒 key：库里的提醒保持不变
         assertEquals(2, db.reminders().getAll().size)
-        assertEquals("web-key-456", keysNow()[AmapKeyKeys.WEB])
-        assertEquals("android-key-123", keysNow()[AmapKeyKeys.ANDROID])
     }
 
     @Test

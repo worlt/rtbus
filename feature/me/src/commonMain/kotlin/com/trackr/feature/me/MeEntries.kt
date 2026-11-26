@@ -18,9 +18,6 @@ import com.trackr.core.navigation.ScreenKey
 import com.trackr.ui.screens.me.AboutEvent
 import com.trackr.ui.screens.me.AboutScreen
 import com.trackr.ui.screens.me.AboutViewModel
-import com.trackr.ui.screens.me.AmapKeyEvent
-import com.trackr.ui.screens.me.AmapKeyScreen
-import com.trackr.ui.screens.me.AmapKeyViewModel
 import com.trackr.ui.screens.me.MeEvent
 import com.trackr.ui.screens.me.MeScreen
 import com.trackr.ui.screens.me.MeViewModel
@@ -33,7 +30,7 @@ import org.koin.core.parameter.parametersOf
 
 /**
  * 「我的」页签的导航 entry（第 25 步：页面都在 commonMain，Android 和 iOS 同一份）：
- * 我的（根页）、定时提醒编辑、高德 Key、关于。
+ * 我的（根页）、定时提醒编辑、关于。
  */
 fun EntryProviderScope<NavKey>.meEntries(navigator: TrackrNavigator) {
     entry<ScreenKey.More> {
@@ -47,9 +44,6 @@ fun EntryProviderScope<NavKey>.meEntries(navigator: TrackrNavigator) {
         ReminderEditRoute(viewModel = viewModel, navigator = navigator)
     }
 
-    entry<ScreenKey.AmapKey> {
-        AmapKeyRoute(viewModel = koinViewModel(), navigator = navigator)
-    }
 
     entry<ScreenKey.ThemeSettings> {
         val viewModel: ThemeSettingsViewModel = koinViewModel()
@@ -88,7 +82,6 @@ private fun MeRoute(viewModel: MeViewModel, navigator: TrackrNavigator) {
         onEvent = { event ->
             when (event) {
                 is MeEvent.OpenReminder -> whenResumed { navigator.open(ScreenKey.ReminderEdit(event.id)) }
-                MeEvent.OpenAmapKey -> whenResumed { navigator.open(ScreenKey.AmapKey) }
                 MeEvent.OpenAbout -> whenResumed { navigator.open(ScreenKey.About) }
                 MeEvent.OpenThemeSettings -> whenResumed { navigator.open(ScreenKey.ThemeSettings) }
                 MeEvent.RequestBackgroundLocation -> bgLocationRequester?.request()
@@ -138,23 +131,6 @@ private fun ReminderEditRoute(viewModel: ReminderEditViewModel, navigator: Track
                 ReminderEditEvent.OpenLine -> openLine()
                 else -> viewModel.onEvent(event)
             }
-        }
-    )
-}
-
-@Composable
-private fun AmapKeyRoute(viewModel: AmapKeyViewModel, navigator: TrackrNavigator) {
-    val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val back = dropUnlessResumed { navigator.popChildPage() }
-
-    LaunchedEffect(state.closed) {
-        if (state.closed) navigator.popChildPage()
-    }
-
-    AmapKeyScreen(
-        state = state,
-        onEvent = { event ->
-            if (event == AmapKeyEvent.Back) back() else viewModel.onEvent(event)
         }
     )
 }
