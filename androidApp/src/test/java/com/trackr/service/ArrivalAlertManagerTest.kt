@@ -369,12 +369,12 @@ class ArrivalAlertManagerTest {
         notifier.triggerArrivedAlert(app, activeTrackingState(0))
         val posted = shadowOf(notificationManager).getNotification(ArrivalAlertNotifier.NOTIFICATION_ID_ARRIVED)
         assertNotNull(posted)
-        assertEquals(ArrivalAlertNotifier.CHANNEL_ID_ALERT_NO_VIBRATION, posted.channelId)
+        assertEquals(ArrivalAlertNotifier.CHANNEL_ID_ARRIVAL_GUIDANCE, posted.channelId)
         org.junit.Assert.assertFalse(notificationManager.getNotificationChannel(posted.channelId).shouldVibrate())
         assertEquals(0, posted.defaults and Notification.DEFAULT_VIBRATE)
         vibration = true
         notifier.triggerArrivedAlert(app, activeTrackingState(0))
-        assertEquals(ArrivalAlertNotifier.CHANNEL_ID_ALERT,
+        assertEquals(ArrivalAlertNotifier.CHANNEL_ID_ARRIVAL_GUIDANCE,
             shadowOf(notificationManager).getNotification(ArrivalAlertNotifier.NOTIFICATION_ID_ARRIVED).channelId)
     }
 
@@ -394,6 +394,98 @@ class ArrivalAlertManagerTest {
         enabled = true
         notifier.triggerApproachingAlert(app, activeTrackingState(2))
         assertTrue(shadow.isVibrating)
+    }
+
+    @Test
+    fun actualArrivalExplicitlyRequestsHapticsForEveryPublicRingerMode() {
+        val audio = app.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
+        val vibrator = app.getSystemService(android.content.Context.VIBRATOR_SERVICE) as android.os.Vibrator
+        shadowOf(vibrator).setHasVibrator(true)
+        val notifier = alertsWithLockScreen { true }
+        for (mode in listOf(android.media.AudioManager.RINGER_MODE_NORMAL,
+            android.media.AudioManager.RINGER_MODE_VIBRATE, android.media.AudioManager.RINGER_MODE_SILENT)) {
+            audio.ringerMode = mode
+            if (mode == android.media.AudioManager.RINGER_MODE_NORMAL)
+                audio.setStreamVolume(android.media.AudioManager.STREAM_RING, 5, 0)
+            vibrator.cancel()
+            notifier.triggerArrivedAlert(app, activeTrackingState(0), forceStandalone = true)
+            assertTrue("posted ARRIVED must request guidance haptics; mode=$mode", shadowOf(vibrator).isVibrating)
+            assertNavigationVibrationAttributes(vibrator)
+        }
+    }
+
+    @Test
+    fun arrivalDeliveryKeepsSoundButDoesNotDoubleTheDefaultVibration() {
+        val notifier = alertsWithLockScreen { true }
+        notifier.ensureNotificationChannel(app)
+        val canonical = notificationManager.getNotificationChannel(ArrivalAlertNotifier.CHANNEL_ID_ALERT)
+        notifier.triggerArrivedAlert(app, activeTrackingState(0), forceStandalone = true)
+        val delivery = notificationManager.getNotificationChannel(ArrivalAlertNotifier.CHANNEL_ID_ARRIVAL_GUIDANCE)
+        assertEquals(canonical.sound, delivery.sound)
+        assertEquals(canonical.importance, delivery.importance)
+        org.junit.Assert.assertFalse(delivery.shouldVibrate())
+        assertTrue(canonical.shouldVibrate())
+        val posted = shadowOf(notificationManager).getNotification(ArrivalAlertNotifier.NOTIFICATION_ID_ARRIVED)
+        assertEquals(0, posted.defaults and Notification.DEFAULT_VIBRATE)
+        assertNotNull("Android O+ notification sound is owned by the delivery channel", delivery.sound)
+        // 后续确保渠道不能重置用户静音/降低重要级别的选择。
+        delivery.importance = NotificationManager.IMPORTANCE_LOW
+        delivery.setSound(null, null)
+        notifier.triggerArrivedAlert(app, activeTrackingState(0), forceStandalone = true)
+        assertEquals(NotificationManager.IMPORTANCE_LOW, delivery.importance)
+        assertNull(delivery.sound)
+    }
+
+    @Test
+    fun arrivalHapticsRespectBothChannelsPermissionDndAndTheAppSwitch() {
+        val vibrator = app.getSystemService(android.content.Context.VIBRATOR_SERVICE) as android.os.Vibrator
+        shadowOf(vibrator).setHasVibrator(true)
+        val notifier = alertsWithLockScreen { true }
+        notifier.triggerArrivedAlert(app, activeTrackingState(0), forceStandalone = true)
+        val canonical = notificationManager.getNotificationChannel(ArrivalAlertNotifier.CHANNEL_ID_ALERT)
+        val delivery = notificationManager.getNotificationChannel(ArrivalAlertNotifier.CHANNEL_ID_ARRIVAL_GUIDANCE)
+        fun expectBlocked(expected: ReminderVibration.Result) {
+            vibrator.cancel()
+            assertEquals(expected, notifier.triggerArrivedAlert(app, activeTrackingState(0), forceStandalone = true))
+            org.junit.Assert.assertFalse(shadowOf(vibrator).isVibrating)
+        }
+        delivery.importance = NotificationManager.IMPORTANCE_NONE
+        expectBlocked(ReminderVibration.Result.CHANNEL_OFF)
+        delivery.importance = NotificationManager.IMPORTANCE_HIGH
+        canonical.enableVibration(false)
+        expectBlocked(ReminderVibration.Result.CHANNEL_VIBRATION_OFF)
+        canonical.enableVibration(true)
+        canonical.importance = NotificationManager.IMPORTANCE_NONE
+        expectBlocked(ReminderVibration.Result.CHANNEL_OFF)
+        canonical.importance = NotificationManager.IMPORTANCE_HIGH
+        shadowOf(notificationManager).setNotificationsEnabled(false)
+        expectBlocked(ReminderVibration.Result.NOTIFICATIONS_OFF)
+        shadowOf(notificationManager).setNotificationsEnabled(true)
+        shadowOf(notificationManager).setNotificationPolicyAccessGranted(true)
+        notificationManager.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_PRIORITY)
+        expectBlocked(ReminderVibration.Result.DND)
+        notificationManager.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL)
+        val off = ArrivalAlertNotifier(liveNotifier, vibrationEnabledProvider = { false })
+        vibrator.cancel()
+        assertEquals(ReminderVibration.Result.SWITCH_OFF, off.triggerArrivedAlert(app, activeTrackingState(0), true))
+        org.junit.Assert.assertFalse(shadowOf(vibrator).isVibrating)
+    }
+
+    @Test
+    fun realArrivalTestHasItsOwnNotificationAndDoesNotOverwriteRealHistory() {
+        val notifier = alertsWithLockScreen { true }
+        val vibrator = app.getSystemService(android.content.Context.VIBRATOR_SERVICE) as android.os.Vibrator
+        shadowOf(vibrator).setHasVibrator(true)
+        notifier.triggerApproachingAlert(app, activeTrackingState(1), sessionId = "active")
+        val before = ReminderFeedbackLog.report(app)
+        val report = notifier.testArrival(app)
+        assertTrue(report.contains("确认到站与主动引导 v4"))
+        assertTrue(report.contains("请求结果：REQUESTED"))
+        assertEquals(before, ReminderFeedbackLog.report(app))
+        assertNotNull(shadowOf(notificationManager).getNotification(ArrivalAlertNotifier.NOTIFICATION_ID_ARRIVAL_TEST))
+        assertNotNull(shadowOf(notificationManager).getNotification(ArrivalAlertNotifier.alertNotificationId(
+            ArrivalAlertNotifier.NOTIFICATION_ID_APPROACHING, "active")))
+        assertNull(shadowOf(notificationManager).getNotification(ArrivalAlertNotifier.NOTIFICATION_ID_ARRIVED))
     }
 
     @Test

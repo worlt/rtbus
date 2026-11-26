@@ -1,5 +1,6 @@
 package com.trackr.core.domain.arrival
 
+import com.trackr.core.model.LegPhase
 import com.trackr.core.model.LiveBus
 import com.trackr.core.model.TrackingSessionState
 
@@ -36,7 +37,8 @@ object ArrivalRules {
         return isBusStopped(bus) || isEtaImminent(bus.etaSeconds)
     }
 
-    /** 会话层面的到站：剩 0 站且（已停靠 或 ETA 在进站区间） */
+    /** 单线路显示与到站事件一致：只认确认停靠/过站；路线换乘保留既有 ETA 进站口径。 */
     fun isSessionArrived(state: TrackingSessionState): Boolean =
-        state.stopsRemaining == 0 && (state.isBusArrivedAtStop || isEtaImminent(state.etaSeconds))
+        state.stopsRemaining == 0 && (state.isBusArrivedAtStop ||
+            (state.legPhase != LegPhase.SINGLE && isEtaImminent(state.etaSeconds)))
 }

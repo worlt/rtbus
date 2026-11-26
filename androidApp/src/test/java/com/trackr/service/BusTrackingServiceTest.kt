@@ -332,6 +332,43 @@ class BusTrackingServiceTest {
     }
 
     @Test
+    fun onboardImminentThenStopped_vibrateModeRequestsArrivalAndEndsWithoutPassingStop() {
+        val audio = app.getSystemService(Application.AUDIO_SERVICE) as android.media.AudioManager
+        audio.ringerMode = android.media.AudioManager.RINGER_MODE_VIBRATE
+        val vibrator = app.getSystemService(Application.VIBRATOR_SERVICE) as android.os.Vibrator
+        shadowOf(vibrator).setHasVibrator(true)
+        transit.settings.setVoiceAlerts(false)
+        transit.settings.setVibrationAlerts(true)
+        val alerts: ArrivalAlertNotifier = GlobalContext.get().get()
+        alerts.liveUpdateActiveChecker = { true }
+        transit.realtime.lineDetailResult = Result.success(lineDetail("L59", listOf(
+            LiveBus(busId = "mine", plateOrFleetNo = "test", order = 7, etaSeconds = 30))))
+        val session = requireNotNull(trackingRepository.start(
+            singleTarget().copy(pinnedBusId = "mine", isOnboard = true)))
+        val controller = startService(session.sessionId)
+        val service = controller.get()
+        waitUntil("ETA30只能触发临近") {
+            trackingRepository.sessionById(session.sessionId)?.state?.hasTriggeredApproachingAlert == true
+        }
+        assertFalse(requireNotNull(trackingRepository.sessionById(session.sessionId)).state.hasTriggeredArrivedAlert)
+        assertFalse(shadowOf(service).isStoppedBySelf)
+        vibrator.cancel()
+        transit.realtime.lineDetailResult = Result.success(lineDetail("L59", listOf(
+            LiveBus(busId = "mine", plateOrFleetNo = "test", order = 7, etaSeconds = 0, isArrived = true))))
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(10))
+        waitUntil("确认停靠即提醒并结束") { shadowOf(service).isStoppedBySelf }
+        assertNull(trackingRepository.sessionById(session.sessionId))
+        controller.destroy()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertTrue(shadowOf(vibrator).isVibrating)
+        assertNavigationVibrationAttributes(vibrator)
+        assertNotNull(shadowOf(notificationManager).getNotification(ArrivalAlertNotifier.alertNotificationId(
+            ArrivalAlertNotifier.NOTIFICATION_ID_ARRIVED, session.sessionId)))
+        assertTrue(ReminderFeedbackLog.report(app).contains("ARRIVED 通知=true 震动=REQUESTED"))
+        assertTrue(ReminderFeedbackLog.report(app).contains("本次追踪已自动结束"))
+    }
+
+    @Test
     fun silentWaitingBus_approachingThenArrived_eachRequestsFeedback() {
         val audio = app.getSystemService(Application.AUDIO_SERVICE) as android.media.AudioManager
         audio.ringerMode = android.media.AudioManager.RINGER_MODE_SILENT

@@ -14,7 +14,7 @@ import androidx.core.app.NotificationManagerCompat
 /** Explicit transit guidance, respecting the app switch, notification channels and DND. */
 internal object ReminderVibration {
     enum class Result(val explanation: String) {
-        REQUESTED("已发送到站引导震动请求，不播放声音。请以手机是否实际震动为准。"),
+        REQUESTED("已发送到站引导震动请求。请以手机是否实际震动为准。"),
         NOTIFICATION_HANDLED("本次由系统通知渠道处理震动，应用未重复请求。"),
         SWITCH_OFF("震动提醒已关闭，请先打开应用内的震动开关。"),
         NOTIFICATIONS_OFF("系统未允许本应用发送通知，请先允许通知。"),
@@ -32,7 +32,8 @@ internal object ReminderVibration {
         channelId: String,
         enabled: Boolean,
         effect: VibrationEffect,
-        notificationPosted: Boolean
+        notificationPosted: Boolean,
+        deliveryChannelId: String? = null
     ): Result {
         fun finish(result: Result): Result {
             Log.i("ReminderVibration", "channel=" + channelId + " result=" + result.name)
@@ -46,6 +47,11 @@ internal object ReminderVibration {
             val channel = manager.getNotificationChannel(channelId) ?: return finish(Result.CHANNEL_MISSING)
             if (channel.importance == NotificationManager.IMPORTANCE_NONE) return finish(Result.CHANNEL_OFF)
             if (!channel.shouldVibrate()) return finish(Result.CHANNEL_VIBRATION_OFF)
+            if (deliveryChannelId != null) {
+                val delivery = manager.getNotificationChannel(deliveryChannelId)
+                    ?: return finish(Result.CHANNEL_MISSING)
+                if (delivery.importance == NotificationManager.IMPORTANCE_NONE) return finish(Result.CHANNEL_OFF)
+            }
             if (manager.currentInterruptionFilter != NotificationManager.INTERRUPTION_FILTER_ALL) return finish(Result.DND)
             val audio = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
                 ?: return finish(Result.UNAVAILABLE)
@@ -82,6 +88,11 @@ internal object ReminderVibration {
         val result = vibrate(context, channelId, enabled,
             VibrationEffect.createWaveform(longArrayOf(0, 280, 120, 280, 120, 400), -1),
             notificationPosted = false)
+        return report(context, channelId, enabled, result)
+    }
+
+    /** Formats an existing outcome without requesting a second, misleading test vibration. */
+    fun report(context: Context, channelId: String, enabled: Boolean, result: Result): String {
         val details = runCatching {
             val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
             val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -101,16 +112,17 @@ internal object ReminderVibration {
             }
             listOf(
                 "反馈实现：导航引导兼容版 v2",
-                "到站反馈：分段提醒修复 v3",
+                "到站反馈：确认到站与主动引导 v4",
                 "设备：" + Build.MANUFACTURER + " " + Build.MODEL,
                 "Android：" + Build.VERSION.RELEASE + " / API " + Build.VERSION.SDK_INT,
                 "铃声模式：" + mode + "；铃声音量：" + audio.getStreamVolume(AudioManager.STREAM_RING),
                 "勿扰：" + dnd,
                 "应用震动：" + enabled + "；通知允许：" + NotificationManagerCompat.from(context).areNotificationsEnabled(),
                 "渠道重要级别：" + channel?.importance + "；渠道震动：" + channel?.shouldVibrate(),
+                "到站展示渠道重要级别：" + manager.getNotificationChannel(ArrivalAlertNotifier.CHANNEL_ID_ARRIVAL_GUIDANCE)?.importance,
                 "请求结果：" + result.name
             ).joinToString("\n")
         }.getOrElse { "诊断信息读取失败：" + it.javaClass.simpleName }
-        return result.explanation + "\n\n" + details
+        return result.explanation + "\n\n" + details + "\n\n" + ReminderFeedbackLog.report(context)
     }
 }

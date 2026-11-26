@@ -24,6 +24,10 @@ interface NotificationHealthAccess {
 
     /** Returns a human-readable request result, never a claim that the motor actually moved. */
     fun testVibration(): String? = null
+
+    val supportsArrivalTest: Boolean get() = false
+    /** Exercises the real arrival notification and haptic path without creating a tracking session. */
+    fun testArrivalAlert(): String? = null
 }
 
 /**

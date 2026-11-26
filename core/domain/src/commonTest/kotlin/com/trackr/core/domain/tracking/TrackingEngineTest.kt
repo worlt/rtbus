@@ -490,6 +490,65 @@ class TrackingEngineTest {
         assertNotNull(TrackingEngine.begin("s1", 1, singleTarget().copy(pinnedBusId = busId, pinnedPlate = plate), NOW_MILLIS))
 
     @Test
+    fun single_skippedFollowingBusDoesNotInterruptPendingBoardingOfPreviousBus() {
+        val state = singleSession().copy(currentBusId = "following", currentBusOrder = 10,
+            boardingCandidateBusId = "previous", boardingCandidateSinceMillis = NOW_MILLIS,
+            updatedAtMillis = NOW_MILLIS)
+        val update = SingleLegTracker.processPoll(state,
+            listOf(singleBus("following", order = 11), singleBus("previous", order = 12)),
+            nowMillis = NOW_MILLIS,
+            boarding = BoardingDetector.Input(null, 0.0, 0.0, NOW_MILLIS))
+        assertNull(update.alert)
+        assertFalse(update.finished)
+        assertEquals("previous", update.state.boardingCandidateBusId)
+    }
+
+    @Test
+    fun single_etaImminentDoesNotConsumePhysicalArrivalAlert() {
+        val imminent = SingleLegTracker.processPoll(singleSession(),
+            listOf(singleBus("mine", order = 10, progress = 0.6f, eta = 30)), nowMillis = NOW_MILLIS)
+        assertEquals(SingleLegTracker.AlertKind.APPROACHING, imminent.alert)
+        assertFalse(imminent.state.hasTriggeredArrivedAlert)
+        val stopped = SingleLegTracker.processPoll(imminent.state,
+            listOf(singleBus("mine", order = 10, arrived = true, eta = 0)), nowMillis = NOW_MILLIS + 10_000)
+        assertEquals(SingleLegTracker.AlertKind.ARRIVED, stopped.alert)
+        assertFalse(stopped.finished) // 普通候车继续等，不误当成已下车。
+        assertNull(SingleLegTracker.processPoll(stopped.state,
+            listOf(singleBus("mine", order = 10, arrived = true)), nowMillis = NOW_MILLIS + 20_000).alert)
+    }
+
+    @Test
+    fun single_skippedStopStillEmitsArrivalOnceBeforeSelectingNextBus() {
+        val imminent = SingleLegTracker.processPoll(singleSession(),
+            listOf(singleBus("mine", order = 10, eta = 30)), nowMillis = NOW_MILLIS)
+        val passed = SingleLegTracker.processPoll(imminent.state,
+            listOf(singleBus("mine", order = 11), singleBus("next", order = 8)), nowMillis = NOW_MILLIS + 10_000)
+        assertEquals(SingleLegTracker.AlertKind.ARRIVED, passed.alert)
+        assertEquals("mine", passed.alertState?.currentBusId)
+        val next = SingleLegTracker.processPoll(passed.state,
+            listOf(singleBus("mine", order = 11), singleBus("next", order = 8)), nowMillis = NOW_MILLIS + 20_000)
+        assertEquals("next", next.state.currentBusId)
+        assertEquals(SingleLegTracker.AlertKind.APPROACHING, next.alert)
+    }
+
+    @Test
+    fun engine_onboard_etaThenStopped_alertsAtStopAndCompletesInSamePoll() {
+        val onboard = assertNotNull(TrackingEngine.begin("onboard", 1,
+            singleTarget().copy(pinnedBusId = "mine", isOnboard = true), NOW_MILLIS))
+        val imminent = singlePoll(onboard,
+            listOf(boardingBus("mine", order = 10, eta = 30)), fix = null, stopAfterBoarding = false)
+        assertEquals(TrackingEngine.AlertKind.APPROACHING,
+            assertIs<TrackingEngine.Effect.Alert>(imminent.effects.single()).kind)
+        assertFalse(imminent.session.state.hasTriggeredArrivedAlert)
+        val stopped = singlePoll(imminent.session,
+            listOf(boardingBus("mine", order = 10, arrived = true, eta = 0)), fix = null, stopAfterBoarding = false)
+        assertEquals(TrackingEngine.AlertKind.ARRIVED,
+            assertIs<TrackingEngine.Effect.Alert>(stopped.effects.first()).kind)
+        assertEquals(TrackingEngine.Effect.Finished.Completed, stopped.effects.last())
+        assertEquals(2, stopped.effects.size)
+    }
+
+    @Test
     fun engine_pinned_beginCarriesPinnedBusIntoState() {
         val session = beginPinned()
         assertEquals("mine", session.state.pinnedBusId)
@@ -533,18 +592,17 @@ class TrackingEngineTest {
     }
 
     @Test
-    fun engine_pinned_alertsApproachingThenArrivedThenFinishesAfterPassing() {
+    fun engine_pinned_onboardAlertsApproachingThenArrivedAndFinishesAtStop() {
         val approaching = singlePoll(beginPinned(), listOf(boardingBus("mine", order = 8)), fix = null, stopAfterBoarding = false)
         val alert = assertIs<TrackingEngine.Effect.Alert>(approaching.effects.single())
         assertEquals(TrackingEngine.AlertKind.APPROACHING, alert.kind)
 
         val arrived = singlePoll(approaching.session, listOf(boardingBus("mine", order = 10, arrived = true, progress = 1f, eta = 0)), fix = null, stopAfterBoarding = false)
-        val arrivedAlert = assertIs<TrackingEngine.Effect.Alert>(arrived.effects.single())
+        val arrivedAlert = assertIs<TrackingEngine.Effect.Alert>(arrived.effects.first())
         assertEquals(TrackingEngine.AlertKind.ARRIVED, arrivedAlert.kind)
         assertTrue(arrivedAlert.forceStandalone)
-
-        val passed = singlePoll(arrived.session, listOf(boardingBus("mine", order = 11)), fix = null, stopAfterBoarding = false)
-        assertEquals(listOf<TrackingEngine.Effect>(TrackingEngine.Effect.Finished.Completed), passed.effects)
+        assertEquals(TrackingEngine.Effect.Finished.Completed, arrived.effects.last())
+        assertEquals(2, arrived.effects.size)
     }
 
     @Test
@@ -564,10 +622,27 @@ class TrackingEngineTest {
         assertTrue(TrackingEngine.wantsLocation(singleTarget(), stopAfterBoarding = true))
         assertEquals(LocationCadence.Tier.OFF, TrackingEngine.locationTier(beginPinned().state, locationEnabled = true, stopAfterBoarding = true))
 
-        // 开着「上车后自动结束追踪」、人在站上、车到站：不进入待确认、不因上车结束
+        // 指定车的下车提醒不做定位判上车；确认到站直接 Completed。
         val arrived = singlePoll(beginPinned(), listOf(boardingBus("mine", order = 10, metersNorth = 0, arrived = true)), serviceFixNorth(20))
         assertNull(arrived.session.state.boardingCandidateBusId)
-        assertTrue(arrived.effects.none { it is TrackingEngine.Effect.Finished })
+        assertTrue(arrived.effects.none { it is TrackingEngine.Effect.Finished.Boarded })
+        assertEquals(TrackingEngine.Effect.Finished.Completed, arrived.effects.last())
+    }
+
+    @Test
+    fun engine_pinned_waitingStopsWithoutCompletingUntilTheVehiclePasses() {
+        val waiting = assertNotNull(TrackingEngine.begin("waiting", 1,
+            singleTarget().copy(pinnedBusId = "mine", isOnboard = false), NOW_MILLIS))
+        val arrived = singlePoll(waiting,
+            listOf(boardingBus("mine", order = 10, arrived = true)), fix = null, stopAfterBoarding = false)
+        assertEquals(TrackingEngine.AlertKind.ARRIVED,
+            assertIs<TrackingEngine.Effect.Alert>(arrived.effects.single()).kind)
+        val repeated = singlePoll(arrived.session,
+            listOf(boardingBus("mine", order = 10, arrived = true)), fix = null, stopAfterBoarding = false)
+        assertTrue(repeated.effects.isEmpty())
+        val passed = singlePoll(repeated.session,
+            listOf(boardingBus("mine", order = 11)), fix = null, stopAfterBoarding = false)
+        assertEquals(listOf<TrackingEngine.Effect>(TrackingEngine.Effect.Finished.Completed), passed.effects)
     }
 
     // ================================================================ 上车后自动结束追踪（issue #32）

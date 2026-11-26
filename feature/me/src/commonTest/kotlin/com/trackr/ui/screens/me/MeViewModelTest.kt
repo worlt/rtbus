@@ -131,6 +131,33 @@ class MeViewModelTest {
     }
 
     @Test
+    fun arrivalTestUsesArrivalCapabilityAndCanDismissItsReport() = runTest(main.dispatcher) {
+        val unavailable = createViewModel()
+        unavailable.onEvent(MeEvent.TestArrivalAlert)
+        testScheduler.advanceUntilIdle()
+        assertFalse(unavailable.uiState.value.canTestArrival)
+        assertNull(unavailable.uiState.value.vibrationTestResult)
+        var arrivalCalls = 0
+        val access = object : NotificationHealthAccess {
+            override val supportsArrivalTest = true
+            override fun status() = NotificationHealth()
+            override fun openAlertChannelSettings() = Unit
+            override fun testVibration(): String = error("must not replace arrival test with raw vibration")
+            override fun testArrivalAlert(): String { arrivalCalls++; return "到站链结果" }
+        }
+        val viewModel = createViewModel(notificationHealthAccess = access)
+        testScheduler.advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.canTestArrival)
+        viewModel.onEvent(MeEvent.TestArrivalAlert)
+        testScheduler.advanceUntilIdle()
+        assertEquals(1, arrivalCalls)
+        assertEquals("到站链结果", viewModel.uiState.value.vibrationTestResult)
+        viewModel.onEvent(MeEvent.DismissVibrationTest)
+        testScheduler.advanceUntilIdle()
+        assertNull(viewModel.uiState.value.vibrationTestResult)
+    }
+
+    @Test
     fun initialState_reflectsRepositories() = runTest(main.dispatcher) {
         val viewModel = createViewModel()
         val state = viewModel.uiState.value

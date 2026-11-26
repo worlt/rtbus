@@ -120,7 +120,9 @@
     <string name="me_live_guide_later">暂不开启</string>
     <string name="me_test_vibration">测试震动</string>
     <string name="me_test_vibration_desc">立即测试静音震动，并查看系统设置与请求结果</string>
-    <string name="me_test_vibration_result">震动测试结果</string>
+    <string name="me_test_vibration_result">提醒测试结果</string>
+    <string name="me_test_arrival">测试到站提醒</string>
+    <string name="me_test_arrival_desc">发送真正的到站测试通知，并查看最近实际提醒记录</string>
     <string name="me_test_vibration_close">关闭</string>
     <string name="me_alert_channel_settings">系统提醒设置</string>
 </resources>

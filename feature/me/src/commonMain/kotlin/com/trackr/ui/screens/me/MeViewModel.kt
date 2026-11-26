@@ -48,6 +48,7 @@ data class MeUiState(
     val voiceAlerts: Boolean = false,
     val vibrationAlerts: Boolean = true,
     val canTestVibration: Boolean = false,
+    val canTestArrival: Boolean = false,
     val vibrationTestResult: String? = null,
     val alertThresholdStops: Int = 2,
     val reminders: List<ScheduledReminder> = emptyList(),
@@ -77,6 +78,7 @@ sealed interface MeEvent {
     data class SetVoiceAlerts(val enabled: Boolean) : MeEvent
     data class SetVibrationAlerts(val enabled: Boolean) : MeEvent
     data object TestVibration : MeEvent
+    data object TestArrivalAlert : MeEvent
     data object DismissVibrationTest : MeEvent
     data class SetAlertThresholdStops(val stops: Int) : MeEvent
     data class ToggleReminder(val id: String, val enabled: Boolean) : MeEvent
@@ -201,6 +203,13 @@ class MeViewModel(
                         .getOrElse { "无法完成震动测试，请重新打开应用后重试。" }
                 }
             }
+            MeEvent.TestArrivalAlert -> {
+                val access = notificationHealthAccess
+                if (access != null && access.supportsArrivalTest) {
+                    vibrationTestResult.value = runCatching { access.testArrivalAlert() }
+                        .getOrElse { "无法完成到站测试，请重新打开应用后重试。" }
+                }
+            }
             MeEvent.DismissVibrationTest -> vibrationTestResult.value = null
             is MeEvent.ToggleReminder -> viewModelScope.launch {
                 try {
@@ -249,6 +258,7 @@ class MeViewModel(
         voiceAlerts = part.voiceAlerts,
         vibrationAlerts = part.vibrationAlerts,
         canTestVibration = notificationHealthAccess?.supportsVibrationTest == true,
+        canTestArrival = notificationHealthAccess?.supportsArrivalTest == true,
         alertThresholdStops = part.alertThresholdStops,
         reminders = reminders,
         remindersSubtitle = remindersRowSubtitle(reminders),

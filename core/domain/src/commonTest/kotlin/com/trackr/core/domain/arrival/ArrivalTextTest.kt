@@ -377,11 +377,21 @@ class ArrivalTextTest {
     }
 
     @Test
+    fun singleSessionWithOnlyShortEtaStillShowsOnTheWay() {
+        val single = TrackingSessionState(isActive = true, stopsRemaining = 0, etaSeconds = 30)
+        assertEquals(ArrivalState.OnTheWay(0, 1), ArrivalText.stateForSession(single))
+        assertEquals(ArrivalState.Arriving(), ArrivalText.stateForSession(single.copy(isBusArrivedAtStop = true)))
+        // 不改变现有路线换乘进站口径。
+        assertEquals(ArrivalState.Arriving(), ArrivalText.stateForSession(single.copy(
+            legPhase = com.trackr.core.model.LegPhase.ON_BOARD)))
+    }
+
+    @Test
     fun stateForSession_usesArrivalRules() {
         val base = TrackingSessionState(isActive = true, stopsRemaining = 2, etaSeconds = 240)
         assertEquals(ArrivalState.OnTheWay(2, 4), ArrivalText.stateForSession(base))
         assertEquals(ArrivalState.Loading, ArrivalText.stateForSession(base.copy(stopsRemaining = -1)))
-        assertEquals(ArrivalState.Arriving(), ArrivalText.stateForSession(base.copy(stopsRemaining = 0, etaSeconds = 30)))
+        assertEquals(ArrivalState.OnTheWay(0, 1), ArrivalText.stateForSession(base.copy(stopsRemaining = 0, etaSeconds = 30)))
         assertEquals(
             ArrivalState.Arriving(),
             ArrivalText.stateForSession(base.copy(stopsRemaining = 0, isBusArrivedAtStop = true, etaSeconds = 0))

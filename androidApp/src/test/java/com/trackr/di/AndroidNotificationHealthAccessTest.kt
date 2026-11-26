@@ -39,4 +39,22 @@ class AndroidNotificationHealthAccessTest {
         assertTrue(shadowOf(vibrator).isVibrating)
         assertEquals(2, prepares)
     }
+    @Test fun arrivalTestUsesItsOwnProviderAndIsHiddenWithoutOne() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        assertFalse(AndroidNotificationHealthAccess(context).supportsArrivalTest)
+        var calls = 0
+        val access = AndroidNotificationHealthAccess(context, arrivalTest = { calls++; "arrival path" })
+        assertTrue(access.supportsArrivalTest)
+        assertEquals("arrival path", access.testArrivalAlert())
+        assertEquals(1, calls)
+    }
+
+    @Test fun disabledArrivalDeliveryChannelIsIncludedInHealthCheck() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.createNotificationChannel(NotificationChannel(ArrivalAlertNotifier.CHANNEL_ID_ARRIVAL_GUIDANCE,
+            "Arrival", NotificationManager.IMPORTANCE_LOW))
+        assertFalse(AndroidNotificationHealthAccess(context).status().alertChannelAudible)
+    }
+
 }

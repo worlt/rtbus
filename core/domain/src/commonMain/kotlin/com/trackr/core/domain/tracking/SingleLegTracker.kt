@@ -29,7 +29,7 @@ import com.trackr.core.model.TrackingSessionState
  *   - 不因为一次不符合就当成没上车：车过站后 [DEPARTURE_RECOVERY_WINDOW_MILLIS] 内每一轮都重新判要不要开始确认，
  *     某一轮线路数据里缺候车站坐标也不清掉已有的判定。
  * - 指定了车（[TrackingSessionState.pinnedBusId]，issue #52「下车提醒」）时只追这一辆：不换车、不判上车，
- *   它暂时从数据里消失就一直保持上次位置；开过目标站后发 `finished` 让调用方结束追踪（没发过到站提醒的先补发）。
+ *   它暂时从数据里消失就一直保持上次位置；已上车时确认到站、候车时过站后发 `finished` 让调用方结束追踪（没发过到站提醒的先补发）。
  */
 internal object SingleLegTracker {
 
@@ -63,7 +63,7 @@ internal object SingleLegTracker {
      * @param alert 本轮要发的提醒，null 表示不发
      * @param alertState 发提醒时用的状态
      * @param boarded 定位判出已上车：调用方据此结束这次追踪
-     * @param finished 指定的那辆车已开过目标站（issue #52）：调用方据此结束这次追踪
+     * @param finished 指定车辆已确认到达下车站（已上车）或已过目标站（候车）：调用方据此结束追踪
      */
     data class SingleUpdate(
         val state: TrackingSessionState,
@@ -153,6 +153,24 @@ internal object SingleLegTracker {
             )
         }
 
+        // 上游可能从进站途中直接跳到下一站。先为原车补发确认到站，下一轮再选后车；
+        // 否则收紧 ETA 判定后会漏掉没有停靠样本的这趟车。
+        val departed = buses.firstOrNull { it.busId == trackedId && it.order > targetOrder }
+        if (departed != null && !session.hasTriggeredArrivedAlert &&
+            (session.boardingCandidateBusId == null || session.boardingCandidateBusId == departed.busId) &&
+            departed.order <= targetOrder + RECOVERY_MAX_STOPS_PAST &&
+            session.currentBusOrder in (targetOrder - 2)..targetOrder &&
+            nowMillis - session.updatedAtMillis in 0..DEPARTURE_RECOVERY_WINDOW_MILLIS
+        ) {
+            val arrived = session.copy(
+                currentBusOrder = targetOrder, currentBusProgress = 1f,
+                stopsRemaining = 0, etaSeconds = 0, isBusArrivedAtStop = true,
+                hasTriggeredArrivedAlert = true, hasTriggeredApproachingAlert = true,
+                statusSummary = "车辆已到达 ${session.targetStopName}！", updatedAtMillis = nowMillis
+            )
+            return SingleUpdate(arrived, AlertKind.ARRIVED, arrived)
+        }
+
         // 2. 选车：只看未过站车辆，优先沿用正在追踪的车
         val candidates = buses.filter { it.order <= targetOrder }
         val tracked = trackedId?.let { id -> candidates.find { it.busId == id } }
@@ -184,7 +202,8 @@ internal object SingleLegTracker {
         val isNewVehicle = trackedId == null || trackedId != best.busId
         val stopsRemaining = (targetOrder - best.order).coerceAtLeast(0)
         val isStoppedAtTarget = stopsRemaining == 0 && ArrivalRules.isBusStopped(best)
-        val isArrivedCondition = ArrivalRules.isBusArrivedAtOrder(targetOrder, best)
+        // ETA 1..45 秒只表示即将进站，不能提前用掉真正到站的单次提醒。
+        val isArrivedCondition = isStoppedAtTarget
 
         // 换车或初次锁定：重新确定起始追踪基准站
         val startOrder = if (isNewVehicle) {
@@ -288,7 +307,7 @@ internal object SingleLegTracker {
         val passed = bus.order > targetOrder
         val stopsRemaining = (targetOrder - bus.order).coerceAtLeast(0)
         val isStoppedAtTarget = stopsRemaining == 0 && !passed && ArrivalRules.isBusStopped(bus)
-        val isArrivedCondition = ArrivalRules.isBusArrivedAtOrder(targetOrder, bus)
+        val isArrivedCondition = isStoppedAtTarget || passed
         val startOrder = if (isFirstSight) {
             val base = if (ArrivalRules.isBusStopped(bus)) bus.order else bus.order - 1
             base.coerceAtMost(targetOrder - 1).coerceAtLeast(1)
@@ -337,7 +356,8 @@ internal object SingleLegTracker {
             ),
             alert,
             alertState,
-            finished = passed
+            // 已上车的下车提醒在确认停靠时完成；候车追踪保留原来的过站收尾。
+            finished = passed || (session.isOnboard && isStoppedAtTarget)
         )
     }
 

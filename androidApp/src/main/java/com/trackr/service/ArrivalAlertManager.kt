@@ -49,10 +49,11 @@ class ArrivalAlertNotifier(
         content: String,
         category: String,
         requestCode: Int,
-        timeoutMillis: Long
+        timeoutMillis: Long,
+        channelId: String = alertChannelId
     ): Notification {
         val lockScreenOn = runCatching { showOnLockScreenSetting() }.getOrDefault(true)
-        return NotificationCompat.Builder(context, alertChannelId)
+        return NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.ic_stat_trackr)
             .setContentTitle(title)
             .setContentText(content)
@@ -64,7 +65,7 @@ class ArrivalAlertNotifier(
             // 到站只有一次机会，该弹出来的时候要弹；但弹过之后不该变成一条要手动清理的常驻消息，
             // 因为同一趟车的进度常驻通知本来就写着「到站了」。
             .setTimeoutAfter(timeoutMillis)
-            .setDefaults(if (vibrationEnabled()) NotificationCompat.DEFAULT_ALL else NotificationCompat.DEFAULT_SOUND)
+            .setDefaults(if (vibrationEnabled() && channelId != CHANNEL_ID_ARRIVAL_GUIDANCE) NotificationCompat.DEFAULT_ALL else NotificationCompat.DEFAULT_SOUND)
             .setVisibility(
                 if (lockScreenOn) NotificationCompat.VISIBILITY_PUBLIC else NotificationCompat.VISIBILITY_PRIVATE
             )
@@ -158,6 +159,22 @@ class ArrivalAlertNotifier(
         }
     }
 
+    /** Arrival notifications retain sound/banner delivery, while the app owns guidance haptics.
+     * Keep existing channels intact: Android channel vibration is immutable after creation.
+     */
+    private fun ensureArrivalGuidanceChannel(context: Context) {
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+        if (manager.getNotificationChannel(CHANNEL_ID_ARRIVAL_GUIDANCE) != null) return
+        val base = manager.getNotificationChannel(alertChannelId)
+        manager.createNotificationChannel(NotificationChannel(CHANNEL_ID_ARRIVAL_GUIDANCE,
+            "公交到站提示（声音与横幅）", base?.importance ?: NotificationManager.IMPORTANCE_HIGH).apply {
+            description = "到站声音与横幅；震动由应用的震动提醒开关和原到站强提醒渠道控制"
+            enableVibration(false)
+            base?.let { setSound(it.sound, it.audioAttributes) }
+            setShowBadge(true)
+        })
+    }
+
     /**
      * 当车辆距离目标候车站 stopsRemaining <= state.alertThresholdStops 时触发强提醒通知及三段式节奏震动
      */
@@ -200,24 +217,28 @@ class ArrivalAlertNotifier(
             }
         }
         // 静音走显式提醒震动；其他模式的独立通知仍由渠道震动，避免重复。
-        performWaveformVibration(context, APPROACHING_VIBRATION_PATTERN, posted, "APPROACHING")
+        performWaveformVibration(context, APPROACHING_VIBRATION_PATTERN, posted, "APPROACHING", state = state)
     }
 
     /**
      * 到站时使用与临近提醒 / 即时测试相同的有限分段震动，避免到站单独采用另一种效果。
      */
-    fun triggerArrivedAlert(
+    internal fun triggerArrivedAlert(
         context: Context,
         state: TrackingSessionState,
         forceStandalone: Boolean = false,
-        sessionId: String = ""
-    ) {
+        sessionId: String = "",
+        isTest: Boolean = false
+    ): ReminderVibration.Result {
         ensureNotificationChannel(context)
-        val notificationId = alertNotificationId(NOTIFICATION_ID_ARRIVED, sessionId)
-        cancelNotification(context, alertNotificationId(NOTIFICATION_ID_APPROACHING, sessionId))
+        ensureArrivalGuidanceChannel(context)
+        val notificationId = if (isTest) NOTIFICATION_ID_ARRIVAL_TEST else alertNotificationId(NOTIFICATION_ID_ARRIVED, sessionId)
+        if (!isTest) cancelNotification(context, alertNotificationId(NOTIFICATION_ID_APPROACHING, sessionId))
 
         var posted = false
-        if (forceStandalone || shouldPostStandaloneNotification(context, state)) {
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+        val canonicalEnabled = manager?.getNotificationChannel(alertChannelId)?.importance != NotificationManager.IMPORTANCE_NONE
+        if (canonicalEnabled && (forceStandalone || shouldPostStandaloneNotification(context, state))) {
             val title = "【车辆已到站】${state.lineName}"
             val content = if (state.isPinnedBus) {
                 "${state.pinnedPlate.ifBlank { state.lineName }} 已到达 ${state.targetStopName}！请${if (state.isOnboard) "下车" else "上车"}。"
@@ -231,7 +252,8 @@ class ArrivalAlertNotifier(
                 content = content,
                 category = NotificationCompat.CATEGORY_REMINDER,
                 requestCode = notificationId,
-                timeoutMillis = TIMEOUT_ARRIVED_MILLIS
+                timeoutMillis = TIMEOUT_ARRIVED_MILLIS,
+                channelId = CHANNEL_ID_ARRIVAL_GUIDANCE
             )
 
             try {
@@ -243,8 +265,10 @@ class ArrivalAlertNotifier(
                 Log.e(TAG, "Failed to post arrived alert notification", e)
             }
         }
-        // 静音走显式提醒震动；其他模式的独立通知仍由渠道震动，避免重复。
-        performWaveformVibration(context, APPROACHING_VIBRATION_PATTERN, posted, "ARRIVED")
+        // notify() 没有马达成功回执，任何公开铃声模式都主动请求已验证的引导震动。
+        // 展示渠道默认不震动，保留通知声音，避免默认配置叠加两次震动。
+        return performWaveformVibration(context, APPROACHING_VIBRATION_PATTERN, posted, "ARRIVED",
+            direct = true, state = state, isTest = isTest)
     }
 
     /**
@@ -387,16 +411,33 @@ class ArrivalAlertNotifier(
         )
     }
 
-    private fun performWaveformVibration(context: Context, pattern: LongArray, posted: Boolean, event: String) {
+    private fun performWaveformVibration(
+        context: Context, pattern: LongArray, posted: Boolean, event: String,
+        direct: Boolean = false, state: TrackingSessionState? = null, isTest: Boolean = false
+    ): ReminderVibration.Result {
         val result = ReminderVibration.vibrate(context, CHANNEL_ID_ALERT, vibrationEnabled(),
-            VibrationEffect.createWaveform(pattern, -1), notificationPosted = posted)
-        Log.i(TAG, "event=$event notificationPosted=$posted vibration=$result")
+            VibrationEffect.createWaveform(pattern, -1), notificationPosted = posted && !direct,
+            deliveryChannelId = if (direct) CHANNEL_ID_ARRIVAL_GUIDANCE else null)
+        Log.i(TAG, "event=$event test=$isTest notificationPosted=$posted vibration=$result")
+        if (!isTest) ReminderFeedbackLog.record(context, event, posted, result, state)
+        return result
+    }
+
+    internal fun testArrival(context: Context): String {
+        val state = TrackingSessionState(isActive = true, lineName = "到站提醒测试",
+            targetStopName = "测试站", targetOrder = 1, stopsRemaining = 0,
+            isBusArrivedAtStop = true, isOnboard = true, pinnedBusId = "test")
+        val result = triggerArrivedAlert(context, state, forceStandalone = true, isTest = true)
+        return "本测试检查到站通知和震动，不播放语音、不创建或结束追踪。通知声音仍遵循系统设置。\n\n" +
+            ReminderVibration.report(context, CHANNEL_ID_ALERT, vibrationEnabled(), result)
     }
 
     companion object {
         private const val TAG = "ArrivalAlertManager"
 
         const val CHANNEL_ID_ALERT = "bus_arrival_alert"
+        const val CHANNEL_ID_ARRIVAL_GUIDANCE = "bus_arrival_guidance_v4"
+        internal const val NOTIFICATION_ID_ARRIVAL_TEST = 10009
         const val CHANNEL_ID_ALERT_NO_VIBRATION = "bus_arrival_alert_no_vibration"
         private const val CHANNEL_NAME_ALERT = "公交到站与进站强提醒"
 

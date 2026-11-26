@@ -92,6 +92,8 @@ import com.trackr.feature.me.resources.me_export_boarding_trace_desc
 import com.trackr.feature.me.resources.me_vibration_alerts
 import com.trackr.feature.me.resources.me_vibration_alerts_desc
 import com.trackr.feature.me.resources.me_test_vibration
+import com.trackr.feature.me.resources.me_test_arrival
+import com.trackr.feature.me.resources.me_test_arrival_desc
 import com.trackr.feature.me.resources.me_test_vibration_desc
 import com.trackr.feature.me.resources.me_test_vibration_result
 import com.trackr.feature.me.resources.me_test_vibration_close
@@ -293,6 +295,14 @@ fun MeScreen(
                             title = stringResource(MeRes.string.me_test_vibration),
                             subtitle = stringResource(MeRes.string.me_test_vibration_desc),
                             onClick = { onEvent(MeEvent.TestVibration) }
+                        )
+                    }
+                    if (state.canTestArrival) {
+                        GroupDivider()
+                        SettingRow(
+                            title = stringResource(MeRes.string.me_test_arrival),
+                            subtitle = stringResource(MeRes.string.me_test_arrival_desc),
+                            onClick = { onEvent(MeEvent.TestArrivalAlert) }
                         )
                     }
                     GroupDivider()

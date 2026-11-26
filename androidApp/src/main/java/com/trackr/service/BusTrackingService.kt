@@ -584,7 +584,10 @@ class BusTrackingService : LifecycleService() {
                 Log.d(TAG, "到换乘站 ${effect.stationName}，自动切换到下一程: ${effect.nextLineName}")
                 arrivalAlerts.triggerTransferAlert(this, effect.stationName, effect.nextLineName, sessionId)
             }
-            TrackingEngine.Effect.Finished.Completed -> Log.d(TAG, "全部换乘程段已完成到达终点！")
+            TrackingEngine.Effect.Finished.Completed -> {
+                ReminderFeedbackLog.tracking(this, null, completed = true)
+                Log.d(TAG, "本次追踪已完成到达终点！")
+            }
             // 定位判出已上车：会话马上就被清掉，先跟用户交代一句，免得「追踪中」自己消失了（issue #32）
             is TrackingEngine.Effect.Finished.Boarded -> {
                 Log.d(TAG, "定位判断已上车，结束追踪: ${effect.state.lineName}")
@@ -606,6 +609,7 @@ class BusTrackingService : LifecycleService() {
     /** 服务自己写回仓库后：这一路没了就收摊，切了程就重开轮询，否则刷新通知 */
     private fun afterUpdate(worker: PollWorker) {
         val now = sessionOf(worker.sessionId)
+        if (now != null) ReminderFeedbackLog.tracking(this, now.state)
         when {
             now == null -> {
                 worker.job?.cancel()

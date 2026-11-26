@@ -115,7 +115,7 @@ class ReminderVibrationTest {
         val report = ReminderVibration.test(context, channelId, enabled = true)
         assertTrue(shadowOf(vibrator).isVibrating)
         assertTrue(report.contains("导航引导兼容版 v2"))
-        assertTrue(report.contains("到站反馈：分段提醒修复 v3"))
+        assertTrue(report.contains("到站反馈：确认到站与主动引导 v4"))
         assertTrue(report.contains("铃声模式：静音"))
         assertTrue(report.contains("请求结果：REQUESTED"))
         assertTrue(report.contains("以手机是否实际震动为准"))

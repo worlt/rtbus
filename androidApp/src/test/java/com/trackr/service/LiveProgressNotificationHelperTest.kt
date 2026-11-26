@@ -31,6 +31,15 @@ class LiveProgressNotificationHelperTest {
     /** App 启动时 Koin 建好的实例（原来经 object 转发） */
     private val liveNotifier: LiveProgressNotifier get() = GlobalContext.get().get()
 
+    @Test
+    fun singleTrackingDoesNotSayArrivedBeforeTheConfirmedArrivalEvent() {
+        val single = TrackingSessionState(isActive = true, lineName = "49", targetStopName = "目标站",
+            stopsRemaining = 0, etaSeconds = 30, pinnedBusId = "mine", isOnboard = true)
+        assertFalse(liveNotifier.isArrivedState(single))
+        assertFalse(liveNotifier.buildTexts(single).title.contains("到站了"))
+        assertTrue(liveNotifier.isArrivedState(single.copy(isBusArrivedAtStop = true)))
+    }
+
     @Before
     fun setup() {
         context = ApplicationProvider.getApplicationContext()

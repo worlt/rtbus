@@ -56,7 +56,8 @@ val platformBridgeModule: Module = module {
     single<NotificationHealthAccess> {
         AndroidNotificationHealthAccess(androidContext(),
             { get<ITransitRepository>().vibrationAlerts.value },
-            { get<ArrivalAlertNotifier>().ensureNotificationChannel(androidContext()) })
+            { get<ArrivalAlertNotifier>().ensureNotificationChannel(androidContext()) },
+            { get<ArrivalAlertNotifier>().testArrival(androidContext()) })
     }
     single<UserLocationStore> { TransitUserLocationStore(get()) }
     // 判上车的判定记录（issue #49）：追踪服务写、「我的」页导出
@@ -175,7 +176,8 @@ class AndroidLiveUpdateAccess(
 class AndroidNotificationHealthAccess(
     context: Context,
     private val vibrationEnabled: () -> Boolean = { true },
-    private val ensureAlertChannel: () -> Unit = {}
+    private val ensureAlertChannel: () -> Unit = {},
+    private val arrivalTest: (() -> String)? = null
 ) : NotificationHealthAccess {
     private val appContext: Context = context.applicationContext ?: context
 
@@ -189,16 +191,22 @@ class AndroidNotificationHealthAccess(
         }.getOrDefault(true)
         val manager = appContext.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
         val alert = manager?.getNotificationChannel(alertChannelId)
+        val delivery = manager?.getNotificationChannel(ArrivalAlertNotifier.CHANNEL_ID_ARRIVAL_GUIDANCE)
         val live = manager?.getNotificationChannel(LiveProgressNotifier.CHANNEL_ID_LIVE_PROGRESS)
         return NotificationHealth(
             notificationsEnabled = enabled,
             // 没有渠道（还没追过一次）不算异常：第一次追踪时会按 IMPORTANCE_HIGH 建出来
-            alertChannelAudible = alert == null || alert.importance >= NotificationManager.IMPORTANCE_HIGH,
+            alertChannelAudible = (alert == null || alert.importance >= NotificationManager.IMPORTANCE_HIGH) &&
+                (delivery == null || delivery.importance >= NotificationManager.IMPORTANCE_HIGH),
             liveChannelOff = live != null && live.importance == NotificationManager.IMPORTANCE_NONE
         )
     }
 
     override val supportsVibrationTest: Boolean get() = true
+
+    override val supportsArrivalTest: Boolean get() = arrivalTest != null
+
+    override fun testArrivalAlert(): String? = arrivalTest?.invoke()
 
     override fun testVibration(): String {
         ensureAlertChannel()
@@ -209,7 +217,10 @@ class AndroidNotificationHealthAccess(
     override fun openAlertChannelSettings() {
         val intent = Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).apply {
             putExtra(Settings.EXTRA_APP_PACKAGE, appContext.packageName)
-            putExtra(Settings.EXTRA_CHANNEL_ID, alertChannelId)
+            val manager = appContext.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+            val delivery = manager?.getNotificationChannel(ArrivalAlertNotifier.CHANNEL_ID_ARRIVAL_GUIDANCE)
+            putExtra(Settings.EXTRA_CHANNEL_ID, if (delivery != null && delivery.importance < NotificationManager.IMPORTANCE_HIGH)
+                ArrivalAlertNotifier.CHANNEL_ID_ARRIVAL_GUIDANCE else alertChannelId)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         val opened = runCatching { appContext.startActivity(intent) }.isSuccess
