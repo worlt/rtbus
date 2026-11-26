@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -104,8 +105,12 @@ fun SearchRoute(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
-    fun whenResumed(block: () -> Unit) {
-        if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) block()
+    val focusManager = LocalFocusManager.current
+    fun leaveSearch(block: () -> Unit) {
+        if (!lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) return
+        // Release the text-input session on the click, not when the outgoing page is finally disposed.
+        focusManager.clearFocus()
+        block()
     }
     /** 点进结果前把当前词记进最近搜过（原来就是这样） */
     fun rememberQuery() {
@@ -129,9 +134,9 @@ fun SearchRoute(
                 is SearchEvent.RemoveHistory -> viewModel.removeSearchHistory(event.query)
                 SearchEvent.ClearHistory -> viewModel.clearSearchHistory()
                 is SearchEvent.LineClicked -> {
-                    rememberQuery()
                     val direction = event.direction
-                    whenResumed {
+                    leaveSearch {
+                        rememberQuery()
                         navigator.open(
                             ScreenKey.LineDetail(
                                 cityId = viewModel.uiState.value.currentCity.cityId,
@@ -145,9 +150,9 @@ fun SearchRoute(
                     }
                 }
                 is SearchEvent.StopClicked -> {
-                    rememberQuery()
                     val stop = event.stop
-                    whenResumed {
+                    leaveSearch {
+                        rememberQuery()
                         navigator.open(
                             ScreenKey.StopDetail(
                                 cityId = viewModel.uiState.value.currentCity.cityId,
@@ -161,7 +166,7 @@ fun SearchRoute(
                         )
                     }
                 }
-                SearchEvent.Back -> whenResumed { navigator.popChildPage() }
+                SearchEvent.Back -> leaveSearch { navigator.popChildPage() }
             }
         }
     )

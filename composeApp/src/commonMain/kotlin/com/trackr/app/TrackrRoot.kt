@@ -1,20 +1,17 @@
 package com.trackr.app
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.ime
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -23,28 +20,32 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
+import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
-import androidx.navigation3.ui.NavDisplay
 import com.trackr.core.designsystem.theme.TrackrTheme
 import com.trackr.core.model.UiMode
+import com.trackr.core.navigation.OverlayKey
 import com.trackr.core.navigation.Navigator
 import com.trackr.core.navigation.ScreenKey
 import com.trackr.core.navigation.TopLevel
-import com.trackr.core.navigation.TrackrTransitions
+import com.trackr.core.navigation.TabNavigationDisplay
 import com.trackr.core.navigation.deeplink.DeepLink
-import com.trackr.core.navigation.scene.BottomSheetSceneStrategy
 import com.trackr.core.navigation.rememberNavigationState
 import com.trackr.feature.bus.busEntries
 import com.trackr.feature.favorites.favoritesEntries
@@ -233,9 +234,26 @@ private fun TrackrNavApp(
     val tabBarContentHeight = if (hideBarForIme) 0.dp else if (navBarHeightPx == 0) {
         tabBar.initialContentHeight
     } else with(density) { (navBarHeightPx - systemNavBarInsetPx).coerceAtLeast(0).toDp() }
-    val onSelectTab: (ScreenKey) -> Unit = navigator::selectTab
-    val provideEntry = remember(navigator) {
-        entryProvider<NavKey> {
+    var visibleChildren by remember { mutableIntStateOf(0) }
+    // 根页之间始终是同一组真实按钮。进入/预览/退出子页时让底栏画在根页内，不能盖在滑动的子页上。
+    val sharedMaterialBar by remember(navigationState, tabBar) {
+        derivedStateOf { tabBar.collapsesOnScroll && navigationState.isAtTabRoot && visibleChildren == 0 }
+    }
+    val onSelectTab: (ScreenKey) -> Unit = remember(navigator) {
+        { tab -> if (navigationState.isAtTabRoot) navigator.selectTab(tab) }
+    }
+    val materialBar: @Composable (ScreenKey, Boolean, Modifier) -> Unit = { selected, interactive, modifier ->
+        tabBar.Content(
+            tabs = visibleTabs,
+            selected = selected,
+            onSelect = if (interactive) onSelectTab else { _ -> },
+            modifier = modifier.onSizeChanged { navBarHeightPx = it.height }
+                .graphicsLayer { translationY = navBarTranslationY * size.height }
+                .then(if (interactive) Modifier else Modifier.clearAndSetSemantics {}),
+        )
+    }
+    val provideEntry = remember(navigator, visibleTabs, tabBar, materialBar) {
+        val base = entryProvider<NavKey> {
             busEntries(navigator)
             routeEntries(navigator)
             searchEntries(navigator)
@@ -244,51 +262,54 @@ private fun TrackrNavApp(
             meEntries(navigator)
             favoritesEntries(navigator)
         }
+        val withTabBar: (NavKey) -> NavEntry<NavKey> = { key ->
+            val entry = base(key)
+            when {
+                !tabBar.collapsesOnScroll || key is OverlayKey -> entry
+                key is ScreenKey && key in visibleTabs -> NavEntry(navEntry = entry) {
+                    Box(Modifier.fillMaxSize()) {
+                        entry.Content()
+                        // 退场的「我的」暂时仍盖在首页上，不要把切回后的下一次触摸误投给设置开关。
+                        if (navigationState.topLevel != key) {
+                            Box(Modifier.matchParentSize().pointerInput(Unit) {
+                                awaitPointerEventScope { while (true) awaitPointerEvent().changes.forEach { it.consume() } }
+                            })
+                        }
+                        if (!sharedMaterialBar) materialBar(key, false, Modifier.align(Alignment.BottomCenter))
+                    }
+                }
+                else -> NavEntry(navEntry = entry) {
+                    DisposableEffect(Unit) {
+                        visibleChildren++
+                        onDispose { visibleChildren-- }
+                    }
+                    entry.Content()
+                }
+            }
+        }
+        withTabBar
     }
 
     CompositionLocalProvider(
         LocalBottomBarCollapseOffset provides bottomBarCollapseOffset,
         LocalBottomBarHeight provides tabBarContentHeight,
     ) {
-        Scaffold(
-            modifier = Modifier.nestedScroll(nestedScrollConnection),
-            contentWindowInsets = WindowInsets(0.dp),
-            bottomBar = {
-                val bar: @Composable () -> Unit = {
-                    tabBar.Content(
-                        tabs = visibleTabs,
-                        selected = navigationState.topLevel,
-                        onSelect = onSelectTab,
-                        modifier = Modifier.onSizeChanged { navBarHeightPx = it.height },
-                    )
-                }
-                if (tabBar.collapsesOnScroll) {
-                    AnimatedVisibility(
-                        visible = showTabBar,
-                        enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(TrackrTransitions.PAGE_MILLIS)),
-                        exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(TrackrTransitions.PAGE_MILLIS)),
-                        modifier = Modifier.graphicsLayer { translationY = navBarTranslationY * size.height },
-                    ) { bar() }
-                } else if (showTabBar) {
-                    // 原生视图不套 Compose 图层位移动画，避免点击区域和 UIKit 位置不同步。
-                    bar()
-                }
-            }
-        ) { _ ->
-            NavDisplay(
-                entries = navigationState.toDecoratedEntries(startUnderneath = true, entryProvider = provideEntry),
-                onBack = { navigator.back() },
-                modifier = Modifier.fillMaxSize(),
-                // 弹层型目的地（§3.7）：entry 带 BottomSheetSceneStrategy.bottomSheet() 就叠在上一页上；其余照常单页
-                sceneStrategies = remember { listOf(BottomSheetSceneStrategy<NavKey>()) },
-                transitionSpec = TrackrTransitions.push,
-                popTransitionSpec = TrackrTransitions.pop,
-                predictivePopTransitionSpec = TrackrTransitions.predictivePop
+        Box(Modifier.fillMaxSize().nestedScroll(nestedScrollConnection)) {
+            TabNavigationDisplay(
+                state = navigationState, entryProvider = provideEntry, onBack = { navigator.back() },
+                modifier = Modifier.fillMaxSize().clipToBounds(),
             )
+            if (sharedMaterialBar) {
+                materialBar(navigationState.topLevel, true, Modifier.align(Alignment.BottomCenter))
+            } else if (!tabBar.collapsesOnScroll && showTabBar) {
+                // UIKit 是原生覆盖视图，保留单一实例和键盘避让，不随 Compose 图层位移。
+                tabBar.Content(
+                    tabs = visibleTabs, selected = navigationState.topLevel, onSelect = onSelectTab,
+                    modifier = Modifier.align(Alignment.BottomCenter).onSizeChanged { navBarHeightPx = it.height },
+                )
+            }
         }
     }
-
-
 }
 
 /** RTBus 底栏文字；RoutePlan 保留为旧状态 Key，但不再是可见页签。 */

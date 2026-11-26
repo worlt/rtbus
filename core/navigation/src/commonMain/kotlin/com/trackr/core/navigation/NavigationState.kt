@@ -136,9 +136,15 @@ class NavigationState(
         startUnderneath: Boolean = true,
         entryProvider: (NavKey) -> NavEntry<NavKey>,
     ): List<NavEntry<NavKey>> {
+        val decorated = decoratedStacks(entryProvider)
+        return stacksShown(startUnderneath).flatMap { decorated.getValue(it) }
+    }
+
+    @Composable
+    internal fun decoratedStacks(entryProvider: (NavKey) -> NavEntry<NavKey>): Map<ScreenKey, List<NavEntry<NavKey>>> {
         val resultEventBus = rememberResultEventBus()
         val resultDecorator = rememberResultEventBusNavEntryDecorator<NavKey>(resultEventBus)
-        val decorated = stacks.mapValues { (_, stack) ->
+        return stacks.mapValues { (_, stack) ->
             rememberDecoratedNavEntries(
                 backStack = stack,
                 entryDecorators = listOf(
@@ -149,6 +155,5 @@ class NavigationState(
                 entryProvider = entryProvider,
             )
         }
-        return stacksShown(startUnderneath).flatMap { decorated.getValue(it) }
     }
 }

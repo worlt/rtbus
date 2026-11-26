@@ -14,7 +14,6 @@ import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
 import com.trackr.core.navigation.TrackrNavigator
-import com.trackr.core.navigation.TrackrTransitions
 import com.trackr.core.navigation.ScreenKey
 import com.trackr.ui.screens.me.AboutEvent
 import com.trackr.ui.screens.me.AboutScreen
@@ -34,7 +33,7 @@ import org.koin.core.parameter.parametersOf
  * 我的（根页）、定时提醒编辑、关于。
  */
 fun EntryProviderScope<NavKey>.meEntries(navigator: TrackrNavigator) {
-    entry<ScreenKey.More>(metadata = TrackrTransitions.tabRootMetadata) {
+    entry<ScreenKey.More> {
         MeRoute(viewModel = koinViewModel(), navigator = navigator)
     }
 

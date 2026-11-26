@@ -10,6 +10,7 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotFocused
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
@@ -19,12 +20,18 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ApplicationProvider
 import com.trackr.app.TrackrRoot
 import com.trackr.core.data.repository.TrackingRepository
+import com.trackr.core.model.BusLineDirection
+import com.trackr.core.model.BusLineSummary
+import com.trackr.core.model.TransitSearchResult
 import com.trackr.core.model.BoardChoice
 import com.trackr.core.model.BoardOption
 import com.trackr.core.model.TrackingTarget
@@ -63,6 +70,7 @@ import org.koin.dsl.module
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
 /**
  * 第 17 步：首页轮询开关从 MainActivity 的 shouldPollHome 挪进首页 Route 的 LifecycleStartEffect（重构计划 §4.4）。
@@ -236,6 +244,30 @@ class TrackrAppNavigationTest {
     }
 
     @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun rapidPhysicalTabTapsReachTheLastSelectedTabWhileBothLayersExist() {
+        launch()
+        fun tabCenter(label: String) = composeTestRule.onNode(
+            hasText(label) and SemanticsMatcher.keyIsDefined(SemanticsProperties.Selected)
+        ).fetchSemanticsNode().boundsInRoot.center
+        val more = tabCenter("我的")
+        val home = tabCenter("公交")
+        composeTestRule.mainClock.autoAdvance = false
+        for ((label, point) in listOf("我的" to more, "公交" to home, "我的" to more)) {
+            composeTestRule.onRoot().performTouchInput { click(point) }
+            advanceTransitionFrames(4)
+            composeTestRule.onNode(hasText(label) and SemanticsMatcher.keyIsDefined(SemanticsProperties.Selected))
+                .assertIsSelected()
+        }
+        composeTestRule.mainClock.autoAdvance = true
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag("me_top_bar").assertExists()
+        composeTestRule.onNodeWithTag("bus_home_top_bar").assertDoesNotExist()
+        pressBack()
+        assertOnHomeRoot()
+    }
+
+    @Test
     fun searchTransition_keepsOutgoingFabPosition_andFocusesOnlyAfterArrival() {
         launch()
         val fab = composeTestRule.onNodeWithTag("transit_code_fab")
@@ -248,6 +280,29 @@ class TrackrAppNavigationTest {
         advanceTransitionFrames(22)
         searchField().assertIsFocused()
         fab.assertDoesNotExist()
+    }
+
+    @Test
+    fun searchResult_releasesFocusOnClick_andBackKeepsTheQueryWithoutRefocusing() {
+        val direction = BusLineDirection(lineId = "49-0", name = "49路", startStop = "甲站", endStop = "乙站")
+        realtime.searchResult = Result.success(TransitSearchResult(keyword = "49",
+            lines = listOf(BusLineSummary(name = "49路", lineNo = "49", directions = listOf(direction)))))
+        launch()
+        openSearch()
+        searchField().performTextInput("49")
+        shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(SearchViewModel.SEARCH_DEBOUNCE_MS + 1))
+        composeTestRule.waitForIdle()
+        composeTestRule.mainClock.autoAdvance = false
+        composeTestRule.onNodeWithText("甲站 → 乙站").performSemanticsAction(SemanticsActions.OnClick)
+        advanceTransitionFrames(4)
+        searchField().assertIsNotFocused()
+        composeTestRule.mainClock.autoAdvance = true
+        composeTestRule.waitForIdle()
+        assertEquals("49-0", openedLines.single().lineId)
+        pressBack()
+        searchField().assert(hasText("49")).assertIsNotFocused()
+        pressBack()
+        assertOnHomeRoot()
     }
 
     @Test
