@@ -2,6 +2,8 @@
 
 更新日期：2026-11-26。用途：新任务恢复项目状态；不是完整对话副本。以实际 Git、代码和验证结果为准，发现记录过时先核对再更新。
 
+最新续接：`ac7540e`，arrival-v4；用户确认 v3 到站仍不震、没有自动结束，本轮实际手机结果仍待验收。当前结论与下一步见文末 v4 小节及第 7 节，旧轮次记录仅供回溯。
+
 ## 1. 当前项目与不可扩大范围
 
 - 实际工作目录 / Git 根：C:\D\A_code\tracker\Trackr-main；父目录 C:\D\A_code\tracker 不是 Git 根。不要因为目录仍叫 Trackr-main 就重新下载或重建项目。
@@ -215,9 +217,31 @@
 - 本轮证据均在忽略目录 build/rtbus-validation/：arrival-vibration-red.log（最终三项行为断言失败）、arrival-vibration-targeted.log / arrival-vibration-targeted-summary.json（65 项通过）、arrival-v3-full-host.log、arrival-v3-static.log、arrival-v3-artifact-audit.log、arrival-v3-audit-summary.json、audit-arrival-v3-artifacts.py、arrival-v3-<abi>-signature/zipalign/badging.log、arrival-v3-previous-signature.log。
 - adb devices -l 无设备。用户确认的是上一轮即时测试物理成功，本轮实际到站、锁屏/后台及语音仍须复测；iOS 未实际编译/运行。只做本地提交，无 remote、不推送。
 
+### 本轮续接：到站仍不震且未结束 → 确认到站与主动引导 v4（2026-11-26）
+
+- 代码提交 `ac7540e`。最新用户实测明确为“到站依然没有震动，没有自动结束”；因此 v3 的自然完成清理修复解释不了这次现象。没有拿到该手机日志，不能认定厂商内部策略或唯一硬件根因。
+- 主机回归先复现 4 项行为失败（arrival-v4-red.log）：单线路 ETA 30 秒就发 ARRIVED 并消耗标记、跳过停靠样本后到站提醒丢失、已上车目标停靠未完成、公开 RINGER_MODE_VIBRATE 下通知已发却跳过主动震动。追加 2 项显示回归失败（arrival-v4-display-red.log）：追踪卡与常驻通知仍把短 ETA 显示为到站。
+- 修正单线路到站事件与会话显示：ETA 1..45 秒仅作临近，确认停靠（上游标志/已有可信进度门槛）才发 ARRIVED；追踪卡、常驻和 Xiaomi 焦点通知统一使用单线路严格口径。普通看板的“即将进站”及路线换乘的既有 ETA 判定没有全局改写。普通候车短时越站补发保留 3 分钟/最多过 3 站及原车窗口，且不得打断前车上车确认；旧数据、其他车不拿来恢复。
+- 已上车的指定车辆到目标站停靠即 ARRIVED + Completed，无需等车辆驶过站；跳站仍补发并完成。指定车候车停靠时不当成已下车，保持原过站结束；普通不指定车候车可以继续等下一班。v3 最终到站通知五分钟保留、手动结束清理、多任务隔离继续回归通过。
+- ARRIVED 不再因 notify() 成功或公开铃声模式而省略主动引导震动：静音/振动/正常模式均请求同一有限分段导航引导效果。到站通知用新增 bus_arrival_guidance_v4 声音/横幅渠道（默认 enableVibration(false)，初次复制旧渠道声音/重要级别，避免默认两路震动）；不删除/重建或重置旧渠道，不覆盖新渠道后续用户设置。显式震动仍检查应用独立开关、通知权限、原渠道启用/震动、新展示渠道启用和勿扰；没有设置全局音量、私有绕过标志或恢复高德 SDK。新渠道默认配置以外的用户自定义反馈仍由系统控制。
+- 新增“我的 → 测试到站提醒”，Koin 注入真实 ArrivalAlertNotifier 链，单独通知 ID，不创建/结束实际会话，也不撤掉实际临近通知；不播放 TTS，通知声音由系统设置控制。原纯“测试震动”保留；报告格式化不会偷偷再次调用 raw test 来掩盖真实链路失败。平台能力独立门控，未支持平台隐藏。
+- Android 私有偏好只保留最近六条真实事件的时间/类型/通知提交/震动结果/公开铃声模式和数值状态，以及最近轮询/完成状态；不含线路、车牌、车辆 ID 或坐标，不增加上传。测试不写真实历史。REQUESTED 只表示接口已调用，notification=true 只表示提交发送，都不是硬件或实际展示回执。报告包含“到站反馈：确认到站与主动引导 v4”，底层 v2 标记仍保留。
+- 最终命令 `test :androidApp:assembleDebug --continue --no-daemon --console=plain`：BUILD SUCCESSFUL，3m 30s，636 tasks（40 executed / 596 up-to-date）；18 模块 JUnit XML 共 **1,620 项，0 failures/errors/skipped**。26 项 Python 静态/检查器测试和 git diff --check 通过。另有定向回归及首轮完整通过日志；最终结论以 arrival-v4-final-host.log 为准。
+- Robolectric 320dp 原生渲染检查：arrival-v4-test-entry.png、arrival-v4-test-result-dialog.png，入口可点，诊断可选择/滚动，系统设置与关闭操作可达。没有修改原版标题过渡/间距及上车入口。本地无连接安卓真机，不能把这些检查当作马达、语音、厂商后台或实际到站验收。
+- 两个 debug APK apksigner 核验通过、证书互相一致且与用户 v3 包相同；VIBRATE/Manifest、v4/上车/测试入口 DEX 标记、退役 SDK/Key 边界、ELF/ZIP 16 KB 对齐通过。包名 com.github.u5151561.trackr.debug，名称“实时公交.D”，版本仍 0.1.13 / code 21，必须用 v4 报告标记/哈希识别。未新建签名密钥，未更新 release。
+
+| v4 可安装 debug APK（项目内路径） | 字节 | SHA-256 |
+| --- | ---: | --- |
+| build/rtbus-validation/RTBus-20261126-arrival-v4-arm64-debug.apk | 33,458,511 | FA8F4A959F4586952C0BE8BA1C0569B59E17F8A473D0C8BB5854C69662C69D45 |
+| build/rtbus-validation/RTBus-20261126-arrival-v4-arm32-debug.apk | 33,456,587 | 621DE91348BCCF5A768E520D02D51D8D34DB5EB53F87103E304DE3B4E02224B8 |
+
+- 原产物 androidApp/build/outputs/apk/debug/androidApp-arm64-v8a-debug.apk / androidApp-armeabi-v7a-debug.apk 与具名副本逐个核对哈希一致。旧 v2/v3 具名副本保留供回溯，不用于本轮复测。
+- 忽略目录 build/rtbus-validation/ 证据：arrival-v4-red.log、arrival-v4-display-red.log、arrival-v4-targeted-verified.log、arrival-v4-full-host.log（首轮）、arrival-v4-final-host.log（最终）、arrival-v4-static.log、arrival-v4-artifact-audit.log、arrival-v4-audit-summary.json、audit-arrival-v4-artifacts.py、arrival-v4-<abi>-signature/zipalign/badging.log、arrival-v4-previous-signature.log。
+- adb devices -l 无设备。真实 v4 静音/锁屏/到站/语音仍待手机复测；iOS 未实际编译/运行。只做本地提交，无 remote、不推送。
+
 ## 7. 唯一明确的下一步
 
-安装代码 `50d4f7b` 的 arrival-v3 具名 debug 包，保持普通静音，在“我的 → 测试震动”核对“分段提醒修复 v3”。按 boarding-feedback-acceptance.md 第 7 节分别实测“指定未到车 → 临近 → 候车到站”和“我已上车 → 选车/下车站 → 锁屏下车到站”，重点观察到站是否再次震动，以及自然完成时最终通知是否保留而常驻进度消失。即时测试已由用户确认有效，不必再把它当作未解决的首要问题；若到站仍无反馈，记录到站通知是否出现、是否同时自动结束、锁屏状态及诊断，连接手机后查看 ARRIVED / ReminderVibration 日志。之后继续保留功能验收；release 真实签名/升级和 iOS Xcode 验收仍未完成。不生成/提交密钥、不配置 remote、不推送，保留全国城市及普通公交辅助能力。
+覆盖安装代码 `ac7540e` 的 arrival-v4 具名 debug 包，先结束旧构建遗留追踪（v3 可能已把短 ETA 标成提醒完成），保持普通静音，在“我的 → 测试到站提醒”核对“确认到站与主动引导 v4”及手机真实震动。按 boarding-feedback-acceptance.md 第 6–7 节再新建候车和“我已上车”下车提醒：确认停靠后应有 ARRIVED 震动，已上车任务此轮即自动结束，最终通知保留。若失败，先拿完整报告的最近真实提醒、最近追踪状态、请求结果，并区分到站通知/自动结束/锁屏，无需反复坐车盲试。之后继续保留功能验收；release 真实签名/升级和 iOS Xcode 验收仍未完成。不生成/提交密钥、不配置 remote、不推送，保留全国城市及普通公交辅助能力。
 
 ## 8. 记录维护
 
