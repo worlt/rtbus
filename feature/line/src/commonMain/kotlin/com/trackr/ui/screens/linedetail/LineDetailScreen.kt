@@ -107,6 +107,11 @@ import com.trackr.core.model.displayLineName
 import com.trackr.core.model.displayLineNameWithoutDiversion
 import com.trackr.core.model.diversionNote
 import com.trackr.feature.line.resources.Res as LineRes
+import com.trackr.feature.line.resources.line_alight_boarded
+import com.trackr.feature.line.resources.line_boarding_title
+import com.trackr.feature.line.resources.line_boarding_hint
+import com.trackr.feature.line.resources.line_boarding_progress
+import com.trackr.feature.line.resources.line_boarding_unknown_plate
 import com.trackr.feature.line.resources.line_alight_pick_title
 import com.trackr.feature.line.resources.line_alight_pick_hint
 import com.trackr.feature.line.resources.line_alight_no_stops
@@ -172,6 +177,7 @@ sealed interface LineDetailEvent {
     data object ToggleTracking : LineDetailEvent
     /** 单车跟随里的「追这辆车」/「结束」（issue #52 下车提醒：只追这一辆到当前候车站） */
     data object ToggleTrackFollowedBus : LineDetailEvent
+    data class SelectBoardingBus(val busId: String) : LineDetailEvent
     data object OpenAlightingPicker : LineDetailEvent
     data object DismissAlightingPicker : LineDetailEvent
     data class StartAlightingReminder(val stop: BusStop) : LineDetailEvent
@@ -287,6 +293,11 @@ fun LineDetailScreen(
                 LineBottomBar(
                     isTracking = state.isTrackingThisStop,
                     canTrack = state.selectedStop != null && state.live != null,
+                    canBoard = !state.isSwitchingDirection && state.live?.buses.orEmpty().any { bus ->
+                        bus.busId.isNotBlank() && (state.followedBusId == null || bus.busId == state.followedBusId) &&
+                            static.stops.any { it.isFutureAlightingStop(bus) }
+                    },
+                    onBoarded = { onEvent(LineDetailEvent.OpenAlightingPicker) },
                     // 没有反向线路（单程 / 环线 / 上游缺数据）就不占位；lineId 为空同样当没有
                     canSwitchDirection = static.reverseDirection?.lineId?.isNotBlank() == true,
                     isSwitchingDirection = state.isSwitchingDirection,
@@ -470,6 +481,43 @@ fun LineDetailScreen(
         )
     }
 
+    if (state.isBoardingBusPickerOpen) {
+        val buses = state.live?.buses.orEmpty().filter { bus ->
+            bus.busId.isNotBlank() && static?.stops.orEmpty().any { it.isFutureAlightingStop(bus) }
+        }.distinctBy { it.busId }
+        AlertDialog(
+            onDismissRequest = { onEvent(LineDetailEvent.DismissAlightingPicker) },
+            title = { Text(stringResource(LineRes.string.line_boarding_title)) },
+            text = {
+                Column {
+                    Text(stringResource(LineRes.string.line_boarding_hint))
+                    if (buses.isEmpty()) Text(stringResource(LineRes.string.line_alight_no_stops))
+                    LazyColumn(Modifier.heightIn(max = 320.dp)) {
+                        items(buses, key = { it.busId }) { bus ->
+                            TextButton(
+                                onClick = { onEvent(LineDetailEvent.SelectBoardingBus(bus.busId)) },
+                                modifier = Modifier.fillMaxWidth().testTag("boarding_bus_" + bus.busId)
+                            ) {
+                                Column(Modifier.fillMaxWidth()) {
+                                    Text(bus.plateOrFleetNo.ifBlank { stringResource(LineRes.string.line_boarding_unknown_plate, bus.busId) },
+                                        fontWeight = FontWeight.Bold)
+                                    val stopName = static?.stops?.firstOrNull { it.order == bus.order }?.name ?: bus.order.toString()
+                                    Text(stringResource(LineRes.string.line_boarding_progress, stopName))
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { onEvent(LineDetailEvent.DismissAlightingPicker) }) {
+                    Text(stringResource(LineRes.string.line_alight_cancel))
+                }
+            }
+        )
+    }
+
     state.boardingBusId?.let { busId ->
         val bus = state.live?.buses?.firstOrNull { it.busId == busId }
         val destinations = static?.stops.orEmpty().filter { bus != null && it.isFutureAlightingStop(bus) }
@@ -480,6 +528,7 @@ fun LineDetailScreen(
             title = { Text(stringResource(LineRes.string.line_alight_pick_title)) },
             text = {
                 Column {
+                    Text(bus?.plateOrFleetNo?.takeIf { it.isNotBlank() } ?: busId, fontWeight = FontWeight.Bold)
                     Text(stringResource(LineRes.string.line_alight_pick_hint))
                     if (destinations.isEmpty()) Text(stringResource(LineRes.string.line_alight_no_stops))
                     LazyColumn(Modifier.heightIn(max = 320.dp)) {
@@ -740,9 +789,7 @@ private fun HeroCard(
                         followedBus = followedBus,
                         onBack = { onEvent(LineDetailEvent.BackFromPanel) },
                         trackAction = followTrackAction(state, followedBus),
-                        onToggleTrackBus = { onEvent(LineDetailEvent.ToggleTrackFollowedBus) },
-                        onBoarded = { onEvent(LineDetailEvent.OpenAlightingPicker) },
-                        canChooseDestination = detail.stops.any { followedBus != null && it.isFutureAlightingStop(followedBus) }
+                        onToggleTrackBus = { onEvent(LineDetailEvent.ToggleTrackFollowedBus) }
                     )
                 }
             }
@@ -786,6 +833,8 @@ private fun rememberLineDetail(static: LineStatic, live: LineLive?): BusLineDeta
 private fun LineBottomBar(
     isTracking: Boolean,
     canTrack: Boolean,
+    canBoard: Boolean,
+    onBoarded: () -> Unit,
     canSwitchDirection: Boolean,
     isSwitchingDirection: Boolean,
     showTransitCode: Boolean,
@@ -800,98 +849,108 @@ private fun LineBottomBar(
         tonalElevation = 3.dp,
         shadowElevation = 6.dp
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
+        Column(
+            modifier = Modifier.fillMaxWidth()
                 .windowInsetsPadding(WindowInsets.navigationBars)
                 .padding(horizontal = 16.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            // 三钮并排时缝隙收窄，320dp 小屏也放得下「追踪这班车」
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            if (isTracking) {
-                OutlinedButton(
-                    onClick = onToggleTracking,
-                    shape = MaterialTheme.shapes.medium,
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                    contentPadding = PaddingValues(horizontal = 12.dp),
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(52.dp)
-                ) {
-                    Text(
-                        text = stringResource(Res.string.action_end_tracking),
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1
-                    )
-                }
-            } else {
-                Button(
-                    onClick = onToggleTracking,
-                    enabled = canTrack,
-                    shape = MaterialTheme.shapes.medium,
-                    contentPadding = PaddingValues(horizontal = 12.dp),
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(52.dp)
-                ) {
-                    Icon(
-                        imageVector = vectorResource(Res.drawable.ic_play),
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = stringResource(LineRes.string.line_detail_track_this),
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1
-                    )
-                }
-            }
-            if (canSwitchDirection) {
-                FilledTonalIconButton(
-                    onClick = onSwitchDirection,
-                    enabled = !isSwitchingDirection,
-                    shape = CircleShape,
-                    // 语义挂在按钮上：转圈时图标没了，读屏也还能读出「换向 · 换向中」
-                    modifier = Modifier
-                        .size(52.dp)
-                        .semantics {
-                            contentDescription = switchDirectionLabel
-                            if (isSwitchingDirection) stateDescription = switchingDirectionLabel
-                        }
-                ) {
-                    if (isSwitchingDirection) {
-                        // 换向要重新拉反向线路：转圈 + 禁用，挡住连点（否则会连改两次线路）
-                        CircularProgressIndicator(
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier
-                                .size(18.dp)
-                                .clearAndSetSemantics { }
+            OutlinedButton(
+                onClick = onBoarded,
+                enabled = canBoard,
+                shape = MaterialTheme.shapes.medium,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("btn_boarded")
+            ) { Text(stringResource(LineRes.string.line_alight_boarded), fontWeight = FontWeight.Bold) }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                // 三钮并排时缝隙收窄，320dp 小屏也放得下「追踪这班车」
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (isTracking) {
+                    OutlinedButton(
+                        onClick = onToggleTracking,
+                        shape = MaterialTheme.shapes.medium,
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                        contentPadding = PaddingValues(horizontal = 12.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp)
+                    ) {
+                        Text(
+                            text = stringResource(Res.string.action_end_tracking),
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1
                         )
-                    } else {
+                    }
+                } else {
+                    Button(
+                        onClick = onToggleTracking,
+                        enabled = canTrack,
+                        shape = MaterialTheme.shapes.medium,
+                        contentPadding = PaddingValues(horizontal = 12.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp)
+                    ) {
                         Icon(
-                            imageVector = vectorResource(Res.drawable.ic_swap),
+                            imageVector = vectorResource(Res.drawable.ic_play),
                             contentDescription = null,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = stringResource(LineRes.string.line_detail_track_this),
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1
                         )
                     }
                 }
-            }
-            if (showTransitCode) {
-                FilledTonalIconButton(
-                    onClick = onOpenTransitCode,
-                    shape = CircleShape,
-                    modifier = Modifier.size(52.dp)
-                ) {
-                    Icon(
-                        imageVector = vectorResource(Res.drawable.ic_qr_code),
-                        contentDescription = stringResource(Res.string.transit_code),
-                        modifier = Modifier.size(24.dp)
-                    )
+                if (canSwitchDirection) {
+                    FilledTonalIconButton(
+                        onClick = onSwitchDirection,
+                        enabled = !isSwitchingDirection,
+                        shape = CircleShape,
+                        // 语义挂在按钮上：转圈时图标没了，读屏也还能读出「换向 · 换向中」
+                        modifier = Modifier
+                            .size(52.dp)
+                            .semantics {
+                                contentDescription = switchDirectionLabel
+                                if (isSwitchingDirection) stateDescription = switchingDirectionLabel
+                            }
+                    ) {
+                        if (isSwitchingDirection) {
+                            // 换向要重新拉反向线路：转圈 + 禁用，挡住连点（否则会连改两次线路）
+                            CircularProgressIndicator(
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier
+                                    .size(18.dp)
+                                    .clearAndSetSemantics { }
+                            )
+                        } else {
+                            Icon(
+                                imageVector = vectorResource(Res.drawable.ic_swap),
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                }
+                if (showTransitCode) {
+                    FilledTonalIconButton(
+                        onClick = onOpenTransitCode,
+                        shape = CircleShape,
+                        modifier = Modifier.size(52.dp)
+                    ) {
+                        Icon(
+                            imageVector = vectorResource(Res.drawable.ic_qr_code),
+                            contentDescription = stringResource(Res.string.transit_code),
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                 }
             }
         }

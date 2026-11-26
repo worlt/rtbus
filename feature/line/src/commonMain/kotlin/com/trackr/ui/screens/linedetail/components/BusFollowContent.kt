@@ -56,7 +56,6 @@ import com.trackr.feature.line.resources.line_follow_passed
 import com.trackr.feature.line.resources.line_follow_speed
 import com.trackr.feature.line.resources.line_follow_stops
 import com.trackr.feature.line.resources.line_follow_stops_flow
-import com.trackr.feature.line.resources.line_alight_boarded
 import com.trackr.feature.line.resources.line_follow_title
 import com.trackr.feature.line.resources.line_follow_track_bus
 import com.trackr.feature.line.resources.line_follow_track_bus_hint
@@ -99,9 +98,7 @@ fun BusFollowContent(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     trackAction: FollowTrackAction? = null,
-    onToggleTrackBus: () -> Unit = {},
-    onBoarded: () -> Unit = {},
-    canChooseDestination: Boolean = false
+    onToggleTrackBus: () -> Unit = {}
 ) {
     val busColors = MaterialTheme.busColors
 
@@ -359,14 +356,6 @@ fun BusFollowContent(
             }
         }
 
-        if (followedBus != null) {
-            Spacer(modifier = Modifier.height(12.dp))
-            OutlinedButton(
-                onClick = onBoarded,
-                enabled = canChooseDestination,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-            ) { Text(stringResource(LineRes.string.line_alight_boarded)) }
-        }
         if (trackAction != null) {
             Spacer(modifier = Modifier.height(12.dp))
             FollowTrackButton(trackAction, onToggleTrackBus)

@@ -128,6 +128,7 @@ data class LineDetailUiState(
     val followedBusId: String? = null,
     /** 下车站选择期间固定车辆身份，刷新不改变所选车辆。 */
     val boardingBusId: String? = null,
+    val isBoardingBusPickerOpen: Boolean = false,
     /** 单车跟随时返回到哪一级：从车辆列表进来回列表，从走向条点车进来回站点卡 */
     val followBackTo: PanelMode = PanelMode.STATION_CARD,
     val timetable: LineTimetable? = null,
@@ -492,19 +493,41 @@ class LineDetailViewModel(
         trackingController.stopTracking(session.sessionId)
     }
 
-    /** 车辆详情中的「我已上车」：先选择该车前方的下车站。 */
+    /** 固定底栏入口：单车详情锁定当前车辆，总览先按车牌选择实际乘坐的车。 */
     fun openAlightingPicker() {
         val state = _uiState.value
-        val bus = state.live?.buses?.firstOrNull { it.busId == state.followedBusId } ?: return
+        if (state.followedBusId != null) {
+            openDestinationPicker(state.followedBusId)
+        } else if (state.live?.buses.orEmpty().any { bus ->
+                bus.busId.isNotBlank() && state.static?.stops.orEmpty().any { it.isFutureAlightingStop(bus) }
+            }) {
+            _uiState.update { it.copy(isBoardingBusPickerOpen = true, boardingBusId = null) }
+        } else {
+            postMessage("当前没有可选车辆，请刷新实时数据后重试")
+        }
+    }
+
+    fun selectBoardingBus(busId: String) {
+        if (!_uiState.value.isBoardingBusPickerOpen) return
+        openDestinationPicker(busId)
+    }
+
+    private fun openDestinationPicker(busId: String) {
+        val state = _uiState.value
+        val bus = state.live?.buses?.firstOrNull { it.busId == busId && it.busId.isNotBlank() }
+        if (bus == null) {
+            postMessage("这辆车暂时没有实时数据，请刷新后重试")
+            return
+        }
         if (state.static?.stops?.none { it.isFutureAlightingStop(bus) } != false) {
             postMessage("这辆车前方没有可选下车站，请检查行驶方向")
             return
         }
-        _uiState.update { it.copy(boardingBusId = bus.busId) }
+        _uiState.update { it.copy(boardingBusId = bus.busId, isBoardingBusPickerOpen = false) }
     }
 
     fun dismissAlightingPicker() {
-        _uiState.update { it.copy(boardingBusId = null) }
+        _uiState.update { it.copy(boardingBusId = null, isBoardingBusPickerOpen = false) }
     }
 
     /** 保留同一辆车，把候车追踪转为下车提醒；启动失败时保留原追踪。 */
@@ -535,7 +558,15 @@ class LineDetailViewModel(
             return false
         }
         superseded.forEach { trackingController.stopTracking(it.sessionId) }
-        _uiState.update { it.copy(boardingBusId = null) }
+        _uiState.update {
+            it.copy(
+                boardingBusId = null,
+                isBoardingBusPickerOpen = false,
+                followedBusId = bus.busId,
+                panelMode = PanelMode.BUS_FOLLOW,
+                followBackTo = if (it.panelMode == PanelMode.BUS_FOLLOW) it.followBackTo else it.panelMode
+            )
+        }
         selectStop(stop)
         postMessage("已开启下车提醒：" + stop.name)
         return true
@@ -891,6 +922,7 @@ class LineDetailViewModel(
             it.copy(
                 followedBusId = bus.busId,
                 boardingBusId = null,
+                isBoardingBusPickerOpen = false,
                 panelMode = PanelMode.BUS_FOLLOW,
                 followBackTo = if (it.panelMode == PanelMode.BUS_LIST) PanelMode.BUS_LIST else PanelMode.STATION_CARD
             )
@@ -959,7 +991,7 @@ class LineDetailViewModel(
                     val targetStop = oppositeStop ?: calculateDefaultStop(revDetail)
 
                     applyDetail(revDetail, targetStop)
-                    _uiState.update { it.copy(panelMode = PanelMode.STATION_CARD, followedBusId = null, boardingBusId = null) }
+                    _uiState.update { it.copy(panelMode = PanelMode.STATION_CARD, followedBusId = null, boardingBusId = null, isBoardingBusPickerOpen = false) }
 
                     if (oppositeStop == null && targetStop != null) {
                         postMessage("反向线路没有「${currentStop.name}」，已选 ${targetStop.name}")

@@ -1,5 +1,10 @@
 package com.trackr.ui.screens.linedetail
 
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.onNodeWithTag
+import com.trackr.core.model.LiveBus
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -30,6 +35,42 @@ class LineDetailBottomBarTest {
 
     @get:Rule
     val composeTestRule = createComposeRule()
+
+    @Test
+    fun stationOverviewAlwaysShowsBoardedEntry() {
+        composeTestRule.setContent {
+            TrackrTheme { LineDetailScreen(state = stateOf(reverseLine), onEvent = {}) }
+        }
+        composeTestRule.onNodeWithText("我已上车 · 选择下车站").assertIsDisplayed().assertIsNotEnabled()
+    }
+
+    @Test
+    fun boardedEntryIsVisibleAndClickableOnSmallScreen() {
+        var event: LineDetailEvent? = null
+        show(stateOf(reverseLine).copy(live = LineLive(listOf(
+            LiveBus(busId = "selected", plateOrFleetNo = "粤R08738D", order = 2)
+        )))) { event = it }
+        composeTestRule.onNodeWithTag("btn_boarded").assertIsDisplayed().assertIsEnabled().performClick()
+        assertEquals(LineDetailEvent.OpenAlightingPicker, event)
+        System.getenv("RTBUS_SCREENSHOT_DIR")?.let { directory ->
+            val file = java.io.File(directory, "silent-boarding-footer.png")
+            file.parentFile?.mkdirs()
+            file.outputStream().use {
+                composeTestRule.onRoot().captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+            }
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w320dp-h568dp")
+    fun boardedAndTrackEntriesFitOnCompactPhone() {
+        show(stateOf(reverseLine).copy(live = LineLive(listOf(
+            LiveBus(busId = "selected", plateOrFleetNo = "粤R08738D", order = 2)
+        ))))
+        composeTestRule.onNodeWithTag("btn_boarded").assertIsDisplayed().assertIsEnabled()
+        composeTestRule.onNodeWithText("追踪这班车").assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("换向").assertIsDisplayed()
+    }
 
     private val line = BusLineDirection(
         lineId = "line_001",

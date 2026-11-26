@@ -33,6 +33,29 @@ class LineAlightingPickerTest {
         selectedStop = stops[1], followedBusId = "b", boardingBusId = "b", panelMode = PanelMode.BUS_FOLLOW
     )
 
+    @Test fun overviewVehiclePickerRequiresExplicitBusSelection() {
+        var event: LineDetailEvent? = null
+        val current = state().copy(boardingBusId = null, followedBusId = null,
+            panelMode = PanelMode.STATION_CARD, isBoardingBusPickerOpen = true,
+            live = LineLive(listOf(
+                LiveBus(busId = "one", plateOrFleetNo = "粤R11111", order = 1),
+                LiveBus(busId = "two", plateOrFleetNo = "粤R22222", order = 2),
+                LiveBus(busId = "terminal", plateOrFleetNo = "粤R33333", order = 4, isArrived = true)
+            )))
+        compose.setContent { TrackrTheme { LineDetailScreen(current, { event = it }) } }
+        compose.onNodeWithTag("boarding_bus_terminal").assertDoesNotExist()
+        compose.onNodeWithTag("boarding_bus_two").performClick()
+        assertEquals(LineDetailEvent.SelectBoardingBus("two"), event)
+    }
+
+    @Test fun cancellingVehicleSelectionStartsNothing() {
+        var event: LineDetailEvent? = null
+        val current = state().copy(boardingBusId = null, isBoardingBusPickerOpen = true)
+        compose.setContent { TrackrTheme { LineDetailScreen(current, { event = it }) } }
+        compose.onNodeWithText("取消").performClick()
+        assertEquals(LineDetailEvent.DismissAlightingPicker, event)
+    }
+
     @Test fun pickerOnlyOffersFutureStopsAndRequiresConfirmation() {
         var event: LineDetailEvent? = null
         compose.setContent { TrackrTheme { LineDetailScreen(state(), { event = it }) } }

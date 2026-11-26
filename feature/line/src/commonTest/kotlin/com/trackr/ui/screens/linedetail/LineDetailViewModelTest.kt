@@ -526,6 +526,54 @@ class LineDetailViewModelTest {
     }
 
     @Test
+    fun overviewBoardingRequiresActualBusAndDestinationBeforeTracking() = runTest(main.dispatcher) {
+        val other = buses.first().copy(busId = "b2", plateOrFleetNo = "沪B5678", order = 1)
+        fakeRepository.lineDetailResult = fakeRepository.lineDetailResult!!.map { it.copy(buses = buses + other) }
+        val viewModel = createViewModel(targetOrder = 2)
+        testScheduler.runCurrent()
+        viewModel.openAlightingPicker()
+        assertTrue(viewModel.uiState.value.isBoardingBusPickerOpen)
+        assertNull(viewModel.uiState.value.boardingBusId)
+        assertTrue(trackingController.started.isEmpty())
+        viewModel.selectBoardingBus("b2")
+        assertFalse(viewModel.uiState.value.isBoardingBusPickerOpen)
+        assertEquals("b2", viewModel.uiState.value.boardingBusId)
+        assertTrue(trackingController.started.isEmpty())
+        assertTrue(viewModel.startAlightingReminder(stops[2]))
+        testScheduler.runCurrent()
+        val target = trackingController.started.single() as TrackingTarget.SingleLine
+        assertEquals("b2", target.pinnedBusId)
+        assertTrue(target.isOnboard)
+        assertEquals("s3", target.targetStopId)
+        assertEquals("b2", viewModel.uiState.value.followedBusId)
+        assertEquals(PanelMode.BUS_FOLLOW, viewModel.uiState.value.panelMode)
+    }
+
+    @Test
+    fun cancellingOverviewBoardingLeavesTrackingUntouched() = runTest(main.dispatcher) {
+        val viewModel = createViewModel(targetOrder = 2)
+        testScheduler.runCurrent()
+        viewModel.openAlightingPicker()
+        viewModel.dismissAlightingPicker()
+        assertFalse(viewModel.uiState.value.isBoardingBusPickerOpen)
+        assertNull(viewModel.uiState.value.boardingBusId)
+        viewModel.selectBoardingBus("b1")
+        assertNull(viewModel.uiState.value.boardingBusId)
+        assertTrue(trackingController.started.isEmpty())
+    }
+
+    @Test
+    fun missingVehicleCannotBeSelectedFromOverview() = runTest(main.dispatcher) {
+        val viewModel = createViewModel(targetOrder = 2)
+        testScheduler.runCurrent()
+        viewModel.openAlightingPicker()
+        viewModel.selectBoardingBus("disappeared")
+        assertTrue(viewModel.uiState.value.isBoardingBusPickerOpen)
+        assertNull(viewModel.uiState.value.boardingBusId)
+        assertTrue(trackingController.started.isEmpty())
+    }
+
+    @Test
     fun alightingPickerLocksSameBusAndReplacesWaitingReminderOnlyAfterSuccess() = runTest(main.dispatcher) {
         val viewModel = createViewModel(targetOrder = 2)
         testScheduler.runCurrent()
