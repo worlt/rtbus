@@ -71,6 +71,8 @@ interface SettingsRepository {
      * 旧 Android 上通知不显眼，戴耳机、手机在兜里时也能听到。
      */
     val voiceAlerts: StateFlow<Boolean>
+    /** 到站/进站等追踪提醒是否震动，默认开 */
+    val vibrationAlerts: StateFlow<Boolean>
 
     /**
      * 线路按到站先后排（issue #56），默认关（按数据源给的顺序）：站点页和首页附近站卡片共用这一个开关，
@@ -124,6 +126,7 @@ interface SettingsRepository {
     fun setShowTransitCodeButton(enabled: Boolean)
     fun setAutoStopAfterBoarding(enabled: Boolean)
     fun setVoiceAlerts(enabled: Boolean)
+    fun setVibrationAlerts(enabled: Boolean)
     fun setSortLinesByArrival(enabled: Boolean)
     fun setFavoritesCurrentCityOnly(enabled: Boolean)
     fun setBetaUpdates(enabled: Boolean)

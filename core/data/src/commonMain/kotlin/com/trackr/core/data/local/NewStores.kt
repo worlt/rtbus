@@ -28,6 +28,7 @@ class RoomDataStoreTransitStore(
             showTransitCodeButton = prefs[SettingsKeys.SHOW_TRANSIT_CODE_BUTTON],
             autoStopAfterBoarding = prefs[SettingsKeys.AUTO_STOP_AFTER_BOARDING],
             voiceAlerts = prefs[SettingsKeys.VOICE_ALERTS],
+            vibrationAlerts = prefs[SettingsKeys.VIBRATION_ALERTS],
             sortLinesByArrival = prefs[SettingsKeys.SORT_LINES_BY_ARRIVAL],
             favoritesCurrentCityOnly = prefs[SettingsKeys.FAVORITES_CURRENT_CITY_ONLY],
             betaUpdates = prefs[SettingsKeys.BETA_UPDATES],
@@ -70,6 +71,10 @@ class RoomDataStoreTransitStore(
 
     override suspend fun saveVoiceAlerts(enabled: Boolean) {
         settings.edit { it[SettingsKeys.VOICE_ALERTS] = enabled }
+    }
+
+    override suspend fun saveVibrationAlerts(enabled: Boolean) {
+        settings.edit { it[SettingsKeys.VIBRATION_ALERTS] = enabled }
     }
 
     override suspend fun saveSortLinesByArrival(enabled: Boolean) {

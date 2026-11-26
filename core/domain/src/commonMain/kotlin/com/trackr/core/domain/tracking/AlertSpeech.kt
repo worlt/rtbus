@@ -19,7 +19,7 @@ object AlertSpeech {
 
     private fun alertSentence(kind: TrackingEngine.AlertKind, state: TrackingSessionState): String {
         // 只追一辆车（多半坐在车上等下车站）和路线的乘车阶段：该下车了；其余是在等车
-        val getOff = state.isPinnedBus || state.legPhase == LegPhase.ON_BOARD
+        val getOff = (state.isPinnedBus && state.isOnboard) || state.legPhase == LegPhase.ON_BOARD
         val subject = if (state.isPinnedBus && state.pinnedPlate.isNotBlank()) {
             "${state.lineName}，车牌${state.pinnedPlate}"
         } else {

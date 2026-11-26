@@ -56,6 +56,7 @@ import com.trackr.feature.line.resources.line_follow_passed
 import com.trackr.feature.line.resources.line_follow_speed
 import com.trackr.feature.line.resources.line_follow_stops
 import com.trackr.feature.line.resources.line_follow_stops_flow
+import com.trackr.feature.line.resources.line_alight_boarded
 import com.trackr.feature.line.resources.line_follow_title
 import com.trackr.feature.line.resources.line_follow_track_bus
 import com.trackr.feature.line.resources.line_follow_track_bus_hint
@@ -72,7 +73,7 @@ import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.resources.vectorResource
 
 /**
- * 单车跟随底部「追这辆车」（issue #52 下车提醒）的三种样子；[stopName] 是当前候车站（可以是下车站）。
+ * 单车跟随的追踪动作；[stopName] 是候车站或已设置的下车站。
  */
 sealed interface FollowTrackAction {
     val stopName: String
@@ -98,7 +99,9 @@ fun BusFollowContent(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     trackAction: FollowTrackAction? = null,
-    onToggleTrackBus: () -> Unit = {}
+    onToggleTrackBus: () -> Unit = {},
+    onBoarded: () -> Unit = {},
+    canChooseDestination: Boolean = false
 ) {
     val busColors = MaterialTheme.busColors
 
@@ -356,6 +359,14 @@ fun BusFollowContent(
             }
         }
 
+        if (followedBus != null) {
+            Spacer(modifier = Modifier.height(12.dp))
+            OutlinedButton(
+                onClick = onBoarded,
+                enabled = canChooseDestination,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+            ) { Text(stringResource(LineRes.string.line_alight_boarded)) }
+        }
         if (trackAction != null) {
             Spacer(modifier = Modifier.height(12.dp))
             FollowTrackButton(trackAction, onToggleTrackBus)

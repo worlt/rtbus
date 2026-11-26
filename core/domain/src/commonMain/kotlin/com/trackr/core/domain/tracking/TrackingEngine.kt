@@ -147,6 +147,7 @@ object TrackingEngine {
                     legPhase = LegPhase.SINGLE,
                     pinnedBusId = target.pinnedBusId.ifBlank { null },
                     pinnedPlate = target.pinnedPlate,
+                    isOnboard = target.isOnboard,
                     statusSummary = "正在连接实时公交数据…",
                     updatedAtMillis = nowMillis,
                     startedAtMillis = nowMillis

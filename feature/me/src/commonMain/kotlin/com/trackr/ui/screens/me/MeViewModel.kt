@@ -46,6 +46,7 @@ data class MeUiState(
     val backgroundLocationGranted: Boolean? = null,
     val canExportBoardingTrace: Boolean = false,
     val voiceAlerts: Boolean = false,
+    val vibrationAlerts: Boolean = true,
     val alertThresholdStops: Int = 2,
     val reminders: List<ScheduledReminder> = emptyList(),
     val remindersSubtitle: String? = null,
@@ -72,6 +73,7 @@ sealed interface MeEvent {
     /** 把判上车的判定记录交给系统分享面板（issue #49） */
     data object ExportBoardingTrace : MeEvent
     data class SetVoiceAlerts(val enabled: Boolean) : MeEvent
+    data class SetVibrationAlerts(val enabled: Boolean) : MeEvent
     data class SetAlertThresholdStops(val stops: Int) : MeEvent
     data class ToggleReminder(val id: String, val enabled: Boolean) : MeEvent
     data class SetLiveNotificationEnabled(val enabled: Boolean) : MeEvent
@@ -130,6 +132,7 @@ class MeViewModel(
         .combine(settings.showTransitCodeButton) { part, visible -> part.copy(showTransitCodeButton = visible) }
         .combine(settings.autoStopAfterBoarding) { part, enabled -> part.copy(autoStopAfterBoarding = enabled) }
         .combine(settings.voiceAlerts) { part, enabled -> part.copy(voiceAlerts = enabled) }
+        .combine(settings.vibrationAlerts) { part, enabled -> part.copy(vibrationAlerts = enabled) }
         .combine(settings.uiMode) { part, mode -> part.copy(elderMode = mode == UiMode.Elder) }
         .combine(settings.railMode) { part, mode -> part.copy(railMode = mode) }
         .combine(settings.themeMode) { part, mode -> part.copy(themeMode = mode) }
@@ -156,7 +159,8 @@ class MeViewModel(
                 settings.railMode.value,
                 settings.autoStopAfterBoarding.value,
                 settings.themeMode.value,
-                settings.voiceAlerts.value
+                settings.voiceAlerts.value,
+                settings.vibrationAlerts.value
             ),
             reminderRepository.reminders.value,
             PlatformStatus(liveUpdateStatus.value, notificationHealthStatus.value, backgroundLocationGranted.value),
@@ -183,6 +187,7 @@ class MeViewModel(
                 if (boardingTrace?.share() != true) notices.post(NO_BOARDING_TRACE_MESSAGE)
             }
             is MeEvent.SetVoiceAlerts -> settings.setVoiceAlerts(event.enabled)
+            is MeEvent.SetVibrationAlerts -> settings.setVibrationAlerts(event.enabled)
             is MeEvent.ToggleReminder -> viewModelScope.launch {
                 try {
                     reminderRepository.toggleReminder(event.id, event.enabled)
@@ -228,6 +233,7 @@ class MeViewModel(
         backgroundLocationGranted = platform.backgroundLocationGranted.takeIf { part.autoStopAfterBoarding },
         canExportBoardingTrace = boardingTrace != null,
         voiceAlerts = part.voiceAlerts,
+        vibrationAlerts = part.vibrationAlerts,
         alertThresholdStops = part.alertThresholdStops,
         reminders = reminders,
         remindersSubtitle = remindersRowSubtitle(reminders),
@@ -261,6 +267,7 @@ class MeViewModel(
         val railMode: RailMode = RailMode.Horizontal,
         val autoStopAfterBoarding: Boolean = true,
         val themeMode: ThemeMode = ThemeMode.System,
-        val voiceAlerts: Boolean = false
+        val voiceAlerts: Boolean = false,
+        val vibrationAlerts: Boolean = true
     )
 }

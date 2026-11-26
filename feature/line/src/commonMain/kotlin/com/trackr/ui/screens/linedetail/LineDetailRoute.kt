@@ -68,9 +68,13 @@ fun LineDetailRoute(
                         viewModel.startTrackingSelectedStop()
                     }
                 }
+                LineDetailEvent.OpenAlightingPicker -> viewModel.openAlightingPicker()
+                LineDetailEvent.DismissAlightingPicker -> viewModel.dismissAlightingPicker()
+                is LineDetailEvent.StartAlightingReminder -> viewModel.startAlightingReminder(event.stop)
                 LineDetailEvent.ToggleTrackFollowedBus -> {
-                    if (state.trackedPinnedBusId != null && state.trackedPinnedBusId == state.followedBusId) {
-                        viewModel.stopTracking()
+                    if (state.trackingSession.isActive && state.trackingSession.isPinnedBus &&
+                        state.trackingSession.pinnedBusId == state.followedBusId) {
+                        viewModel.stopTrackingFollowedBus()
                     } else {
                         viewModel.startTrackingFollowedBus()
                     }

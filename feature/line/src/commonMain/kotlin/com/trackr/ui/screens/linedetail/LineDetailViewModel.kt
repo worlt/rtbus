@@ -126,6 +126,8 @@ data class LineDetailUiState(
     val selectedStop: BusStop? = null,
     val panelMode: PanelMode = PanelMode.STATION_CARD,
     val followedBusId: String? = null,
+    /** 下车站选择期间固定车辆身份，刷新不改变所选车辆。 */
+    val boardingBusId: String? = null,
     /** 单车跟随时返回到哪一级：从车辆列表进来回列表，从走向条点车进来回站点卡 */
     val followBackTo: PanelMode = PanelMode.STATION_CARD,
     val timetable: LineTimetable? = null,
@@ -318,7 +320,7 @@ class LineDetailViewModel(
      * 一起等排第一的不是这条线时，用 [TrackingSession.watchedLines] 里这条线自己的数据拼一份。
      */
     private fun TrackingSession.stateForLine(lineId: String): TrackingSessionState? {
-        if (interrupted || !state.isActive) return null
+        if (interrupted || !state.isActive || (state.cityId.isNotBlank() && state.cityId != cityId)) return null
         if (state.lineId == lineId) return state
         val watched = watchedLines.firstOrNull { it.line.lineId == lineId } ?: return null
         return state.copy(
@@ -340,9 +342,12 @@ class LineDetailViewModel(
 
     /** 重新算「这条线是否在追」，写进页面状态 */
     private fun publishTrackingState() {
-        val state = trackingRepository.sessions.value
-            .firstNotNullOfOrNull { it.stateForLine(currentLineId) }
-            ?: TrackingSessionState()
+        val page = _uiState.value
+        val candidates = trackingRepository.sessions.value.mapNotNull { it.stateForLine(currentLineId) }
+        val state = candidates.firstOrNull {
+            page.panelMode == PanelMode.BUS_FOLLOW && it.isPinnedBus && it.pinnedBusId == page.followedBusId
+        } ?: candidates.firstOrNull { it.targetOrder == page.selectedStop?.order }
+            ?: candidates.firstOrNull() ?: TrackingSessionState()
         _trackedSession.value = state
         _uiState.update { it.copy(trackingSession = state) }
     }
@@ -419,7 +424,8 @@ class LineDetailViewModel(
         targetStop: BusStop,
         totalStops: Int,
         alertThresholdStops: Int,
-        pinnedBus: LiveBus? = null
+        pinnedBus: LiveBus? = null,
+        isOnboard: Boolean = false
     ): Boolean = trackingController.start(
         TrackingTarget.SingleLine(
             cityId = cityId,
@@ -436,7 +442,8 @@ class LineDetailViewModel(
             mygolbsCityCode = line.mygolbsCityCode,
             direction = line.direction,
             pinnedBusId = pinnedBus?.busId.orEmpty(),
-            pinnedPlate = pinnedBus?.let { sanitizePlateOrFleetNo(it.plateOrFleetNo) }.orEmpty()
+            pinnedPlate = pinnedBus?.let { sanitizePlateOrFleetNo(it.plateOrFleetNo) }.orEmpty(),
+            isOnboard = isOnboard
         )
     )
 
@@ -457,7 +464,7 @@ class LineDetailViewModel(
     }
 
     /**
-     * 「追这辆车」（issue #52 下车提醒）：只追单车跟随里正在看的这辆，到当前候车站（可以是下车站）时提醒，
+     * 「追这辆车」：只等正在看的这辆到当前候车站，使用候车提醒文案，
      * 前面先到的车不算；这辆车开过该站后追踪自动结束。车已开过该站、或没选站时返回 false。
      */
     fun startTrackingFollowedBus(): Boolean {
@@ -473,6 +480,65 @@ class LineDetailViewModel(
             alertThresholdStops = DEFAULT_ALERT_THRESHOLD_STOPS,
             pinnedBus = bus
         )
+    }
+
+    fun stopTrackingFollowedBus() {
+        val state = _uiState.value
+        val session = trackingRepository.sessions.value.firstOrNull {
+            val current = it.stateForLine(currentLineId)
+            current != null && current.isPinnedBus && current.pinnedBusId == state.followedBusId &&
+                current.targetOrder == state.trackingSession.targetOrder
+        } ?: return
+        trackingController.stopTracking(session.sessionId)
+    }
+
+    /** 车辆详情中的「我已上车」：先选择该车前方的下车站。 */
+    fun openAlightingPicker() {
+        val state = _uiState.value
+        val bus = state.live?.buses?.firstOrNull { it.busId == state.followedBusId } ?: return
+        if (state.static?.stops?.none { it.isFutureAlightingStop(bus) } != false) {
+            postMessage("这辆车前方没有可选下车站，请检查行驶方向")
+            return
+        }
+        _uiState.update { it.copy(boardingBusId = bus.busId) }
+    }
+
+    fun dismissAlightingPicker() {
+        _uiState.update { it.copy(boardingBusId = null) }
+    }
+
+    /** 保留同一辆车，把候车追踪转为下车提醒；启动失败时保留原追踪。 */
+    fun startAlightingReminder(destination: BusStop): Boolean {
+        val state = _uiState.value
+        val static = state.static ?: return false
+        val bus = state.live?.buses?.firstOrNull { it.busId == state.boardingBusId }
+        if (bus == null) {
+            postMessage("这辆车暂时没有实时数据，请刷新后重试")
+            return false
+        }
+        val stop = static.stops.firstOrNull { it.stopId == destination.stopId && it.order == destination.order }
+        if (stop == null || !stop.isFutureAlightingStop(bus)) {
+            postMessage("请选择这辆车前方尚未经过的下车站")
+            return false
+        }
+        val superseded = trackingRepository.sessions.value.filter {
+            val target = it.target as? TrackingTarget.SingleLine
+            target != null && target.cityId == cityId && target.lineId == static.line.lineId &&
+                target.source == static.line.source && target.direction == static.line.direction &&
+                (target.pinnedBusId == bus.busId ||
+                    (target.pinnedBusId.isBlank() && target.targetOrder == state.selectedStop?.order))
+        }
+        val started = startTracking(static.line, stop, static.stops.size, DEFAULT_ALERT_THRESHOLD_STOPS,
+            pinnedBus = bus, isOnboard = true)
+        if (!started) {
+            postMessage("下车提醒启动失败，请在应用前台重试")
+            return false
+        }
+        superseded.forEach { trackingController.stopTracking(it.sessionId) }
+        _uiState.update { it.copy(boardingBusId = null) }
+        selectStop(stop)
+        postMessage("已开启下车提醒：" + stop.name)
+        return true
     }
 
     /**
@@ -807,10 +873,11 @@ class LineDetailViewModel(
         _uiState.update {
             it.copy(
                 selectedStop = stop,
-                panelMode = PanelMode.STATION_CARD,
-                followedBusId = null
+                panelMode = if (it.panelMode == PanelMode.BUS_FOLLOW) PanelMode.BUS_FOLLOW else PanelMode.STATION_CARD,
+                followedBusId = it.followedBusId.takeIf { _ -> it.panelMode == PanelMode.BUS_FOLLOW }
             )
         }
+        publishTrackingState()
         checkFavoriteState(favorites.favorites.value)
         refreshFavoriteGroup(favorites.favoriteItems.value)
         // 选站即刷新，同时重新计时，避免紧接着轮询又发一次
@@ -823,15 +890,18 @@ class LineDetailViewModel(
         _uiState.update {
             it.copy(
                 followedBusId = bus.busId,
+                boardingBusId = null,
                 panelMode = PanelMode.BUS_FOLLOW,
                 followBackTo = if (it.panelMode == PanelMode.BUS_LIST) PanelMode.BUS_LIST else PanelMode.STATION_CARD
             )
         }
+        publishTrackingState()
     }
 
     /** 展开全线车辆列表 */
     fun openBusList() {
         _uiState.update { it.copy(panelMode = PanelMode.BUS_LIST, followedBusId = null) }
+        publishTrackingState()
     }
 
     /**
@@ -846,6 +916,7 @@ class LineDetailViewModel(
             PanelMode.BUS_FOLLOW -> state.followBackTo
         }
         _uiState.update { it.copy(panelMode = target, followedBusId = null) }
+        publishTrackingState()
         return true
     }
 
@@ -888,7 +959,7 @@ class LineDetailViewModel(
                     val targetStop = oppositeStop ?: calculateDefaultStop(revDetail)
 
                     applyDetail(revDetail, targetStop)
-                    _uiState.update { it.copy(panelMode = PanelMode.STATION_CARD, followedBusId = null) }
+                    _uiState.update { it.copy(panelMode = PanelMode.STATION_CARD, followedBusId = null, boardingBusId = null) }
 
                     if (oppositeStop == null && targetStop != null) {
                         postMessage("反向线路没有「${currentStop.name}」，已选 ${targetStop.name}")

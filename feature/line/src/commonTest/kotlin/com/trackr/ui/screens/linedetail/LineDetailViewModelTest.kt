@@ -338,7 +338,8 @@ class LineDetailViewModelTest {
                     alertThresholdStops = 3,
                     source = DataSourceType.MYGOLBS,
                     mygolbsCityCode = "310000",
-                    direction = 1
+                    direction = 1,
+                    isOnboard = false
                 )
             ),
             trackingController.started
@@ -522,6 +523,110 @@ class LineDetailViewModelTest {
         assertEquals("沪A1234", target.pinnedPlate)
         assertTrue(viewModel.uiState.value.isTrackingThisStop)
         assertEquals("b1", viewModel.uiState.value.trackedPinnedBusId)
+    }
+
+    @Test
+    fun alightingPickerLocksSameBusAndReplacesWaitingReminderOnlyAfterSuccess() = runTest(main.dispatcher) {
+        val viewModel = createViewModel(targetOrder = 2)
+        testScheduler.runCurrent()
+        viewModel.selectBusToFollow(buses.first())
+        assertTrue(viewModel.startTrackingFollowedBus())
+        assertFalse((trackingController.started.last() as TrackingTarget.SingleLine).isOnboard)
+        val oldId = trackingRepository.sessions.value.single().sessionId
+        viewModel.openAlightingPicker()
+        assertEquals("b1", viewModel.uiState.value.boardingBusId)
+        assertFalse(viewModel.startAlightingReminder(stops[0]))
+        assertEquals(oldId, trackingRepository.sessions.value.single().sessionId)
+        assertTrue(viewModel.startAlightingReminder(stops[2]))
+        testScheduler.runCurrent()
+        val session = trackingRepository.sessions.value.single()
+        val target = session.target as TrackingTarget.SingleLine
+        assertTrue(target.isOnboard)
+        assertTrue(session.state.isOnboard)
+        assertEquals("b1", target.pinnedBusId)
+        assertEquals("s3", target.targetStopId)
+        assertEquals("b1", viewModel.uiState.value.followedBusId)
+        assertEquals(PanelMode.BUS_FOLLOW, viewModel.uiState.value.panelMode)
+        assertNull(viewModel.uiState.value.boardingBusId)
+        assertEquals(stops[2], viewModel.uiState.value.selectedStop)
+    }
+
+    @Test
+    fun alightingCanTargetTheStationVehicleIsStillApproaching() = runTest(main.dispatcher) {
+        val viewModel = createViewModel(targetOrder = 2)
+        testScheduler.runCurrent()
+        viewModel.selectBusToFollow(buses.first())
+        viewModel.openAlightingPicker()
+        assertTrue(viewModel.startAlightingReminder(stops[1]))
+        assertEquals(2, (trackingController.started.last() as TrackingTarget.SingleLine).targetOrder)
+    }
+
+    @Test
+    fun followedVehicleReminderTakesPriorityOverOtherTrackingAtSelectedStop() = runTest(main.dispatcher) {
+        val viewModel = createViewModel(targetOrder = 2)
+        testScheduler.runCurrent()
+        assertTrue(viewModel.startTracking(forwardDirection, stops[2], stops.size, 2, buses.first(), isOnboard = true))
+        assertTrue(viewModel.startTrackingSelectedStop())
+        testScheduler.runCurrent()
+        viewModel.selectBusToFollow(buses.first())
+        assertEquals(3, viewModel.uiState.value.trackingSession.targetOrder)
+        viewModel.selectStop(stops[1])
+        testScheduler.runCurrent()
+        assertEquals(3, viewModel.uiState.value.trackingSession.targetOrder)
+        viewModel.stopTrackingFollowedBus()
+        assertEquals(1, trackingRepository.sessions.value.size)
+        assertFalse(trackingRepository.sessions.value.single().state.isPinnedBus)
+    }
+
+    @Test
+    fun selectingStopWhileFollowingKeepsTheSelectedBus() = runTest(main.dispatcher) {
+        val viewModel = createViewModel(targetOrder = 2)
+        testScheduler.runCurrent()
+        viewModel.selectBusToFollow(buses.first())
+        viewModel.selectStop(stops[2])
+        testScheduler.runCurrent()
+        assertEquals("b1", viewModel.uiState.value.followedBusId)
+        assertEquals(PanelMode.BUS_FOLLOW, viewModel.uiState.value.panelMode)
+        assertEquals(stops[2], viewModel.uiState.value.selectedStop)
+    }
+
+    @Test
+    fun failedAlightingStartupKeepsWaitingSessionAndPicker() = runTest(main.dispatcher) {
+        val viewModel = createViewModel(targetOrder = 2)
+        testScheduler.runCurrent()
+        viewModel.selectBusToFollow(buses.first())
+        viewModel.startTrackingFollowedBus()
+        val oldId = trackingRepository.sessions.value.single().sessionId
+        viewModel.openAlightingPicker()
+        trackingController.startResult = false
+        assertFalse(viewModel.startAlightingReminder(stops[2]))
+        assertEquals(oldId, trackingRepository.sessions.value.single().sessionId)
+        assertEquals("b1", viewModel.uiState.value.boardingBusId)
+        assertTrue(trackingController.stoppedSessionIds.isEmpty())
+    }
+
+    @Test
+    fun terminalBusCannotOpenAlightingPicker() = runTest(main.dispatcher) {
+        fakeRepository.lineDetailResult = Result.success(BusLineDetail(
+            line = forwardDirection, stops = stops, buses = listOf(buses.first().copy(order = 3, isArrived = true))))
+        val viewModel = createViewModel(targetOrder = 2)
+        testScheduler.runCurrent()
+        viewModel.selectBusToFollow(buses.first().copy(order = 3))
+        viewModel.openAlightingPicker()
+        assertNull(viewModel.uiState.value.boardingBusId)
+        assertTrue(trackingController.started.isEmpty())
+    }
+
+    @Test
+    fun cancellingAlightingPickerDoesNotStartTracking() = runTest(main.dispatcher) {
+        val viewModel = createViewModel(targetOrder = 2)
+        testScheduler.runCurrent()
+        viewModel.selectBusToFollow(buses.first())
+        viewModel.openAlightingPicker()
+        viewModel.dismissAlightingPicker()
+        assertNull(viewModel.uiState.value.boardingBusId)
+        assertTrue(trackingController.started.isEmpty())
+        assertFalse(viewModel.startAlightingReminder(stops[2]))
     }
 
     @Test

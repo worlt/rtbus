@@ -53,7 +53,9 @@ val platformBridgeModule: Module = module {
     // 「我的」页「状态栏胶囊」那一行（第 25 步）
     single<LiveUpdateAccess> { AndroidLiveUpdateAccess(androidContext(), get()) }
     // 「我的」页的通知可靠性体检：通知权限 / 到站强提醒渠道 / 追踪进度渠道
-    single<NotificationHealthAccess> { AndroidNotificationHealthAccess(androidContext()) }
+    single<NotificationHealthAccess> {
+        AndroidNotificationHealthAccess(androidContext(), { get<ITransitRepository>().vibrationAlerts.value })
+    }
     single<UserLocationStore> { TransitUserLocationStore(get()) }
     // 判上车的判定记录（issue #49）：追踪服务写、「我的」页导出
     single<BoardingTraceLog> { AndroidBoardingTraceLog(androidContext(), get(AppScopeQualifier)) }
@@ -168,15 +170,22 @@ class AndroidLiveUpdateAccess(
  * 「我的」页的通知可靠性体检：只查系统真给得出的三件事——通知总开关、到站强提醒渠道的重要级别、
  * 追踪进度渠道有没有被关。锁屏通知开关和「横幅」子开关没有公开 API，不在这里猜。
  */
-class AndroidNotificationHealthAccess(context: Context) : NotificationHealthAccess {
+class AndroidNotificationHealthAccess(
+    context: Context,
+    private val vibrationEnabled: () -> Boolean = { true }
+) : NotificationHealthAccess {
     private val appContext: Context = context.applicationContext ?: context
+
+    private val alertChannelId: String
+        get() = if (vibrationEnabled()) ArrivalAlertNotifier.CHANNEL_ID_ALERT
+            else ArrivalAlertNotifier.CHANNEL_ID_ALERT_NO_VIBRATION
 
     override fun status(): NotificationHealth {
         val enabled = runCatching {
             NotificationManagerCompat.from(appContext).areNotificationsEnabled()
         }.getOrDefault(true)
         val manager = appContext.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
-        val alert = manager?.getNotificationChannel(ArrivalAlertNotifier.CHANNEL_ID_ALERT)
+        val alert = manager?.getNotificationChannel(alertChannelId)
         val live = manager?.getNotificationChannel(LiveProgressNotifier.CHANNEL_ID_LIVE_PROGRESS)
         return NotificationHealth(
             notificationsEnabled = enabled,
@@ -189,7 +198,7 @@ class AndroidNotificationHealthAccess(context: Context) : NotificationHealthAcce
     override fun openAlertChannelSettings() {
         val intent = Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).apply {
             putExtra(Settings.EXTRA_APP_PACKAGE, appContext.packageName)
-            putExtra(Settings.EXTRA_CHANNEL_ID, ArrivalAlertNotifier.CHANNEL_ID_ALERT)
+            putExtra(Settings.EXTRA_CHANNEL_ID, alertChannelId)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         val opened = runCatching { appContext.startActivity(intent) }.isSuccess

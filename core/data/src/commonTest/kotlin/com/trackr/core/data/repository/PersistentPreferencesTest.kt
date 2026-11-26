@@ -10,6 +10,23 @@ import kotlin.test.*
 
 class PersistentPreferencesTest {
     @Test
+    fun voiceAndVibrationAreIndependentAndPersistAllCombinations() = runTest {
+        val store = MemoryPreferencesStore()
+        val writer = SerialWriter(backgroundScope)
+        val settings = DefaultSettingsRepository.create(store, writer)
+        assertFalse(settings.voiceAlerts.value)
+        assertTrue(settings.vibrationAlerts.value)
+        for (voice in listOf(false, true)) for (vibration in listOf(false, true)) {
+            settings.setVoiceAlerts(voice)
+            settings.setVibrationAlerts(vibration)
+            settings.flushWrites()
+            val reopened = DefaultSettingsRepository.create(store, writer)
+            assertEquals(voice, reopened.voiceAlerts.value)
+            assertEquals(vibration, reopened.vibrationAlerts.value)
+        }
+    }
+
+    @Test
     fun settingsSurviveReopeningAndClampInvalidValues() = runTest {
         val store = MemoryPreferencesStore()
         val writer = SerialWriter(backgroundScope)
@@ -79,6 +96,7 @@ private class MemoryPreferencesStore(var snapshot: TransitLocalSnapshot = Transi
     override suspend fun saveShowTransitCodeButton(enabled: Boolean) { snapshot = snapshot.copy(showTransitCodeButton = enabled) }
     override suspend fun saveAutoStopAfterBoarding(enabled: Boolean) { snapshot = snapshot.copy(autoStopAfterBoarding = enabled) }
     override suspend fun saveVoiceAlerts(enabled: Boolean) { snapshot = snapshot.copy(voiceAlerts = enabled) }
+    override suspend fun saveVibrationAlerts(enabled: Boolean) { snapshot = snapshot.copy(vibrationAlerts = enabled) }
     override suspend fun saveSortLinesByArrival(enabled: Boolean) { snapshot = snapshot.copy(sortLinesByArrival = enabled) }
     override suspend fun saveFavoritesCurrentCityOnly(enabled: Boolean) { snapshot = snapshot.copy(favoritesCurrentCityOnly = enabled) }
     override suspend fun saveBetaUpdates(enabled: Boolean) { snapshot = snapshot.copy(betaUpdates = enabled) }

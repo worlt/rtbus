@@ -61,6 +61,8 @@ object SettingsKeys {
 
     /** 语音播报提醒（issue #52）：追踪提醒同时朗读出来；没有 = 关 */
     val VOICE_ALERTS = booleanPreferencesKey("voice_alerts")
+    /** 到站提醒震动；没有 = 开 */
+    val VIBRATION_ALERTS = booleanPreferencesKey("vibration_alerts")
     val SORT_LINES_BY_ARRIVAL = booleanPreferencesKey("sort_lines_by_arrival")
 
     /** 首页收藏栏仅显示当前城市的收藏（issue #61）；没有 = 关（显示全部城市） */

@@ -216,6 +216,23 @@ class MeViewModelTest {
     }
 
     @Test
+    fun voiceAndVibrationSwitchesCanBeUsedIndependently() = runTest(main.dispatcher) {
+        val viewModel = createViewModel()
+        testScheduler.runCurrent()
+        assertTrue(viewModel.uiState.value.vibrationAlerts)
+        assertFalse(viewModel.uiState.value.voiceAlerts)
+        for (voice in listOf(false, true)) for (vibration in listOf(false, true)) {
+            viewModel.onEvent(MeEvent.SetVoiceAlerts(voice))
+            viewModel.onEvent(MeEvent.SetVibrationAlerts(vibration))
+            testScheduler.runCurrent()
+            assertEquals(voice, settings.voiceAlerts.value)
+            assertEquals(vibration, settings.vibrationAlerts.value)
+            assertEquals(voice, viewModel.uiState.value.voiceAlerts)
+            assertEquals(vibration, viewModel.uiState.value.vibrationAlerts)
+        }
+    }
+
+    @Test
     fun voiceAlerts_switchWritesSetting_andDefaultsOff() = runTest(main.dispatcher) {
         val viewModel = createViewModel()
         testScheduler.runCurrent()

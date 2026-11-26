@@ -59,6 +59,7 @@ class SharedPrefsTransitStore(private val prefs: SharedPreferences) : TransitLoc
         showTransitCodeButton = if (prefs.contains(KEY_SHOW_TRANSIT_CODE_BUTTON)) prefs.getBoolean(KEY_SHOW_TRANSIT_CODE_BUTTON, true) else null,
         autoStopAfterBoarding = if (prefs.contains(KEY_AUTO_STOP_AFTER_BOARDING)) prefs.getBoolean(KEY_AUTO_STOP_AFTER_BOARDING, true) else null,
         voiceAlerts = if (prefs.contains(KEY_VOICE_ALERTS)) prefs.getBoolean(KEY_VOICE_ALERTS, false) else null,
+        vibrationAlerts = if (prefs.contains(KEY_VIBRATION_ALERTS)) prefs.getBoolean(KEY_VIBRATION_ALERTS, true) else null,
         sortLinesByArrival = if (prefs.contains(KEY_SORT_LINES_BY_ARRIVAL)) prefs.getBoolean(KEY_SORT_LINES_BY_ARRIVAL, false) else null,
         favoritesCurrentCityOnly = if (prefs.contains(KEY_FAVORITES_CURRENT_CITY_ONLY)) prefs.getBoolean(KEY_FAVORITES_CURRENT_CITY_ONLY, false) else null,
         betaUpdates = if (prefs.contains(KEY_BETA_UPDATES)) prefs.getBoolean(KEY_BETA_UPDATES, false) else null,
@@ -100,6 +101,10 @@ class SharedPrefsTransitStore(private val prefs: SharedPreferences) : TransitLoc
 
     override suspend fun saveVoiceAlerts(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_VOICE_ALERTS, enabled).apply()
+    }
+
+    override suspend fun saveVibrationAlerts(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_VIBRATION_ALERTS, enabled).apply()
     }
 
     override suspend fun saveSortLinesByArrival(enabled: Boolean) {
@@ -169,6 +174,7 @@ class SharedPrefsTransitStore(private val prefs: SharedPreferences) : TransitLoc
         private const val KEY_SHOW_TRANSIT_CODE_BUTTON = "show_transit_code_button"
         private const val KEY_AUTO_STOP_AFTER_BOARDING = "auto_stop_after_boarding"
         private const val KEY_VOICE_ALERTS = "voice_alerts"
+        private const val KEY_VIBRATION_ALERTS = "vibration_alerts"
         private const val KEY_SORT_LINES_BY_ARRIVAL = "sort_lines_by_arrival"
         private const val KEY_FAVORITES_CURRENT_CITY_ONLY = "favorites_current_city_only"
         private const val KEY_BETA_UPDATES = "beta_updates"

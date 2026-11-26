@@ -66,7 +66,7 @@ interface TrackingRepository {
     /** 一份会话的当前快照；没有这一份时返回 null */
     fun sessionById(sessionId: String): TrackingSession?
 
-    /** 开始 [target] 时会被替换掉的那一份（同一个目标）；没有时返回 null */
+    /** 开始 [target] 时被替换的同目标会话，或同一辆车的候车/下车提醒；没有时返回 null */
     fun sessionReplacedBy(target: TrackingTarget): TrackingSession?
 
     /**
@@ -266,8 +266,19 @@ class DefaultTrackingRepository @OptIn(ExperimentalUuidApi::class) constructor(
         synchronized(lock) { _sessions.value.firstOrNull { it.sessionId == sessionId } }
 
     override fun sessionReplacedBy(target: TrackingTarget): TrackingSession? = synchronized(lock) {
+        replacementFor(target)
+    }
+
+    /** 先找同目标；上车或修改下车站时，复用同城、同源、同方向的同一辆车所占名额。 */
+    private fun replacementFor(target: TrackingTarget): TrackingSession? {
         val key = target.trackingKey()
-        _sessions.value.firstOrNull { it.target.trackingKey() == key }
+        _sessions.value.firstOrNull { it.target.trackingKey() == key }?.let { return it }
+        if (target !is TrackingTarget.SingleLine || !target.isOnboard || target.pinnedBusId.isBlank()) return null
+        return _sessions.value.firstOrNull { session ->
+            val old = session.target as? TrackingTarget.SingleLine
+            old != null && old.cityId == target.cityId && old.source == target.source &&
+                old.lineId == target.lineId && old.direction == target.direction && old.pinnedBusId == target.pinnedBusId
+        }
     }
 
     override fun start(target: TrackingTarget): TrackingSession? = synchronized(lock) {
@@ -283,8 +294,8 @@ class DefaultTrackingRepository @OptIn(ExperimentalUuidApi::class) constructor(
         touched = true
         // 同一个目标再点一次：换掉原来那一份（重新计时），不叠两份一样的；
         // 一起等还要把同站单独追的那条线收进来（不然那条线会有两张卡）
-        val key = target.trackingKey()
-        val kept = _sessions.value.filterNot { it.target.trackingKey() == key || it.absorbedBy(target) }
+        val replaced = replacementFor(target)
+        val kept = _sessions.value.filterNot { it.sessionId == replaced?.sessionId || it.absorbedBy(target) }
         lastBuses.keys.retainAll(kept.mapTo(mutableSetOf()) { it.sessionId })
         lastLineBuses.keys.retainAll(kept.mapTo(mutableSetOf()) { it.sessionId })
         // 太多项了：挤掉最早开始的那一份
@@ -532,14 +543,16 @@ class DefaultTrackingRepository @OptIn(ExperimentalUuidApi::class) constructor(
  * 一起等按「同一个站 + 同一批线」算。
  */
 internal fun TrackingTarget.trackingKey(): String = when (this) {
-    is TrackingTarget.SingleLine -> "single|$lineId|$direction|$targetStopId"
+    is TrackingTarget.SingleLine -> "single|$cityId|$source|$lineId|$direction|$targetStopId|$targetOrder"
     is TrackingTarget.Route -> "route|${group.id}"
     is TrackingTarget.WatchTogether -> "watch|$stopId|" + lines.map { it.lineId }.sorted().joinToString(",")
 }
 
 /** 这份会话是「同一个站的一起等，而且已经在等这条线」：单线路追踪不用再新建一份 */
 private fun TrackingSession.coversSingle(target: TrackingTarget.SingleLine): Boolean {
+    if (target.pinnedBusId.isNotBlank()) return false
     val watch = this.target as? TrackingTarget.WatchTogether ?: return false
+    if (watch.cityId != target.cityId) return false
     if (!watch.coversStop(target.targetStopId, target.targetStopName)) return false
     return watch.lines.any { it.lineId == target.lineId }
 }
@@ -548,6 +561,7 @@ private fun TrackingSession.coversSingle(target: TrackingTarget.SingleLine): Boo
 private fun TrackingSession.absorbedBy(target: TrackingTarget): Boolean {
     val watch = target as? TrackingTarget.WatchTogether ?: return false
     val single = this.target as? TrackingTarget.SingleLine ?: return false
+    if (single.pinnedBusId.isNotBlank() || single.cityId != watch.cityId) return false
     return watch.lines.any { it.lineId == single.lineId } &&
         watch.coversStop(single.targetStopId, single.targetStopName)
 }

@@ -10,6 +10,7 @@ import android.os.Build
 import android.util.Log
 import androidx.annotation.VisibleForTesting
 import androidx.core.app.NotificationCompat
+import com.trackr.core.domain.platform.Announcer
 import com.trackr.core.domain.platform.ReminderAlarms
 import com.trackr.core.domain.platform.TrackingController
 import com.trackr.core.model.LineOperatingState
@@ -39,6 +40,7 @@ class ScheduledReminderReceiver : BroadcastReceiver(), KoinComponent {
     private val reminderScheduler: ReminderAlarms by inject()
     private val appScope: CoroutineScope by inject(AppScopeQualifier)
     private val trackingController: TrackingController by inject()
+    private val announcer: Announcer by inject()
 
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.action
@@ -166,6 +168,15 @@ class ScheduledReminderReceiver : BroadcastReceiver(), KoinComponent {
             contentText
         }
         showReminderNotification(context, reminder, summaryText, finalContent)
+        if (repository.voiceAlerts.value) {
+            try {
+                announcer.speak("${reminder.lineName}，定时提醒，$summaryText，目标站${reminder.targetStopName}")
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                Log.w(TAG, "Cannot speak scheduled reminder", error)
+            }
+        }
     }
 
     private fun showReminderNotification(
@@ -214,12 +225,13 @@ class ScheduledReminderReceiver : BroadcastReceiver(), KoinComponent {
 
         val iconRes = context.applicationInfo.icon.takeIf { it != 0 } ?: android.R.drawable.ic_dialog_info
 
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID_SCHEDULED)
+        val notification = NotificationCompat.Builder(context, scheduledChannelId)
             .setSmallIcon(iconRes)
             .setContentTitle("${reminder.lineName} · $titleSummary")
             .setContentText(content)
             .setStyle(NotificationCompat.BigTextStyle().bigText("$content\n开往：${reminder.endStopName}"))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setDefaults(if (vibrationEnabled) NotificationCompat.DEFAULT_ALL else NotificationCompat.DEFAULT_SOUND)
             .setContentIntent(contentPendingIntent)
             .setAutoCancel(true)
             .addAction(
@@ -266,17 +278,27 @@ class ScheduledReminderReceiver : BroadcastReceiver(), KoinComponent {
         }
     }
 
+    private val vibrationEnabled: Boolean
+        get() = runCatching { repository.vibrationAlerts.value }.getOrDefault(true)
+
+    internal val scheduledChannelId: String
+        get() = if (vibrationEnabled) CHANNEL_ID_SCHEDULED else CHANNEL_ID_SCHEDULED_NO_VIBRATION
+
     private fun ensureNotificationChannel(context: Context, notificationManager: NotificationManager) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val existing = notificationManager.getNotificationChannel(CHANNEL_ID_SCHEDULED)
+            val existing = notificationManager.getNotificationChannel(scheduledChannelId)
             if (existing == null) {
                 val channel = NotificationChannel(
-                    CHANNEL_ID_SCHEDULED,
-                    CHANNEL_NAME_SCHEDULED,
-                    NotificationManager.IMPORTANCE_HIGH
+                    scheduledChannelId,
+                    if (vibrationEnabled) CHANNEL_NAME_SCHEDULED else "通勤定时提醒（不震动）",
+                    notificationManager.getNotificationChannel(CHANNEL_ID_SCHEDULED)?.importance
+                        ?: NotificationManager.IMPORTANCE_HIGH
                 ).apply {
                     description = "定时推送用户关心的通勤公交到站状态"
-                    enableVibration(true)
+                    enableVibration(vibrationEnabled)
+                    notificationManager.getNotificationChannel(CHANNEL_ID_SCHEDULED)?.let { base ->
+                        setSound(base.sound, base.audioAttributes)
+                    }
                     setShowBadge(true)
                 }
                 notificationManager.createNotificationChannel(channel)
@@ -318,6 +340,7 @@ class ScheduledReminderReceiver : BroadcastReceiver(), KoinComponent {
             )
 
         private const val CHANNEL_ID_SCHEDULED = "channel_transit_scheduled"
+        private const val CHANNEL_ID_SCHEDULED_NO_VIBRATION = "channel_transit_scheduled_no_vibration"
         private const val CHANNEL_NAME_SCHEDULED = "通勤定时到站提醒"
         internal const val NOTIFICATION_BASE_ID = 20000
     }

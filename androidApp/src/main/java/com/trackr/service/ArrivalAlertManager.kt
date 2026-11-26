@@ -32,7 +32,8 @@ import com.trackr.service.vendor.XiaomiFocusAdapter
  */
 class ArrivalAlertNotifier(
     private val liveProgressNotifier: LiveProgressNotifier,
-    private val showOnLockScreenSetting: () -> Boolean = { true }
+    private val showOnLockScreenSetting: () -> Boolean = { true },
+    private val vibrationEnabledProvider: () -> Boolean = { true }
 ) {
 
     /**
@@ -55,7 +56,7 @@ class ArrivalAlertNotifier(
         timeoutMillis: Long
     ): Notification {
         val lockScreenOn = runCatching { showOnLockScreenSetting() }.getOrDefault(true)
-        return NotificationCompat.Builder(context, CHANNEL_ID_ALERT)
+        return NotificationCompat.Builder(context, alertChannelId)
             .setSmallIcon(R.drawable.ic_stat_trackr)
             .setContentTitle(title)
             .setContentText(content)
@@ -67,7 +68,7 @@ class ArrivalAlertNotifier(
             // 到站只有一次机会，该弹出来的时候要弹；但弹过之后不该变成一条要手动清理的常驻消息，
             // 因为同一趟车的进度常驻通知本来就写着「到站了」。
             .setTimeoutAfter(timeoutMillis)
-            .setDefaults(NotificationCompat.DEFAULT_ALL)
+            .setDefaults(if (vibrationEnabled()) NotificationCompat.DEFAULT_ALL else NotificationCompat.DEFAULT_SOUND)
             .setVisibility(
                 if (lockScreenOn) NotificationCompat.VISIBILITY_PUBLIC else NotificationCompat.VISIBILITY_PRIVATE
             )
@@ -131,20 +132,29 @@ class ArrivalAlertNotifier(
     /**
      * 确保高优先级预警渠道创建完毕
      */
+    internal val alertChannelId: String
+        get() = if (vibrationEnabled()) CHANNEL_ID_ALERT else CHANNEL_ID_ALERT_NO_VIBRATION
+
+    private fun vibrationEnabled(): Boolean = runCatching { vibrationEnabledProvider() }.getOrDefault(true)
+
     fun ensureNotificationChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
                 ?: return
-            val existing = notificationManager.getNotificationChannel(CHANNEL_ID_ALERT)
+            val existing = notificationManager.getNotificationChannel(alertChannelId)
             if (existing == null) {
                 val channel = NotificationChannel(
-                    CHANNEL_ID_ALERT,
-                    CHANNEL_NAME_ALERT,
-                    NotificationManager.IMPORTANCE_HIGH
+                    alertChannelId,
+                    if (vibrationEnabled()) CHANNEL_NAME_ALERT else "公交到站提醒（不震动）",
+                    notificationManager.getNotificationChannel(CHANNEL_ID_ALERT)?.importance
+                        ?: NotificationManager.IMPORTANCE_HIGH
                 ).apply {
                     description = "当追踪的公交车即将到站或已经进站时发送高优先级浮动与震动强提醒"
-                    enableVibration(true)
-                    vibrationPattern = APPROACHING_VIBRATION_PATTERN
+                    if (vibrationEnabled()) vibrationPattern = APPROACHING_VIBRATION_PATTERN
+                    enableVibration(vibrationEnabled())
+                    notificationManager.getNotificationChannel(CHANNEL_ID_ALERT)?.let { base ->
+                        setSound(base.sound, base.audioAttributes)
+                    }
                     setShowBadge(true)
                 }
                 notificationManager.createNotificationChannel(channel)
@@ -170,7 +180,7 @@ class ArrivalAlertNotifier(
             val title = "【即将到站】${state.lineName}"
             // 只追一辆车（issue #52）：多半是坐在车上等下车站，写清是哪辆
             val content = if (state.isPinnedBus) {
-                "${state.pinnedPlate.ifBlank { "所追车辆" }} 距 ${state.targetStopName} 还有 ${state.stopsRemaining} 站$etaText，请准备下车！"
+                "${state.pinnedPlate.ifBlank { "所追车辆" }} 距 ${state.targetStopName} 还有 ${state.stopsRemaining} 站$etaText，请准备${if (state.isOnboard) "下车" else "上车"}！"
             } else {
                 "距 ${state.targetStopName} 还有 ${state.stopsRemaining} 站$etaText，请准备上车/下车！"
             }
@@ -216,7 +226,7 @@ class ArrivalAlertNotifier(
         if (forceStandalone || shouldPostStandaloneNotification(context, state)) {
             val title = "【车辆已到站】${state.lineName}"
             val content = if (state.isPinnedBus) {
-                "${state.pinnedPlate.ifBlank { state.lineName }} 已到达 ${state.targetStopName}！请下车，本次追踪结束。"
+                "${state.pinnedPlate.ifBlank { state.lineName }} 已到达 ${state.targetStopName}！请${if (state.isOnboard) "下车" else "上车"}。"
             } else {
                 "${state.lineName} 已到达 ${state.targetStopName}！请注意上车/下车。"
             }
@@ -401,6 +411,10 @@ class ArrivalAlertNotifier(
      * 不会在用户静音时强行振动
      */
     private fun vibrateAsNotification(context: Context, effect: VibrationEffect) {
+        if (!vibrationEnabled() || !areNotificationsEnabled(context)) return
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+        val channel = manager?.getNotificationChannel(CHANNEL_ID_ALERT)
+        if (channel != null && (channel.importance == NotificationManager.IMPORTANCE_NONE || !channel.shouldVibrate())) return
         try {
             val vibrator = getVibrator(context)
             if (vibrator == null || !vibrator.hasVibrator()) return
@@ -433,6 +447,7 @@ class ArrivalAlertNotifier(
         private const val TAG = "ArrivalAlertManager"
 
         const val CHANNEL_ID_ALERT = "bus_arrival_alert"
+        const val CHANNEL_ID_ALERT_NO_VIBRATION = "bus_arrival_alert_no_vibration"
         private const val CHANNEL_NAME_ALERT = "公交到站与进站强提醒"
 
         const val NOTIFICATION_ID_APPROACHING = 10002

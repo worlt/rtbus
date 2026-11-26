@@ -38,6 +38,8 @@ class DefaultSettingsRepository private constructor(
 
     private val _voiceAlerts = MutableStateFlow(initial.voiceAlerts ?: false)
     override val voiceAlerts: StateFlow<Boolean> = _voiceAlerts.asStateFlow()
+    private val _vibrationAlerts = MutableStateFlow(initial.vibrationAlerts ?: true)
+    override val vibrationAlerts: StateFlow<Boolean> = _vibrationAlerts.asStateFlow()
     private val _sortLinesByArrival = MutableStateFlow(initial.sortLinesByArrival ?: false)
     override val sortLinesByArrival: StateFlow<Boolean> = _sortLinesByArrival.asStateFlow()
     private val _favoritesCurrentCityOnly = MutableStateFlow(initial.favoritesCurrentCityOnly ?: false)
@@ -117,6 +119,11 @@ class DefaultSettingsRepository private constructor(
     override fun setVoiceAlerts(enabled: Boolean) {
         _voiceAlerts.value = enabled
         writer.enqueue { store.saveVoiceAlerts(enabled) }
+    }
+
+    override fun setVibrationAlerts(enabled: Boolean) {
+        _vibrationAlerts.value = enabled
+        writer.enqueue { store.saveVibrationAlerts(enabled) }
     }
 
     override fun setSortLinesByArrival(enabled: Boolean) {

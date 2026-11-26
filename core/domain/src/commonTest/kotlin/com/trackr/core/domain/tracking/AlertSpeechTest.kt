@@ -43,6 +43,14 @@ class AlertSpeechTest {
     }
 
     @Test
+    fun pinnedWaitingBusSaysGetOnUntilUserBoards() {
+        val state = waiting.copy(pinnedBusId = "b2", pinnedPlate = "闽A06303D", isOnboard = false)
+        assertEquals("614路，车牌闽A06303D 已到达长乐职专站，请上车", alert(TrackingEngine.AlertKind.ARRIVED, state))
+        assertEquals("614路，车牌闽A06303D 还有2站到长乐职专站，大约5分钟，请准备上车", alert(TrackingEngine.AlertKind.APPROACHING, state))
+        assertEquals("614路，车牌闽A06303D 已到达长乐职专站，请下车", alert(TrackingEngine.AlertKind.ARRIVED, state.copy(isOnboard = true)))
+    }
+
+    @Test
     fun routeOnBoard_saysGetOff() {
         val onBoard = waiting.copy(legPhase = LegPhase.ON_BOARD)
         assertEquals("614路 已到达长乐职专站，请下车", alert(TrackingEngine.AlertKind.ARRIVED, onBoard))

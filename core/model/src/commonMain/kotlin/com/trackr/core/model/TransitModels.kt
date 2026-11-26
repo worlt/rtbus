@@ -461,7 +461,9 @@ data class TrackingSessionState(
     /** 单线路「追这辆车」（issue #52）：只追这一辆，不换车；null = 不指定 */
     val pinnedBusId: String? = null,
     /** [pinnedBusId] 的车牌 */
-    val pinnedPlate: String = ""
+    val pinnedPlate: String = "",
+    /** 只对指定车辆生效；false 表示候车，true 表示已上车等下车。 */
+    val isOnboard: Boolean = true
 ) {
     /** 单线路只追指定的一辆车（issue #52） */
     val isPinnedBus: Boolean

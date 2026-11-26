@@ -39,6 +39,8 @@ data class TransitLocalSnapshot(
     val autoStopAfterBoarding: Boolean? = null,
     /** 语音播报提醒（issue #52）；没存过为 null，按关 */
     val voiceAlerts: Boolean? = null,
+    /** 到站提醒震动；没存过为 null，按开 */
+    val vibrationAlerts: Boolean? = null,
     /** 站点页、首页附近站的线路按到站先后排（issue #56）；没存过为 null，按关（数据源顺序） */
     val sortLinesByArrival: Boolean? = null,
     /** 首页收藏栏仅显示当前城市的收藏（issue #61）；没存过为 null，按关（显示全部城市） */
@@ -70,6 +72,7 @@ interface TransitLocalStore {
     suspend fun saveShowTransitCodeButton(enabled: Boolean)
     suspend fun saveAutoStopAfterBoarding(enabled: Boolean)
     suspend fun saveVoiceAlerts(enabled: Boolean)
+    suspend fun saveVibrationAlerts(enabled: Boolean)
     suspend fun saveSortLinesByArrival(enabled: Boolean)
     suspend fun saveFavoritesCurrentCityOnly(enabled: Boolean)
     suspend fun saveBetaUpdates(enabled: Boolean)

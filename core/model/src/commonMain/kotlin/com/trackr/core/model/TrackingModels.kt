@@ -33,7 +33,9 @@ sealed interface TrackingTarget {
          */
         val pinnedBusId: String = "",
         /** [pinnedBusId] 的车牌（通知、提醒里写给人看） */
-        val pinnedPlate: String = ""
+        val pinnedPlate: String = "",
+        /** 已上车下车提醒；旧指定车辆会话保持原来的下车提醒语义。 */
+        val isOnboard: Boolean = true
     ) : TrackingTarget
 
     /**

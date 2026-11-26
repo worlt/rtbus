@@ -46,6 +46,30 @@ class ScheduledReminderReceiverTest {
     }
 
     @Test
+    fun scheduledReminderHonorsVoiceAndVibrationIndependently() = runBlocking {
+        val fake = FakeTransitRepository()
+        val announcer = com.trackr.core.testing.FakeAnnouncer()
+        loadKoinModules(module {
+            single<ITransitRepository> { fake }
+            single<com.trackr.core.domain.platform.Announcer> { announcer }
+        })
+        val reminder = autoStartReminder("feedback").copy(autoStartLiveTracking = false)
+        reminderRepository.saveReminder(reminder)
+        val nm = app.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        for (voice in listOf(false, true)) for (vibration in listOf(false, true)) {
+            fake.setVoiceAlerts(voice)
+            fake.setVibrationAlerts(vibration)
+            val before = announcer.spoken.size
+            ScheduledReminderReceiver().handleReminderTrigger(app, reminder.id)
+            val id = ScheduledReminderReceiver.NOTIFICATION_BASE_ID + reminder.id.hashCode() % 10000
+            val posted = shadowOf(nm).getNotification(id)
+            assertNotNull(posted)
+            assertEquals(vibration, nm.getNotificationChannel(posted.channelId).shouldVibrate())
+            assertEquals(if (voice) before + 1 else before, announcer.spoken.size)
+        }
+    }
+
+    @Test
     fun testReceiveInvalidAction_doesNothing() {
         val intent = Intent("invalid.action")
         receiver.onReceive(app, intent)

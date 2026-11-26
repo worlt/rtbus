@@ -86,6 +86,8 @@ import com.trackr.feature.me.resources.me_background_location_desc_off
 import com.trackr.feature.me.resources.me_background_location_desc_on
 import com.trackr.feature.me.resources.me_export_boarding_trace
 import com.trackr.feature.me.resources.me_export_boarding_trace_desc
+import com.trackr.feature.me.resources.me_vibration_alerts
+import com.trackr.feature.me.resources.me_vibration_alerts_desc
 import com.trackr.feature.me.resources.me_voice_alerts
 import com.trackr.feature.me.resources.me_voice_alerts_desc
 import com.trackr.feature.me.resources.me_data_source
@@ -266,6 +268,13 @@ fun MeScreen(
                         subtitle = stringResource(MeRes.string.me_voice_alerts_desc),
                         checked = state.voiceAlerts,
                         onCheckedChange = { onEvent(MeEvent.SetVoiceAlerts(it)) }
+                    )
+                    GroupDivider()
+                    SwitchRow(
+                        title = stringResource(MeRes.string.me_vibration_alerts),
+                        subtitle = stringResource(MeRes.string.me_vibration_alerts_desc),
+                        checked = state.vibrationAlerts,
+                        onCheckedChange = { onEvent(MeEvent.SetVibrationAlerts(it)) }
                     )
                     GroupDivider()
                     SettingRow(

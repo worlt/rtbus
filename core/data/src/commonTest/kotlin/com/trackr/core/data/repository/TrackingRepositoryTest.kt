@@ -625,6 +625,56 @@ class TrackingRepositoryTest {
         assertTrue(only.generation > first.generation)
     }
 
+
+    @Test
+    fun pinnedReminderIsNotCoveredOrAbsorbedByWatchTogether() = runTest {
+        val repo = newRepo()
+        repo.awaitLoaded()
+        val watchTarget = TrackingTarget.WatchTogether(
+            cityId = single.cityId, stopId = "st", stopName = single.targetStopName,
+            lines = listOf(WatchLine(lineId = single.lineId, lineName = single.lineName, stopOrder = 10)))
+        val watchSession = assertNotNull(repo.start(watchTarget))
+        val pinned = assertNotNull(repo.start(single.copy(targetStopId = "st", pinnedBusId = "bus1", isOnboard = false)))
+        assertTrue(watchSession.sessionId != pinned.sessionId)
+        assertEquals("bus1", (pinned.target as TrackingTarget.SingleLine).pinnedBusId)
+        repo.start(watchTarget)
+        assertNotNull(repo.sessionById(pinned.sessionId))
+    }
+
+    @Test
+    fun onboardingSameVehicleReplacesWaitingAtCapacityAndCanRestoreIt() = runTest {
+        val repo = newRepo()
+        repo.awaitLoaded()
+        val unrelated = (1..3).map { index ->
+            assertNotNull(repo.start(single.copy(lineId = "other" + index)))
+        }
+        val waiting = assertNotNull(repo.start(single.copy(pinnedBusId = "bus1", isOnboard = false)))
+        val onboard = single.copy(pinnedBusId = "bus1", isOnboard = true, targetStopId = "drop", targetOrder = 15)
+        assertEquals(waiting.sessionId, repo.sessionReplacedBy(onboard)?.sessionId)
+        val replacement = assertNotNull(repo.start(onboard))
+        assertNull(repo.sessionById(waiting.sessionId))
+        unrelated.forEach { assertNotNull(repo.sessionById(it.sessionId)) }
+        repo.restore(replacement, waiting)
+        assertNotNull(repo.sessionById(waiting.sessionId))
+        unrelated.forEach { assertNotNull(repo.sessionById(it.sessionId)) }
+    }
+
+    @Test
+    fun changingAlightingStopReplacesOnlySameVehicleSameDirectionSameCity() = runTest {
+        val repo = newRepo()
+        repo.awaitLoaded()
+        val onboard = single.copy(pinnedBusId = "bus1", isOnboard = true, targetStopId = "first")
+        val old = assertNotNull(repo.start(onboard))
+        val otherDirection = assertNotNull(repo.start(onboard.copy(direction = 1, targetStopId = "reverse")))
+        val otherCity = assertNotNull(repo.start(onboard.copy(cityId = "other", targetStopId = "other-city")))
+        val changed = assertNotNull(repo.start(onboard.copy(targetStopId = "second", targetOrder = 15)))
+        assertNull(repo.sessionById(old.sessionId))
+        assertNotNull(repo.sessionById(otherDirection.sessionId))
+        assertNotNull(repo.sessionById(otherCity.sessionId))
+        assertEquals(changed.sessionId, repo.sessionReplacedBy(onboard)?.sessionId)
+        assertEquals(3, repo.sessions.value.size)
+    }
+
     @Test
     fun start_moreThanMaxSessions_dropsOldest() = runTest {
         val repo = newRepo()

@@ -25,12 +25,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -63,6 +66,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -103,6 +107,11 @@ import com.trackr.core.model.displayLineName
 import com.trackr.core.model.displayLineNameWithoutDiversion
 import com.trackr.core.model.diversionNote
 import com.trackr.feature.line.resources.Res as LineRes
+import com.trackr.feature.line.resources.line_alight_pick_title
+import com.trackr.feature.line.resources.line_alight_pick_hint
+import com.trackr.feature.line.resources.line_alight_no_stops
+import com.trackr.feature.line.resources.line_alight_start
+import com.trackr.feature.line.resources.line_alight_cancel
 import com.trackr.feature.line.resources.line_detail_error
 import com.trackr.feature.line.resources.line_detail_fare
 import com.trackr.feature.line.resources.line_detail_diversion_body
@@ -163,6 +172,9 @@ sealed interface LineDetailEvent {
     data object ToggleTracking : LineDetailEvent
     /** 单车跟随里的「追这辆车」/「结束」（issue #52 下车提醒：只追这一辆到当前候车站） */
     data object ToggleTrackFollowedBus : LineDetailEvent
+    data object OpenAlightingPicker : LineDetailEvent
+    data object DismissAlightingPicker : LineDetailEvent
+    data class StartAlightingReminder(val stop: BusStop) : LineDetailEvent
     /** 底栏乘车码：一点就开默认渠道，「每次询问」才弹选择 */
     data object OpenTransitCode : LineDetailEvent
     data object DismissTransitCodeSheet : LineDetailEvent
@@ -458,6 +470,42 @@ fun LineDetailScreen(
         )
     }
 
+    state.boardingBusId?.let { busId ->
+        val bus = state.live?.buses?.firstOrNull { it.busId == busId }
+        val destinations = static?.stops.orEmpty().filter { bus != null && it.isFutureAlightingStop(bus) }
+        var pickedId by remember(busId) { mutableStateOf<String?>(null) }
+        val picked = destinations.firstOrNull { it.stopId + ":" + it.order == pickedId }
+        AlertDialog(
+            onDismissRequest = { onEvent(LineDetailEvent.DismissAlightingPicker) },
+            title = { Text(stringResource(LineRes.string.line_alight_pick_title)) },
+            text = {
+                Column {
+                    Text(stringResource(LineRes.string.line_alight_pick_hint))
+                    if (destinations.isEmpty()) Text(stringResource(LineRes.string.line_alight_no_stops))
+                    LazyColumn(Modifier.heightIn(max = 320.dp)) {
+                        items(destinations, key = { it.stopId + ":" + it.order }) { stop ->
+                            TextButton(onClick = { pickedId = stop.stopId + ":" + stop.order }, modifier = Modifier.fillMaxWidth().testTag("alight_stop_" + stop.order)) {
+                                RadioButton(selected = picked == stop, onClick = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text(stop.name, modifier = Modifier.weight(1f))
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(enabled = picked != null, modifier = Modifier.testTag("btn_start_alighting"), onClick = {
+                    picked?.let { onEvent(LineDetailEvent.StartAlightingReminder(it)) }
+                }) { Text(stringResource(LineRes.string.line_alight_start)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { onEvent(LineDetailEvent.DismissAlightingPicker) }) {
+                    Text(stringResource(LineRes.string.line_alight_cancel))
+                }
+            }
+        )
+    }
+
     // 定时提醒
     val selectedStop = state.selectedStop
     if (state.isReminderDialogOpen && static != null && selectedStop != null) {
@@ -692,7 +740,9 @@ private fun HeroCard(
                         followedBus = followedBus,
                         onBack = { onEvent(LineDetailEvent.BackFromPanel) },
                         trackAction = followTrackAction(state, followedBus),
-                        onToggleTrackBus = { onEvent(LineDetailEvent.ToggleTrackFollowedBus) }
+                        onToggleTrackBus = { onEvent(LineDetailEvent.ToggleTrackFollowedBus) },
+                        onBoarded = { onEvent(LineDetailEvent.OpenAlightingPicker) },
+                        canChooseDestination = detail.stops.any { followedBus != null && it.isFutureAlightingStop(followedBus) }
                     )
                 }
             }
@@ -705,7 +755,8 @@ internal fun followTrackAction(state: LineDetailUiState, followedBus: LiveBus?):
     val stop = state.selectedStop ?: return null
     val bus = followedBus ?: return null
     return when {
-        state.trackedPinnedBusId == bus.busId -> FollowTrackAction.Tracking(stop.name)
+        state.trackingSession.isActive && state.trackingSession.isPinnedBus &&
+            state.trackingSession.pinnedBusId == bus.busId -> FollowTrackAction.Tracking(state.trackingSession.targetStopName)
         bus.order > stop.order -> FollowTrackAction.Passed(stop.name)
         else -> FollowTrackAction.Available(stop.name)
     }

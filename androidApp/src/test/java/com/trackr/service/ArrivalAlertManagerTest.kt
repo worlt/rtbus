@@ -356,6 +356,58 @@ class ArrivalAlertManagerTest {
         assertEquals(Notification.VISIBILITY_PUBLIC, posted!!.visibility)
     }
 
+    @Test
+    fun vibrationSwitchSelectsChannelWithoutDisablingNotifications() {
+        var vibration = true
+        val notifier = ArrivalAlertNotifier(liveNotifier, vibrationEnabledProvider = { vibration }).apply {
+            liveNotificationEnabledProvider = { true }
+            liveUpdateActiveChecker = { false }
+        }
+        notifier.triggerArrivedAlert(app, activeTrackingState(0))
+        assertTrue(notificationManager.getNotificationChannel(notifier.alertChannelId).shouldVibrate())
+        vibration = false
+        notifier.triggerArrivedAlert(app, activeTrackingState(0))
+        val posted = shadowOf(notificationManager).getNotification(ArrivalAlertNotifier.NOTIFICATION_ID_ARRIVED)
+        assertNotNull(posted)
+        assertEquals(ArrivalAlertNotifier.CHANNEL_ID_ALERT_NO_VIBRATION, posted.channelId)
+        org.junit.Assert.assertFalse(notificationManager.getNotificationChannel(posted.channelId).shouldVibrate())
+        assertEquals(0, posted.defaults and Notification.DEFAULT_VIBRATE)
+        vibration = true
+        notifier.triggerArrivedAlert(app, activeTrackingState(0))
+        assertEquals(ArrivalAlertNotifier.CHANNEL_ID_ALERT,
+            shadowOf(notificationManager).getNotification(ArrivalAlertNotifier.NOTIFICATION_ID_ARRIVED).channelId)
+    }
+
+    @Test
+    fun liveUpdateFallbackVibrationHonorsIndependentSwitch() {
+        val vibrator = app.getSystemService(android.content.Context.VIBRATOR_SERVICE) as android.os.Vibrator
+        val shadow = shadowOf(vibrator)
+        shadow.setHasVibrator(true)
+        var enabled = false
+        val notifier = ArrivalAlertNotifier(liveNotifier, vibrationEnabledProvider = { enabled }).apply {
+            liveNotificationEnabledProvider = { true }
+            liveUpdateActiveChecker = { true }
+        }
+        vibrator.cancel()
+        notifier.triggerApproachingAlert(app, activeTrackingState(2))
+        org.junit.Assert.assertFalse(shadow.isVibrating)
+        enabled = true
+        notifier.triggerApproachingAlert(app, activeTrackingState(2))
+        assertTrue(shadow.isVibrating)
+    }
+
+    @Test
+    fun pinnedWaitingAndOnboardNotificationsUseCorrectAction() {
+        val notifier = alertsWithLockScreen { true }
+        val pinned = activeTrackingState(0).copy(pinnedBusId = "selected", isOnboard = false)
+        notifier.triggerArrivedAlert(app, pinned)
+        val waiting = shadowOf(notificationManager).getNotification(ArrivalAlertNotifier.NOTIFICATION_ID_ARRIVED)
+        assertTrue(waiting.extras.getCharSequence(Notification.EXTRA_TEXT).toString().contains("请上车"))
+        notifier.triggerArrivedAlert(app, pinned.copy(isOnboard = true))
+        val onboard = shadowOf(notificationManager).getNotification(ArrivalAlertNotifier.NOTIFICATION_ID_ARRIVED)
+        assertTrue(onboard.extras.getCharSequence(Notification.EXTRA_TEXT).toString().contains("请下车"))
+    }
+
     private fun activeTrackingState(stopsRemaining: Int) = TrackingSessionState(
         isActive = true,
         lineName = "788",

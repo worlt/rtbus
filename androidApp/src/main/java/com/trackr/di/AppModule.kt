@@ -140,7 +140,8 @@ val appModule: Module = module {
         ArrivalAlertNotifier(
             liveProgressNotifier = get(),
             // 强提醒的锁屏可见性跟常驻通知同一份设置（D3）
-            showOnLockScreenSetting = { get<ITransitRepository>().showOnLockScreen.value }
+            showOnLockScreenSetting = { get<ITransitRepository>().showOnLockScreen.value },
+            vibrationEnabledProvider = { get<ITransitRepository>().vibrationAlerts.value }
         )
     }
     single<ReminderAlarms> { ReminderAlarmScheduler(androidContext(), get()) }

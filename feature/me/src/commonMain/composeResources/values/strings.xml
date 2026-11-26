@@ -53,7 +53,7 @@
     <string name="me_transit_code_button">显示乘车码按钮</string>
     <string name="me_transit_code_button_desc">关掉后首页、线路页、站点页都不再显示</string>
     <string name="me_arrival_alert">到站前提醒</string>
-    <string name="me_arrival_alert_desc">车离上车站还剩几站时震动提醒</string>
+    <string name="me_arrival_alert_desc">距目标站还剩几站时提醒，适用于候车和下车</string>
     <string name="me_auto_stop_after_boarding">上车后自动结束追踪</string>
     <string name="me_auto_stop_after_boarding_desc">定位判断你已上车就结束追踪，不再等下一班；路线仍跟到下车站</string>
     <string name="me_background_location">后台定位（始终允许）</string>
@@ -62,7 +62,9 @@
     <string name="me_export_boarding_trace">导出上车判定记录</string>
     <string name="me_export_boarding_trace_desc">自动结束没生效时发给开发者排查；记录只存在本机，含追踪时的位置</string>
     <string name="me_voice_alerts">语音播报提醒</string>
-    <string name="me_voice_alerts_desc">快到站、到站、换乘时除了通知和振动，再念一遍给你听</string>
+    <string name="me_voice_alerts_desc">独立播报追踪中的快到站、到站、换乘及定时提醒</string>
+    <string name="me_vibration_alerts">震动提醒</string>
+    <string name="me_vibration_alerts_desc">独立控制追踪提醒和定时提醒的震动；仍受系统静音和勿扰设置影响</string>
     <string name="me_reminders">定时提醒</string>
     <string name="me_reminders_none">没有</string>
     <string name="me_reminders_count">%1$s 个</string>
