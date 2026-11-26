@@ -1022,7 +1022,7 @@ class BusHomeViewModelTest {
         val vm = createViewModel()
         testScheduler.runCurrent()
         trackingController.start(TrackingTarget.SingleLine(cityId = "034", lineId = "L", lineName = "71路",
-            targetStopName = "人民广场", targetOrder = 5, pinnedBusId = "mine"))
+            targetStopName = "人民广场", targetOrder = 5, pinnedBusId = "mine", pinnedPlate = "沪A12345"))
         val ride = assertNotNull(trackingRepository.session.value)
         fun update(failed: Boolean, missing: Int, stopped: Boolean = false) {
             trackingRepository.update(ride.sessionId, ride.generation) { it.copy(refreshFailed = failed,
@@ -1035,6 +1035,7 @@ class BusHomeViewModelTest {
             val card = vm.uiState.value.trackingCards.single()
             assertEquals("暂无车辆位置", card.arrival.big)
             assertNull(card.vehiclePosition)
+            assertEquals("车牌/车号：沪A12345", card.vehiclePlate)
             assertEquals(ride.sessionId, card.open.trackingSessionId)
             assertTrue(card.title.contains("人民广场"))
         }
@@ -1047,6 +1048,25 @@ class BusHomeViewModelTest {
         vm.onEvent(BusHomeEvent.StopTracking(card.sessionId))
         testScheduler.runCurrent()
         assertTrue(vm.uiState.value.trackingCards.isEmpty())
+    }
+
+    @Test
+    fun onboardCardsUseOnlyTheirOwnPublicVehicleNumber() = runTest(main.dispatcher) {
+        val vm = createViewModel()
+        testScheduler.runCurrent()
+        val target = TrackingTarget.SingleLine(cityId = "034", lineId = "L", lineName = "71路",
+            targetStopName = "人民广场", targetOrder = 5)
+        val targets = listOf(
+            target.copy(pinnedBusId = "internal-a", pinnedPlate = "沪A12345"),
+            target.copy(pinnedBusId = "internal-b", pinnedPlate = "  K102  "),
+            target.copy(pinnedBusId = "internal-c", pinnedPlate = "0123456789abcdef0123456789abcdef"),
+            target.copy(pinnedBusId = "internal-d", pinnedPlate = "沪A54321", isOnboard = false)
+        )
+        targets.forEach { trackingController.start(it) }
+        testScheduler.runCurrent()
+
+        assertEquals(listOf("车牌/车号：沪A12345", "车牌/车号：K102", null, null),
+            vm.uiState.value.trackingCards.map { it.vehiclePlate })
     }
 
     @Test

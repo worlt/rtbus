@@ -56,6 +56,9 @@ internal fun TrackingCard(
                 }
             }
             Column(modifier = Modifier.padding(end = dimens.spaceM)) {
+                card.vehiclePlate?.let { plate ->
+                    Text(text = plate, style = MaterialTheme.typography.bodyMedium)
+                }
                 Text(
                     text = card.arrival.big,
                     style = MaterialTheme.typography.eta,

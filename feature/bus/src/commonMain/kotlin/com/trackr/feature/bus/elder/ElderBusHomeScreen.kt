@@ -325,6 +325,9 @@ private fun ElderTrackingCard(card: TrackingCardUi, onOpen: () -> Unit, onReadAl
             verticalArrangement = Arrangement.spacedBy(dimens.spaceS)
         ) {
             Text(text = card.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            card.vehiclePlate?.let { plate ->
+                Text(text = plate, style = MaterialTheme.typography.bodyLarge)
+            }
             ElderArrival(arrival = card.arrival, detail = card.detail)
             card.vehiclePosition?.let { position ->
                 Text(text = position, style = MaterialTheme.typography.bodyLarge)

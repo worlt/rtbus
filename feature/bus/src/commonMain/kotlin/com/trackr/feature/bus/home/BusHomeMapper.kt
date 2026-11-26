@@ -17,6 +17,7 @@ import com.trackr.core.model.TransitCity
 import com.trackr.core.model.TransitGroup
 import com.trackr.core.model.WatchedLine
 import com.trackr.core.model.displayLineName
+import com.trackr.core.model.sanitizePlateOrFleetNo
 import com.trackr.ui.components.arrival.ArrivalUi
 
 /**
@@ -128,6 +129,9 @@ internal object BusHomeMapper {
                     arrival = ArrivalUi.of(display),
                     detail = loadingDetail,
                     open = open,
+                    vehiclePlate = if (state.isAlightingReminder) {
+                        sanitizePlateOrFleetNo(state.pinnedPlate).takeIf { it.isNotEmpty() }?.let { "车牌/车号：$it" }
+                    } else null,
                     vehiclePosition = session.alightingBusPosition
                         ?.takeIf { state.isAlightingReminder && !alightingUnavailable }
                         ?.let { if (it.isStopped) "停靠：${it.stopName}" else "下一站：${it.stopName}" },

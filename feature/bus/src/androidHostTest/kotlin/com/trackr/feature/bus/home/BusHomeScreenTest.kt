@@ -123,10 +123,10 @@ class BusHomeScreenTest {
     }
 
     @Test
-    fun alightingCardShowsVehiclePositionAlongsideEta() {
+    fun alightingCardShowsPlateAndVehiclePositionAlongsideEta() {
         val started = checkNotNull(TrackingEngine.begin("ride", 1, TrackingTarget.SingleLine(
             cityId = "051", lineId = "l325", lineName = "325",
-            targetOrder = 5, targetStopName = "科技园站", pinnedBusId = "mine"
+            targetOrder = 5, targetStopName = "科技园站", pinnedBusId = "mine", pinnedPlate = "粤B12345"
         ), 0L))
         val ride = started.copy(
             state = started.state.copy(currentBusId = "mine", stopsRemaining = 2, etaSeconds = 240),
@@ -135,6 +135,7 @@ class BusHomeScreenTest {
         setContent(stateOf(session = ride))
 
         composeTestRule.onNodeWithText("4 分钟").assertIsDisplayed()
+        composeTestRule.onNodeWithText("车牌/车号：粤B12345").assertIsDisplayed()
         composeTestRule.onNodeWithText("下一站：文化路").assertIsDisplayed()
     }
 
