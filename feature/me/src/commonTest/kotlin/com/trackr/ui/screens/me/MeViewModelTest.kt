@@ -64,7 +64,8 @@ class MeViewModelTest {
         versionName = versionName,
         boardingTrace = boardingTrace,
         locationSource = locationSource,
-        notificationHealthAccess = notificationHealthAccess
+        notificationHealthAccess = notificationHealthAccess,
+        statusDispatcher = main.dispatcher
     )
 
     /** 假的判定记录：[shareResult] 是分享面板开没开成 */
@@ -325,6 +326,8 @@ class MeViewModelTest {
     fun backgroundLocation_reflectsPermission_hidesWhenAutoStopOff_andRefreshesOnResume() = runTest(main.dispatcher) {
         val location = FakeLocationSource(precisePermission = true).apply { backgroundPermission = false }
         val viewModel = createViewModel(locationSource = location)
+        viewModel.onScreenResumed()
+        testScheduler.advanceUntilIdle()
         assertEquals(false, viewModel.uiState.value.backgroundLocationGranted)
 
         // 关掉「上车后自动结束追踪」后隐藏这一行
@@ -403,7 +406,11 @@ class MeViewModelTest {
     @Test
     fun liveUpdateRow_hiddenWhenLiveNotificationOff_orNoPlatformSupport() = runTest(main.dispatcher) {
         val viewModel = createViewModel()
+        assertEquals(0, liveUpdate.statusReads) // 组合新页面不触发任何厂商查询
+        viewModel.onScreenResumed()
+        assertEquals(0, liveUpdate.statusReads) // 请求已排队，调用者不等待系统服务
         testScheduler.advanceUntilIdle()
+        assertEquals(1, liveUpdate.statusReads)
         assertEquals(LiveUpdateStatus(supported = true, allowed = false), viewModel.uiState.value.liveUpdate)
 
         // 和原来一样：实时通知关着时不显示胶囊权限
@@ -415,6 +422,22 @@ class MeViewModelTest {
         val ios = createViewModel(liveUpdateAccess = null)
         testScheduler.advanceUntilIdle()
         assertNull(ios.uiState.value.liveUpdate)
+    }
+
+    @Test
+    fun nativeHealthFlow_staysAuthoritativeAcrossResume() = runTest(main.dispatcher) {
+        val native = object : NotificationHealthAccess {
+            override val changes = kotlinx.coroutines.flow.MutableStateFlow(NotificationHealth(notificationsEnabled = false))
+            override fun status(): NotificationHealth = error("有原生状态流时不应重复查询")
+            override fun openAlertChannelSettings() = Unit
+        }
+        val vm = createViewModel(notificationHealthAccess = native)
+        vm.onScreenResumed()
+        testScheduler.advanceUntilIdle()
+        assertEquals(native.changes.value, vm.uiState.value.notificationHealth)
+        native.changes.value = NotificationHealth()
+        testScheduler.advanceUntilIdle()
+        assertNull(vm.uiState.value.notificationHealth)
     }
 
     @Test
@@ -481,7 +504,13 @@ class FakeLiveUpdateAccess(
     var openCount: Int = 0
         private set
 
-    override fun status(): LiveUpdateStatus = current
+    var statusReads = 0
+        private set
+
+    override fun status(): LiveUpdateStatus {
+        statusReads++
+        return current
+    }
 
     override fun openSettings() {
         openCount++

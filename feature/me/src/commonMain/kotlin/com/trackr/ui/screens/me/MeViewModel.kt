@@ -16,6 +16,11 @@ import com.trackr.ui.platform.LiveUpdateAccess
 import com.trackr.ui.platform.LiveUpdateStatus
 import com.trackr.ui.platform.NotificationHealth
 import com.trackr.ui.platform.NotificationHealthAccess
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -112,16 +117,20 @@ class MeViewModel(
     private val versionName: String? = null,
     private val notificationHealthAccess: NotificationHealthAccess? = null,
     private val boardingTrace: BoardingTraceLog? = null,
-    private val locationSource: LocationSource? = null
+    private val locationSource: LocationSource? = null,
+    private val statusDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ViewModel() {
 
     private val vibrationTestResult = MutableStateFlow<String?>(null)
 
-    private val liveUpdateStatus = MutableStateFlow(liveUpdateAccess?.status())
+    private var statusRefresh: Job? = null
+    private val liveUpdateStatus = MutableStateFlow<LiveUpdateStatus?>(null)
 
-    private val notificationHealthStatus = MutableStateFlow(notificationHealthAccess?.status())
+    private val polledHealth = MutableStateFlow<NotificationHealth?>(null)
+    private val nativeHealth = notificationHealthAccess?.changes
+    private val notificationHealthStatus: StateFlow<NotificationHealth?> = nativeHealth ?: polledHealth
 
-    private val backgroundLocationGranted = MutableStateFlow(locationSource?.hasBackgroundLocationPermission())
+    private val backgroundLocationGranted = MutableStateFlow<Boolean?>(null)
 
     /** 三个平台状态的合流：`combine` 的 5 参数重载已经用满，先把这几个并成一个 */
     private val platformStatus = combine(
@@ -175,12 +184,6 @@ class MeViewModel(
             notices.messages.value
         )
     )
-
-    init {
-        notificationHealthAccess?.changes?.let { changes ->
-            viewModelScope.launch { changes.collect { notificationHealthStatus.value = it } }
-        }
-    }
 
     fun onEvent(event: MeEvent) {
         when (event) {
@@ -238,9 +241,17 @@ class MeViewModel(
 
     /** 回到前台时重查实时活动通知的权限、通知体检与后台定位权限（用户可能刚从系统设置回来） */
     fun onScreenResumed() {
-        liveUpdateStatus.value = liveUpdateAccess?.status()
-        notificationHealthStatus.value = notificationHealthAccess?.status()
+        // 定位对象可能属于主线程（iOS）；只在页面真正可交互时读取，不在建页时重复查询。
         backgroundLocationGranted.value = locationSource?.hasBackgroundLocationPermission()
+        statusRefresh?.cancel()
+        statusRefresh = viewModelScope.launch {
+            // Android 的厂商接口和通知渠道会跨进程查询。不要让它们堵在绘制帧上。
+            val (live, health) = withContext(statusDispatcher) {
+                liveUpdateAccess?.status() to if (nativeHealth == null) notificationHealthAccess?.status() else null
+            }
+            liveUpdateStatus.value = live
+            polledHealth.value = health
+        }
     }
 
     private fun buildState(

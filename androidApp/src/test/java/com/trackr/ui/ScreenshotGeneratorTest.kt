@@ -981,8 +981,10 @@ class ScreenshotGeneratorTest {
                 override fun status() = LiveUpdateStatus(supported = true, allowed = false)
                 override fun openSettings() = Unit
             },
-            versionName = "0.0.3"
+            versionName = "0.0.3",
+            statusDispatcher = mainDispatcherRule.testDispatcher
         )
+        vm.onScreenResumed()
         mainDispatcherRule.testDispatcher.scheduler.advanceUntilIdle()
         return vm.uiState.value
     }
