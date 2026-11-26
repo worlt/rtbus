@@ -71,7 +71,7 @@
 
 - 收藏路线的普通详情、文字站序与追踪入口保留。
 - 高德起终点提示、公交算路和地图属于移除范围；路线规划页签和导航入口已关闭，不再注册规划 ViewModel 或 Android SDK 绑定。
-- 高德规划/地图 UI、Web 客户端及两端原生 SDK 依赖/链接已删除；普通定位仍使用系统 API。Key 设置/存储与专属隐私流程待独立清理，release、真机与 iOS 验收尚未完成。
+- 高德规划/地图 UI、Web 客户端、两端原生 SDK 依赖/链接及 Key 设置/存储与专属隐私流程已删除；普通定位仍使用系统 API。Android release 双 ABI 未签名 APK 已构建并完成产物核查；真机、真实签名升级及 iOS 实际验收尚未完成。
 
 ### 搜索与其他
 
@@ -166,14 +166,14 @@ iosApp/              Xcode 宿主（UIKit 薄壳）和 TrackrWidgets 扩展
 ./gradlew :androidApp:assembleRelease
 ```
 
-按 ABI 出两个包，不合并成一个大包（高德 SDK 的原生库只支持 arm）：
+沿用现有 ABI 拆包配置，分别输出 arm64-v8a 和 armeabi-v7a。当前本地未提供 release 签名配置，2026-11-26 构建的实际产物如下（未签名，不能直接安装/升级）：
 
 | 产物 | 大小 |
 | :--- | :--- |
-| `androidApp/build/outputs/apk/release/androidApp-arm64-v8a-release.apk` | 约 47 MB |
-| `androidApp/build/outputs/apk/release/androidApp-armeabi-v7a-release.apk` | 约 36 MB |
+| `androidApp/build/outputs/apk/release/androidApp-arm64-v8a-release-unsigned.apk` | 4,770,050 字节（约 4.55 MiB） |
+| `androidApp/build/outputs/apk/release/androidApp-armeabi-v7a-release-unsigned.apk` | 4,768,126 字节（约 4.55 MiB） |
 
-传到 GitHub Release 时按 `trackr-<版本>-arm64-v8a.apk` / `trackr-<版本>-armeabi-v7a.apk` 命名，应用会按设备架构下载对应包。
+如提供已有 release 签名配置，文件名将不带 `-unsigned`；不应将密钥或密码提交到 Git。产物哈希和验证范围见 [交接记录](tasks/HANDOFF.md)。应用内正式/测试更新源仍未配置，远程发布与元数据接入待用户确认后再处理。
 
 iOS 包（未签名，需自行重签）用 Xcode 打包，命令和限制见 [iOS 启动工程](docs/ios.md#打包-ipa)，发布资产命名 `trackr-<版本>-unsigned.ipa`。
 
