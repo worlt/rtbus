@@ -198,9 +198,17 @@ fun AboutScreen(
                     }
 
                     LinkRow(
+                        title = "本项目",
+                        value = "worlt/rtbus",
+                        onClick = { uriHandler.openUri(PROJECT_URL) }
+                    )
+
+                    DottedDivider()
+
+                    LinkRow(
                         title = "上游项目",
                         value = "5151561/Trackr",
-                        onClick = { uriHandler.openUri(PROJECT_URL) }
+                        onClick = { uriHandler.openUri(UPSTREAM_PROJECT_URL) }
                     )
 
                     DottedDivider()

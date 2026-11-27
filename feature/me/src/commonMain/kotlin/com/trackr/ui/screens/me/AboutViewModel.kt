@@ -67,8 +67,11 @@ sealed interface AboutEvent {
     data object ResumeInstall : AboutEvent
 }
 
-/** 项目主页 */
-const val PROJECT_URL: String = "https://github.com/5151561/Trackr"
+/** RTBus 项目主页；与更新元数据源分别配置。 */
+const val PROJECT_URL: String = "https://github.com/worlt/rtbus"
+
+/** 保留上游来源说明，不用于 RTBus 更新检测。 */
+const val UPSTREAM_PROJECT_URL: String = "https://github.com/5151561/Trackr"
 
 /**
  * @param updateChecker 应用内更新检查；平台没有（iOS）时为 null，页面不显示「检查更新」

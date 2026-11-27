@@ -27,9 +27,20 @@
 
 ---
 
-> **本地开发中的衍生项目**：基于 [Trackr（追客）](https://github.com/5151561/Trackr) 修改，保留原作者及贡献者的 MIT 版权和许可声明。当前已完成显示名称调整，已移除高德规划/地图 UI、数据链及两端原生 SDK 依赖/链接；Key 页面/存储与专属隐私也已移除。正式/测试更新源当前显式未配置，检查更新会给出说明且不请求上游清单；自己的远程发行源尚未接入；暂未发布 RTBus 安装包，不应把上游发行版当作 RTBus。
+> **RTBus 衍生维护版本**：[本项目 worlt/rtbus](https://github.com/worlt/rtbus) 基于 [上游 Trackr（追客）](https://github.com/5151561/Trackr) 修改，保留原作者及贡献者的 MIT 版权和许可声明。当前源码仓库为私有，访问需要仓库权限；尚未远程发布 RTBus 安装包。应用内正式/测试更新源均未配置，不会检查或安装上游版本，详见下方“检查更新的当前状态”。
 >
 > 保留原有全国城市选择、切换和查询范围，以及乘车码、小组件、追踪提醒等功能。本页截图仍为上游版本参考，后续以 RTBus 实际验收结果更新。
+
+## RTBus 相对上游的主要改动
+
+- **名称与来源**：应用显示名改为“实时公交 / Real-Time Bus”，简称 RTBus；关于页分别提供本项目与上游项目入口，保留原 MIT 版权。
+- **移除高德专属能力**：删除地图、起终点提示、公交算路、Key 设置/读写及两端 SDK/专属链接；普通系统定位、全国城市选择与查询、已有收藏路线的文字站序及追踪继续保留。
+- **单车乘车提醒**：可指定车辆提醒上车，确认“我已上车”后选择下车站并继续跟踪同车；语音与震动独立控制，保留一起等、定时提醒和后台通知。
+- **断网与恢复**：恢复网络后可在首页续查追踪，下拉刷新包含已上车的下车提醒；按追踪会话合并重复刷新。
+- **页面交互**：公交 / 我的支持左右滑动，保留各自页面状态；快速切页可从当前画面改向，详情进退与搜索词/键盘恢复已调整，原生提醒弹层支持系统返回。
+- **安装与验证**：提供继承 release 优化的 validation 双 ABI 包；v16 已完成同包名、同证书 `0.1.13 / 21` → `0.1.14 / 22` 覆盖升级，实际样本的数据与设置保留，见 [升级记录](tasks/stable-v16-upgrade-validation.md)。
+
+乘车码、小组件、收藏/分组、快捷方式、长辈版、主题、KMP/iOS 工程和更新安装校验继续保留。较新手机流畅度与日常功能已获用户反馈；旧手机慢帧排查按用户要求暂停，不能据此宣称全部卡顿已解决。iOS 仍未完成 Xcode 编译和设备验收。
 
 ## 📸 界面预览
 
@@ -44,7 +55,7 @@
 
 ## 📖 项目简介
 
-实时公交（英文名 Real-Time Bus，简称 RTBus）是一款实时公交到站追踪应用，以 Android 为主，iOS 版复用同一套页面（目前只出未签名包，见 [iOS 启动工程](docs/ios.md)）。它把「下一班还有几分钟」放在第一屏，围绕公交、线路、站点和换乘路线组织信息，没有开屏广告，也没有信息流。
+实时公交（英文名 Real-Time Bus，简称 RTBus）是一款实时公交到站追踪应用，以 Android 为主，iOS 工程复用同一套页面（尚未完成 Xcode / 设备验收，见 [iOS 启动工程](docs/ios.md)）。它把「下一班还有几分钟」放在第一屏，围绕公交、线路、站点和换乘路线组织信息，没有开屏广告，也没有信息流。
 
 应用基于 **Material Design 3 Expressive** 设计，采用 **MAD 分层架构 + Kotlin Multiplatform**：业务页面、状态和 UI 在 `commonMain`，Android / iOS 的平台能力经接口注入。数据来自车来了与掌上公交两个实时数据源，按城市自动选择可用通道。
 
@@ -71,7 +82,7 @@
 
 - 收藏路线的普通详情、文字站序与追踪入口保留。
 - 高德起终点提示、公交算路和地图属于移除范围；路线规划页签和导航入口已关闭，不再注册规划 ViewModel 或 Android SDK 绑定。
-- 高德规划/地图 UI、Web 客户端、两端原生 SDK 依赖/链接及 Key 设置/存储与专属隐私流程已删除；普通定位仍使用系统 API。Android release 双 ABI 未签名 APK 已构建并完成产物核查；真机、真实签名升级及 iOS 实际验收尚未完成。
+- 高德规划/地图 UI、Web 客户端、两端原生 SDK 依赖/链接及 Key 设置/存储与专属隐私流程已删除；普通定位仍使用系统 API。Android release 双 ABI 未签名 APK 已完成构建及产物核查，v16 同签名 validation 包已通过旧手机覆盖升级；独立生产签名发布及 iOS 实际验收尚未完成。
 
 ### 搜索与其他
 
@@ -160,13 +171,13 @@ iosApp/              Xcode 宿主（UIKit 薄壳）和 TrackrWidgets 扩展
 ./gradlew jacocoTestReport
 ```
 
-### 本轮可安装的 Android 复测包（v15）
+### 已留存的本地 Android 候选包（v16）
 
-多数安卓手机用 **[RTBus v15 · 64 位复测包](build/rtbus-validation/RTBus-20261126-swipe-v15-arm64.apk)**。只有不支持 64 位的旧机才用 [32 位复测包](build/rtbus-validation/RTBus-20261126-swipe-v15-arm32.apk)。这些是本机的构建副本，不是远程下载地址；可覆盖已有同签名「实时公交.D」，不必卸载或清除数据。
+多数安卓手机用 **[RTBus v16 · 64 位候选包](build/rtbus-validation/RTBus-20261127-stable-v16-arm64.apk)**；只有不支持 64 位的旧机才用 [32 位候选包](build/rtbus-validation/RTBus-20261127-stable-v16-arm32.apk)。这些文件只存在于本机构建目录，已被 Git 忽略；GitHub 上没有对应下载文件。
 
-v15 支持「公交 ↔ 我的」左右横滑，保留两个根页的组合；详情和弹层不参与页签横滑，底栏连续改向仍以最后点击为准。原生底部弹层使用自己窗口的返回分发，避免按返回或侧滑时没有反应。性能复测使用继承 release 优化、保留 `.debug` 包名及原调试证书的 `validation` 变体，关闭调试及覆盖率插桩。它仍是本地复测包，未发布。
+版本为 **0.1.14 / code 22**。沿用现有 `.debug` 安装身份和同一调试证书，validation 变体启用 R8 / 资源收缩、关闭调试与覆盖率插桩，可覆盖既有同签名“实时公交.D”，无需卸载或清数据；它仍不是使用独立生产证书的发行版。文件哈希、真实升级的数据保留结果及样本边界见 [v16 升级记录](tasks/stable-v16-upgrade-validation.md)。后续源码修改需重新构建后才会反映在安装包中。
 
-版本仍为 0.1.13 / code 21；用 v15 文件名和[真机验证记录](tasks/navigation-v15-device-validation.md)里的 SHA-256 核对。真机采集确认仍有慢帧，不能把主机测试通过当作所有页面已流畅；测量条件、未覆盖状态及设备编译失败的线索均在记录中。保留此前追踪、到站和重连功能；2026-11-27 用户已反馈真实乘车可用，不要求重复相同流程，逐项覆盖边界见[提醒验收记录](tasks/boarding-feedback-acceptance.md)。
+已收到真实乘车与日常功能可用的反馈，不要求重复同一流程；旧手机慢帧调查继续暂停。原始手机备份、数据库和界面证据仅留本机，未上传至源码仓库。
 
 ### 发布 Release
 
@@ -174,16 +185,22 @@ v15 支持「公交 ↔ 我的」左右横滑，保留两个根页的组合；�
 ./gradlew :androidApp:assembleRelease
 ```
 
-以下是上一阶段产物，不含本轮新增提醒功能；本轮复测请用上面的 validation 包。沿用现有 ABI 拆包配置，分别输出 arm64-v8a 和 armeabi-v7a。当前本地未提供 release 签名配置，2026-11-26 构建的实际产物如下（未签名，不能直接安装/升级）：
+v16 阶段已完成 validation 与常规 release 构建。常规 release 目前没有配置生产签名，输出为以下未签名产物，不能直接安装或覆盖升级：
 
-| 产物 | 大小 |
-| :--- | :--- |
-| `androidApp/build/outputs/apk/release/androidApp-arm64-v8a-release-unsigned.apk` | 4,770,050 字节（约 4.55 MiB） |
-| `androidApp/build/outputs/apk/release/androidApp-armeabi-v7a-release-unsigned.apk` | 4,768,126 字节（约 4.55 MiB） |
+- `androidApp/build/outputs/apk/release/androidApp-arm64-v8a-release-unsigned.apk`
+- `androidApp/build/outputs/apk/release/androidApp-armeabi-v7a-release-unsigned.apk`
 
-如提供已有 release 签名配置，文件名将不带 `-unsigned`；不应将密钥或密码提交到 Git。产物哈希和验证范围见 [交接记录](tasks/HANDOFF.md)。应用内正式/测试更新源仍未配置，远程发布与元数据接入待用户确认后再处理。
+可安装的同签名本地候选包见上一节。后续如接入生产签名，不应将密钥或密码提交到 Git；也不能直接更换现有安装的证书并声称仍可覆盖升级。
 
 iOS 包（未签名，需自行重签）用 Xcode 打包，命令和限制见 [iOS 启动工程](docs/ios.md#打包-ipa)，发布资产命名 `trackr-<版本>-unsigned.ipa`。
+
+### 检查更新的当前状态
+
+- “检查新版本”入口、正式/测试通道、按 ABI 选包及下载/安装校验均保留；**当前两组更新源均为空**。点击会提示“更新源未配置”，不会发送元数据请求，也不会把未配置误报为“已是最新版本”。
+- 不请求 Trackr 的更新清单，不回退到上游发行版。本项目代码已备份到 GitHub，但**推送源码不等于发布安装包或配置应用更新**。
+- `worlt/rtbus` 当前是私有仓库，没有 RTBus Release。普通安装包不能靠一个私有仓库链接匿名获取更新；GitHub 发布内容同样受仓库读取权限约束，见 [GitHub 发布说明](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases)。不会把维护者 GitHub 令牌打进 APK。
+- 后续需确定 RTBus 自己的可访问发布渠道，发布同包名、同签名且版本号递增的 APK 及更新元数据，再接入只指向 RTBus 的地址。HTTPS、可信下载地址、包名、版本与证书校验继续保留。
+- 现有 v16 APK 也未配置更新源；远程发布新版后，它仍不会自动发现。接入时需先手动覆盖安装一次带正确 RTBus 更新源的版本，之后才能走应用内检查与升级。
 
 ### 重新生成 README 截图
 
@@ -230,9 +247,3 @@ Key 设置入口/页面、仓库、存储读写/迁移、两端运行时装配�
 ## 📄 许可证
 
 本项目采用 [MIT License](LICENSE)。
-
----
-
-## 🌐 友情链接
-
-- [LINUX DO](https://linux.do/) —— 真诚分享、友好讨论的技术社区，本项目的交流与反馈也发布于此。
