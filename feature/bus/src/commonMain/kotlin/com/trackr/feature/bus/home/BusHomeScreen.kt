@@ -1,5 +1,15 @@
 package com.trackr.feature.bus.home
 
+import kotlinx.coroutines.launch
+
+import androidx.compose.runtime.getValue
+
+import androidx.compose.runtime.rememberCoroutineScope
+
+import androidx.compose.foundation.lazy.rememberLazyListState
+
+import androidx.compose.foundation.layout.Column
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -100,6 +110,9 @@ fun BusHomeScreen(
     modifier: Modifier = Modifier
 ) {
     val fabState = rememberTransitCodeFabState()
+    val listState = rememberLazyListState()
+    val showBackToTop by rememberShowHomeBackToTop(listState)
+    val scope = rememberCoroutineScope()
     // 底栏（页签）收起时，「乘车码」跟着一起往下走；底栏是根布局画的，这里只读它滑下去的距离
     val bottomBarCollapseOffset = LocalBottomBarCollapseOffset.current
     val topBarScrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
@@ -116,16 +129,28 @@ fun BusHomeScreen(
             )
         },
         floatingActionButton = {
-            // 「我的」里关掉了就不显示（用 NFC 刷卡的人嫌它挡住列表最后几条）
-            if (state.showTransitCodeButton) {
-                TransitCodeFab(
-                    expanded = fabState.expanded,
-                    onClick = { onEvent(BusHomeEvent.TransitCodeClicked) },
-                    // 底栏（页签）盖在页面上面，按钮要让开它；底栏收起时再把它挪到系统导航栏上方
-                    modifier = Modifier
-                        .padding(bottom = LocalBottomBarHeight.current)
-                        .offset { IntOffset(0, bottomBarCollapseOffset().roundToInt()) }
-                )
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier
+                    .padding(bottom = LocalBottomBarHeight.current)
+                    .offset { IntOffset(0, bottomBarCollapseOffset().roundToInt()) }
+            ) {
+                if (showBackToTop) {
+                    HomeBackToTopButton(onClick = {
+                        scope.launch {
+                            listState.animateScrollToItem(0)
+                            topBarScrollBehavior.state.heightOffset = 0f
+                            topBarScrollBehavior.state.contentOffset = 0f
+                        }
+                    })
+                }
+                if (state.showTransitCodeButton) {
+                    TransitCodeFab(
+                        expanded = fabState.expanded,
+                        onClick = { onEvent(BusHomeEvent.TransitCodeClicked) }
+                    )
+                }
             }
         },
         // 一次性消息：一条一条显示，显示完回报
@@ -155,6 +180,7 @@ fun BusHomeScreen(
             }
         ) {
             LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .fillMaxSize()
                     // 先让大标题展开，剩余下拉手势再交给外层刷新。
@@ -166,7 +192,11 @@ fun BusHomeScreen(
                     top = 12.dp,
                     // 留出底栏和悬浮按钮的高度，最后一个站不被挡住（按钮关掉了就不用留）
                     bottom = innerPadding.calculateBottomPadding() + LocalBottomBarHeight.current +
-                        if (state.showTransitCodeButton) FAB_CLEARANCE else 0.dp
+                        when {
+                            state.showTransitCodeButton && showBackToTop -> FAB_CLEARANCE + 68.dp
+                            state.showTransitCodeButton || showBackToTop -> FAB_CLEARANCE
+                            else -> 0.dp
+                        }
                 ),
                 verticalArrangement = Arrangement.spacedBy(TrackrTheme.dimens.spaceS)
             ) {

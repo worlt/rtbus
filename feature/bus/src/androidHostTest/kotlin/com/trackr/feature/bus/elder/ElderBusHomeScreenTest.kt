@@ -1,5 +1,11 @@
 package com.trackr.feature.bus.elder
 
+import androidx.compose.ui.unit.dp
+
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
+
+import androidx.compose.ui.test.performScrollToIndex
+
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.DeviceConfigurationOverride
 import androidx.compose.ui.test.FontScale
@@ -160,6 +166,24 @@ class ElderBusHomeScreenTest {
     }
 
     // ---- 尺寸 + 截图：浅 / 深 × 字号 1.0 / 1.5 / 2.0 ----
+
+    @Test
+    fun backToTopIsAboveTransitCodeHasLargeTouchTargetAndDoesNotRefresh() {
+        setContent(stateOf())
+        composeTestRule.onNodeWithTag("bus_home_back_to_top").assertDoesNotExist()
+        composeTestRule.onNodeWithTag(ElderBusHomeTags.LIST).performScrollToIndex(4)
+        val back = composeTestRule.onNodeWithTag("bus_home_back_to_top")
+        back.assertIsDisplayed()
+        val bounds = back.getUnclippedBoundsInRoot()
+        val payment = composeTestRule.onNodeWithTag(SHOW_TRANSIT_CODE_TAG).getUnclippedBoundsInRoot()
+        assertTrue(bounds.right - bounds.left >= 64.dp)
+        assertTrue(bounds.bottom - bounds.top >= 64.dp)
+        assertTrue(bounds.bottom <= payment.top)
+        back.performClick()
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag(ElderBusHomeTags.SEARCH).assertIsDisplayed()
+        assertTrue(events.isEmpty())
+    }
 
     @Test
     fun light_fontScale1() = assertFits(1f, darkTheme = false)

@@ -1,5 +1,15 @@
 package com.trackr.feature.bus.elder
 
+import com.trackr.feature.bus.home.rememberShowHomeBackToTop
+
+import com.trackr.feature.bus.home.HomeBackToTopButton
+
+import kotlinx.coroutines.launch
+
+import androidx.compose.runtime.rememberCoroutineScope
+
+import androidx.compose.foundation.lazy.rememberLazyListState
+
 import com.trackr.feature.bus.home.CityChangeConfirmation
 
 import androidx.compose.foundation.BorderStroke
@@ -133,6 +143,9 @@ fun ElderBusHomeScreen(
     }
     // 要结束哪一张追踪卡（长辈版多一步确认）；存 key，转屏重建后还在
     var confirmStopKey by rememberSaveable { mutableStateOf<String?>(null) }
+    val listState = rememberLazyListState()
+    val showBackToTop by rememberShowHomeBackToTop(listState)
+    val scope = rememberCoroutineScope()
 
     Scaffold(
         modifier = modifier,
@@ -145,10 +158,16 @@ fun ElderBusHomeScreen(
                 onSettingsClick = { onEvent(BusHomeEvent.OpenSettings) }
             )
         },
-        bottomBar = { ShowTransitCodeButton(onClick = { onEvent(BusHomeEvent.TransitCodeClicked) }) }
+        bottomBar = { ShowTransitCodeButton(onClick = { onEvent(BusHomeEvent.TransitCodeClicked) }) },
+        floatingActionButton = {
+            if (showBackToTop) {
+                HomeBackToTopButton(onClick = { scope.launch { listState.animateScrollToItem(0) } }, modifier = Modifier.size(ElderButtonHeight))
+            }
+        }
     ) { innerPadding ->
         val dimens = TrackrTheme.dimens
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
                 .testTag(ElderBusHomeTags.LIST),
@@ -156,7 +175,7 @@ fun ElderBusHomeScreen(
                 start = dimens.screenPadding,
                 end = dimens.screenPadding,
                 top = innerPadding.calculateTopPadding(),
-                bottom = innerPadding.calculateBottomPadding() + dimens.spaceL
+                bottom = innerPadding.calculateBottomPadding() + dimens.spaceL + if (showBackToTop) 72.dp else 0.dp
             ),
             verticalArrangement = Arrangement.spacedBy(dimens.spaceM)
         ) {

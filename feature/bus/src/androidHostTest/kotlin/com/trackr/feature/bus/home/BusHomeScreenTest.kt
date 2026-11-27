@@ -123,6 +123,50 @@ class BusHomeScreenTest {
     }
 
     @Test
+    @Config(qualifiers = "zh-rCN-w360dp-h800dp")
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun backToTopAppearsAfterScrollingAndDoesNotRequestRefresh() {
+        val initial = stateOf()
+        val longState = BusHomeMapper.derive(initial, initial.copy(
+            nearbyStops = List(20) { index -> initial.nearbyStops.first().copy(stopId = "scroll_$index", name = "站点$index") }
+        ))
+        setContent(longState)
+        composeTestRule.onNodeWithTag("bus_home_back_to_top").assertDoesNotExist()
+        composeTestRule.onNodeWithTag(BusHomeTags.LIST).performScrollToIndex(10)
+        composeTestRule.onNodeWithTag("bus_home_back_to_top").assertIsDisplayed()
+        val back = composeTestRule.onNodeWithTag("bus_home_back_to_top").getUnclippedBoundsInRoot()
+        val payment = composeTestRule.onNodeWithTag(TRANSIT_CODE_FAB_TAG).getUnclippedBoundsInRoot()
+        assertTrue("返回顶部在乘车码上方且不重叠", back.bottom + 8.dp <= payment.top)
+        System.getenv("RTBUS_SCREENSHOT_DIR")?.let { directory ->
+            val file = java.io.File(directory, "home-back-to-top.png")
+            file.parentFile?.mkdirs()
+            file.outputStream().use {
+                composeTestRule.onRoot().captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+            }
+        }
+        composeTestRule.onNodeWithTag("bus_home_back_to_top").performClick()
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag("bus_home_back_to_top").assertDoesNotExist()
+        composeTestRule.onNodeWithTag(BusHomeTags.SEARCH).assertIsDisplayed()
+        assertTrue(events.none { it == BusHomeEvent.Refresh || it == BusHomeEvent.RetryLocation })
+    }
+
+    @Test
+    fun backToTopStillWorksWhenTransitCodeButtonIsDisabled() {
+        val initial = stateOf().copy(showTransitCodeButton = false)
+        val longState = BusHomeMapper.derive(initial, initial.copy(
+            nearbyStops = List(20) { index -> initial.nearbyStops.first().copy(stopId = "hidden_$index") }
+        ))
+        setContent(longState)
+        composeTestRule.onNodeWithTag(BusHomeTags.LIST).performScrollToIndex(10)
+        composeTestRule.onNodeWithTag(TRANSIT_CODE_FAB_TAG).assertDoesNotExist()
+        composeTestRule.onNodeWithTag("bus_home_back_to_top").assertIsDisplayed().performClick()
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag(BusHomeTags.SEARCH).assertIsDisplayed()
+        assertTrue(events.isEmpty())
+    }
+
+    @Test
     fun alightingCardShowsPlateAndVehiclePositionAlongsideEta() {
         val started = checkNotNull(TrackingEngine.begin("ride", 1, TrackingTarget.SingleLine(
             cityId = "051", lineId = "l325", lineName = "325",
