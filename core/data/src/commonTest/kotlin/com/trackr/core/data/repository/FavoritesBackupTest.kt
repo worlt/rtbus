@@ -45,6 +45,30 @@ class FavoritesBackupTest {
         assertEquals(target.favoriteGroups.value, reopened.favoriteGroups.value)
     }
 
+    @Test fun sameNameGroupsRemainDistinctAndRepeatedImportsReuseEachGroup() = runTest {
+        val source = open()
+        val blue = source.createGroup("通勤", GroupColor.Preset.BLUE)
+        val another = source.createGroup("通勤")
+        source.toggleFavorite(stop("blue", "034"))
+        source.toggleFavorite(stop("another", "001"))
+        source.setGroup(FavoriteItem.stopKey("blue"), blue.id)
+        source.setGroup(FavoriteItem.stopKey("another"), another.id)
+        val text = source.exportFavorites()
+        val target = open()
+        val first = target.importFavorites(text)
+        assertEquals(2, first.groupsAdded)
+        assertEquals(2, first.added)
+        val restored = target.favoriteGroups.value.filter { it.name == "通勤" }
+        assertEquals(2, restored.size)
+        assertEquals(listOf(blue.colorKey, another.colorKey), restored.map { it.colorKey })
+        assertEquals(2, target.favoriteItems.value.map { it.groupId }.distinct().size)
+        val groups = target.favoriteGroups.value
+        val items = target.favoriteItems.value
+        assertEquals(FavoritesImportResult(0, 2, 0), target.importFavorites(text))
+        assertEquals(groups, target.favoriteGroups.value)
+        assertEquals(items, target.favoriteItems.value)
+    }
+
     @Test fun mergeKeepsExistingDataAndRepeatedImportsDoNotDuplicate() = runTest {
         val source = open(); source.toggleFavorite(stop())
         val target = open(); target.toggleFavorite(stop("same-content-other-id"))

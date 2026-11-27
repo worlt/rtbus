@@ -68,11 +68,17 @@ internal object FavoritesBackupCodec {
             while (candidate in ids) candidate = "${base}_${suffix++}"
             return candidate
         }
+        val matchedGroupIds = mutableSetOf<String>()
         for (group in incoming.groups.sortedBy { it.sortOrder }) {
-            val existing = groups.firstOrNull { it.name.trim() == group.name.trim() }
+            // 一份备份中的不同分组必须逐一匹配，不能因同名而合并。
+            val candidates = groups.filter { it.id !in matchedGroupIds && it.name.trim() == group.name.trim() }
+            val existing = candidates.firstOrNull { it.id == group.id }
+                ?: candidates.firstOrNull { it.colorKey == group.colorKey }
+                ?: candidates.firstOrNull()
             val id = existing?.id ?: unused(group.id, groups.map { it.id }.toSet())
             if (existing == null) groups += group.copy(id = id, sortOrder = (groups.maxOfOrNull { it.sortOrder } ?: -1) + 1)
             groupMap[group.id] = id
+            matchedGroupIds += id
         }
         fun FavoriteStationLine.identity() = listOf(cityId, source.name, lineId, direction.toString(),
             targetStopId.ifBlank { "order:$targetOrder" })
