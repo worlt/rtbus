@@ -56,6 +56,7 @@ import com.trackr.feature.search.searchEntries
 import com.trackr.feature.stop.stopEntries
 import com.trackr.ui.navigation.LocalAppViewModelStoreOwner
 import com.trackr.ui.navigation.rememberVisibleTabs
+import com.trackr.ui.bottombar.LocalShowBottomBar
 import com.trackr.ui.bottombar.LocalBottomBarCollapseOffset
 import com.trackr.ui.bottombar.LocalBottomBarHeight
 import com.trackr.app.navigation.AppTabBar
@@ -176,6 +177,7 @@ private fun TrackrNavApp(
 
     // 控制滑动时底部导航栏平滑收起与展开
     var isNavigationBarVisible by rememberSaveable { mutableStateOf(true) }
+    val showBottomBar: () -> Unit = remember { { isNavigationBarVisible = true } }
 
     // 切换 Tab 或从子页面返回根页面时，确保导航栏重置为显示状态
     LaunchedEffect(isTopLevel, navigationState.topLevel) {
@@ -291,6 +293,7 @@ private fun TrackrNavApp(
     }
 
     CompositionLocalProvider(
+        LocalShowBottomBar provides showBottomBar,
         LocalBottomBarCollapseOffset provides bottomBarCollapseOffset,
         LocalBottomBarHeight provides tabBarContentHeight,
     ) {

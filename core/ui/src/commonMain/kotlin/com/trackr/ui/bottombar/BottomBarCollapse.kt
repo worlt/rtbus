@@ -13,3 +13,6 @@ val LocalBottomBarHeight = staticCompositionLocalOf { 0.dp }
  * 页面在布局阶段读这个值（`Modifier.offset { }`），底栏动画时不用重组也能逐帧跟上。
  */
 val LocalBottomBarCollapseOffset = staticCompositionLocalOf<() -> Float> { { 0f } }
+
+/** 程序化返回页首时主动展开底栏；列表动画不会触发手势滚动回调。 */
+val LocalShowBottomBar = staticCompositionLocalOf<() -> Unit> { {} }

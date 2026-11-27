@@ -67,6 +67,7 @@ import com.trackr.feature.bus.resources.bus_home_switch_city
 import com.trackr.ui.components.transitcode.TransitCodeChooserSheet
 import com.trackr.ui.components.transitcode.TransitCodeFab
 import com.trackr.ui.components.transitcode.rememberTransitCodeFabState
+import com.trackr.ui.bottombar.LocalShowBottomBar
 import com.trackr.ui.bottombar.LocalBottomBarCollapseOffset
 import kotlin.math.roundToInt
 import org.jetbrains.compose.resources.stringResource
@@ -114,6 +115,7 @@ fun BusHomeScreen(
     val showBackToTop by rememberShowHomeBackToTop(listState)
     val scope = rememberCoroutineScope()
     // 底栏（页签）收起时，「乘车码」跟着一起往下走；底栏是根布局画的，这里只读它滑下去的距离
+    val showBottomBar = LocalShowBottomBar.current
     val bottomBarCollapseOffset = LocalBottomBarCollapseOffset.current
     val topBarScrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
@@ -138,6 +140,7 @@ fun BusHomeScreen(
             ) {
                 if (showBackToTop) {
                     HomeBackToTopButton(onClick = {
+                        showBottomBar()
                         scope.launch {
                             listState.animateScrollToItem(0)
                             topBarScrollBehavior.state.heightOffset = 0f

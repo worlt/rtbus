@@ -42,6 +42,7 @@ import com.trackr.core.model.TransitCity
 import com.trackr.core.model.WatchLine
 import com.trackr.core.model.WatchedLine
 import com.trackr.ui.components.transitcode.TRANSIT_CODE_FAB_TAG
+import com.trackr.ui.bottombar.LocalShowBottomBar
 import com.trackr.ui.bottombar.LocalBottomBarHeight
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -130,7 +131,14 @@ class BusHomeScreenTest {
         val longState = BusHomeMapper.derive(initial, initial.copy(
             nearbyStops = List(20) { index -> initial.nearbyStops.first().copy(stopId = "scroll_$index", name = "站点$index") }
         ))
-        setContent(longState)
+        var expandBottomBarCalls = 0
+        composeTestRule.setContent {
+            TrackrTheme {
+                CompositionLocalProvider(LocalShowBottomBar provides { expandBottomBarCalls++ }) {
+                    BusHomeScreen(state = longState, onEvent = { events += it })
+                }
+            }
+        }
         composeTestRule.onNodeWithTag("bus_home_back_to_top").assertDoesNotExist()
         composeTestRule.onNodeWithTag(BusHomeTags.LIST).performScrollToIndex(10)
         composeTestRule.onNodeWithTag("bus_home_back_to_top").assertIsDisplayed()
@@ -148,6 +156,7 @@ class BusHomeScreenTest {
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithTag("bus_home_back_to_top").assertDoesNotExist()
         composeTestRule.onNodeWithTag(BusHomeTags.SEARCH).assertIsDisplayed()
+        assertEquals("回到顶部时应主动展开底部公交 / 我的页签", 1, expandBottomBarCalls)
         assertTrue(events.none { it == BusHomeEvent.Refresh || it == BusHomeEvent.RetryLocation })
     }
 
