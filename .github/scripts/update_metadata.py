@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 import re
 
-RELEASE_REPOSITORY = "worlt/rtbus-releases"
+RELEASE_REPOSITORY = "worlt/rtbus"
 
 
 def main():

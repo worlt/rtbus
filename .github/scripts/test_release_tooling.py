@@ -11,6 +11,9 @@ spec.loader.exec_module(release)
 
 
 class ReleaseToolingTest(unittest.TestCase):
+    def test_release_preparation_uses_the_main_rtbus_repository(self):
+        self.assertEqual("worlt/rtbus", release.REPOSITORY)
+
     def test_rejects_equal_or_older_than_either_channel(self):
         for code in (23, 24, 25):
             with self.subTest(code=code), self.assertRaises(ValueError):

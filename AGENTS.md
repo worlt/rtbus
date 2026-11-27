@@ -4,7 +4,7 @@
 
 - 新任务先读 `tasks/HANDOFF.md` 和 `tasks/todo.md`，核对实际 Git 根、`git status`、最近提交及 remote；按需读 `tasks/plan.md`。不要把源码快照或品牌静态检查当作完整构建/运行通过。
 - 中文名“实时公交”，英文名 Real-Time Bus，简称 RTBus。只移除高德专属能力；全国城市切换/查询及乘车码、小组件、追踪提醒、应用内更新等现有辅助功能默认保留。验收样本不代表产品范围。
-- Git 分步验证、提交；2026-11-27 用户已授权在 worlt 账号创建私有仓库 rtbus 并备份源码，origin 为 https://github.com/worlt/rtbus.git。提交身份固定为 worlt <2516930419@qq.com>。用户随后已授权创建公开下载仓库 worlt/rtbus-releases，发布 RTBus APK / 更新清单并在已连接手机测试；源码仓库继续私有，沿用现有安装身份和证书。不覆盖用户改动，不提交密钥、本机配置或手机原始数据。
+- Git 分步验证、提交；2026-11-27 用户已授权在 worlt 账号创建私有仓库 rtbus 并备份源码，origin 为 https://github.com/worlt/rtbus.git。提交身份固定为 worlt <2516930419@qq.com>。用户随后已授权创建公开下载仓库 worlt/rtbus-releases，发布 RTBus APK / 更新清单并在已连接手机测试；随后用户于 2026-11-27 授权公开 worlt/rtbus 并整合源码、Release 与更新清单，验收后删除旧下载远端；已连接手机可测试。沿用现有安装身份和证书。不覆盖用户改动，不提交密钥、本机配置或手机原始数据。
 - 结束一个阶段或准备交接时更新 `tasks/HANDOFF.md` 和待办，记录实际验证、未完成事项及唯一明确的下一步；保留原 MIT 版权/许可。
 - 全局 Android 高德 SDK 与 iOS CocoaPods/专属链接已移除；普通定位继续用系统 API。Key 页面/仓库/存储读写与专属隐私已移除；旧 Key 文件仍排除备份，旧导航 Key 仅供反序列化兼容，不要重新引入退役能力。iOS 直接打开 xcodeproj，不运行 pod install。
 - 下方为上游工程指南，模块/类名仍可能沿用 Trackr；涉及本次产品裁剪范围时以以上用户边界及最新实现为准。

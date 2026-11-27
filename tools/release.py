@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 APPLICATION_ID = "com.github.u5151561.trackr.debug"
 CERTIFICATE_SHA256 = "51efae50fd08caf43eca935ebb2110605008ba604d008775acebda42b3ffe9c6"
 ABIS = ("arm64-v8a", "armeabi-v7a")
-REPOSITORY = "worlt/rtbus-releases"
+REPOSITORY = "worlt/rtbus"
 BACKUP_DIR = Path.home() / ".rtbus/signing-backups" / ("validation-" + CERTIFICATE_SHA256[:16])
 VERSION_RE = r"[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.]+)?"
 

@@ -37,8 +37,8 @@ class GithubUpdateChecker(
 ) : UpdateChecker {
 
     companion object {
-        // RTBus 独立下载仓库；源码仓库保持私有，不查询或回退到上游项目。
-        private const val RELEASE_METADATA_BASE = "https://raw.githubusercontent.com/worlt/rtbus-releases/main/"
+        // RTBus 统一公开仓库：源码、Release 资产和更新清单使用同一项目，不回退上游。
+        private const val RELEASE_METADATA_BASE = "https://raw.githubusercontent.com/worlt/rtbus/main/"
         val DEFAULT_ENDPOINTS: List<String> = listOf(RELEASE_METADATA_BASE + "update.json")
         val BETA_ENDPOINTS: List<String> = listOf(RELEASE_METADATA_BASE + "update-beta.json")
 

@@ -34,7 +34,7 @@ class UpdateMetadataTest(unittest.TestCase):
         update = files["update.json"]
         self.assertEqual(24, update["versionCode"])
         self.assertEqual("0.1.16", update["versionName"])
-        base = "https://github.com/worlt/rtbus-releases/releases/download/v0.1.16/"
+        base = "https://github.com/worlt/rtbus/releases/download/v0.1.16/"
         self.assertEqual(base + "RTBus-0.1.16-arm64-v8a.apk", update["downloadUrl"])
         self.assertEqual({abi: base + f"RTBus-0.1.16-{abi}.apk"
                           for abi in ["arm64-v8a", "armeabi-v7a"]}, update["downloadUrls"])

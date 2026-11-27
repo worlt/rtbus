@@ -2,9 +2,9 @@
 
 ## 仓库和身份
 
-- 源码：`worlt/rtbus`，私有。
-- 安装包与清单：`worlt/rtbus-releases`，公开。
-- 默认清单：`https://raw.githubusercontent.com/worlt/rtbus-releases/main/update.json`。
+- 源码、APK、版本说明与更新清单统一在公开仓库 [`worlt/rtbus`](https://github.com/worlt/rtbus)。
+- APK 发布在本仓库 Releases；三份元数据提交到本仓库 main，APK 不提交进 Git。
+- 默认清单：`https://raw.githubusercontent.com/worlt/rtbus/main/update.json`。
 - 测试清单：同目录 `update-beta.json`，仅用户启用“接收测试版”时一起查询。
 - 每次公开发行的 versionCode 必须高于此前所有已发出的默认 / 测试版。仅推送源码不会触发应用更新。
 - 当前连续升级渠道为 release 优化的 validation 包，保留 `.debug` 安装身份及原调试证书。独立生产身份/证书另行规划，不能直接替换证书后声称仍可覆盖旧版。
@@ -47,14 +47,14 @@ python -X utf8 tools/release.py prepare --notes-file path/to/public-notes.md --o
 产物位于全新的 `build/rtbus-release/<version>/<时间-随机标识>/`：
 
 - `assets/`：仅双 ABI APK、SHA256SUMS.txt、LICENSE，后续只上传这里的四个文件。
-- `metadata/`：默认版生成 update.json / version.json，beta 只生成 update-beta.json。不会写入公开下载仓库或覆盖现有线上清单。
+- `metadata/`：默认版生成 update.json / version.json，beta 只生成 update-beta.json。不会自动写入 main 或覆盖现有线上清单。
 - `logs/`：本机验证日志；`report.json`：版本、源提交、证书指纹、测试计数与资产哈希，均只留本机忽略目录。
 
 产物不会自动上传、提交元数据、安装到手机或连接 ADB。完成下文“草稿上传 → 匿名校验 → 提升清单”的发布步骤后，手机才会发现新版。
 
 ### 当前版本演练与复核
 
-当前已发布 0.1.16 不应被当作新版本重复发行。本地演练允许与远端最大 versionCode 相同，仍禁止更低版本；演练可运行于有未提交工具修改的工作区，报告固定 `rehearsal = true` / `ready_for_publication = false`：
+已发布版本不应被当作新版本重复发行。本地演练允许与远端最大 versionCode 相同，仍禁止更低版本；演练可运行于有未提交工具修改的工作区，报告固定 `rehearsal = true` / `ready_for_publication = false`：
 
 ```powershell
 python -X utf8 tools/release.py prepare --notes-file path/to/public-notes.md --offline --rehearsal
@@ -68,7 +68,7 @@ python -X utf8 tools/release.py verify path/to/candidate-directory
 1. 修改 `androidApp/build.gradle.kts` 的版本号，运行完整主机测试、静态检查和 `:androidApp:assembleValidation`。
 2. 检查双 ABI 包的包名、versionCode、证书、退役 SDK 边界、Baseline Profile 和 16 KB 对齐。保留已安装版本可回溯副本及数据备份，仅留本机忽略目录。
 3. 将已验证产物命名为 `RTBus-<versionName>-arm64-v8a.apk` 和 `RTBus-<versionName>-armeabi-v7a.apk`。生成 `SHA256SUMS.txt`，随附原 MIT `LICENSE`。
-4. 在公开下载仓库创建草稿 Release，上传且读回确认上述四个文件；公开前确认不含源码私密内容、签名私钥、手机数据或本机日志。发布后以匿名访问下载并对比 SHA-256。
+4. 在本仓库创建指向已审计源码提交的草稿 Release，上传且读回确认上述四个文件；公开前确认不含源码私密内容、签名私钥、手机数据或本机日志。发布后以匿名访问下载并对比 SHA-256。
 
 ## 生成与提升清单
 
@@ -79,15 +79,21 @@ PowerShell 示例（在源码根运行；版本仅为命令格式示意，须与
 ```powershell
 $env:TAG_NAME = 'v0.1.16'
 $env:RELEASE_BODY = '本次公开给用户看的改动说明'
-$env:OUTPUT_DIR = 'C:/D/A_code/tracker/rtbus-releases'
+$env:OUTPUT_DIR = 'build/rtbus-release-metadata'
 python .github/scripts/update_metadata.py
 ```
 
-生成器要求 tag 与源码 versionName 一致，读取实际 versionCode。默认版生成 `update.json` / `version.json`；带后缀的测试版只生成 `update-beta.json`。正式地址和 APK 名固定指向 `worlt/rtbus-releases`，不使用上游 Trackr。
+生成器要求 tag 与源码 versionName 一致，读取实际 versionCode。默认版生成 `update.json` / `version.json`；带后缀的测试版只生成 `update-beta.json`。正式地址和 APK 名固定指向 `worlt/rtbus`，不使用上游 Trackr。
 
-先公开并验证 APK，再提升默认清单。没有独立 beta 时，首次可将已验证默认元数据复制为 beta 清单；以后 beta 由对应更高版本替换。公开仓库只提交 README、许可和元数据，APK 仅通过 Release 资产上传。
+先公开并验证 APK，再提升默认清单。没有独立 beta 时，首次可将已验证默认元数据复制为 beta 清单；以后 beta 由对应更高版本替换。确认资产公开且匿名下载校验成功后，再把本次生成的默认 / beta / version 清单提交到本仓库 main 并推送。没有独立 beta 时三份清单同步为已验证默认版；不能让 beta 留在已删除仓库的 URL。APK 仅通过 Release 资产上传，不提交源码 Git。tag 指向实际构建源码；提升清单后的 main 可以领先于 tag。
 
-已退役源仓库的 `update-branch.yml` 自动同步流程：它会向源码仓库的 update 分支写入数据，不适用于私有源码与公开下载仓库分离的模式。当前采用校验后的显式发布，不在工作流或安装包中放维护者令牌。
+已退役源仓库的 `update-branch.yml` 自动同步流程：它会向源码仓库的 update 分支写入数据，不适用于当前 main 清单的显式提升流程。当前采用校验后的显式发布，不在工作流或安装包中放维护者令牌。
+
+## 仓库迁移与旧版兼容
+
+0.1.17 / code 25 起，App 默认源与测试源、元数据生成器、候选准备 / 校验工具都指向 worlt/rtbus。旧下载仓库的 Release 资产须原样迁移并核对 SHA-256；旧仓库 Git bundle 和原始资产仅作本地归档。源码公开前检查整个 Git 历史、敏感文件与私密日志，不把签名或手机备份加入 Git。
+
+0.1.15 / 0.1.16 的 APK 已写死旧下载仓库地址，仓库删除不会改写已安装 APK。迁移时可先在旧源临时发布指向新仓库 APK 的过渡清单，让已连接手机应用内升级；完成新源验收后再删除旧远端。其他未升级旧版需从本仓库 Releases 手动同签名覆盖一次，之后继续应用内更新。不要承诺旧 raw URL 在删除后自动跳转；不卸载、不清数据。
 
 ## 手机验收
 
