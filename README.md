@@ -173,6 +173,12 @@ iosApp/              Xcode 宿主（UIKit 薄壳）和 TrackrWidgets 扩展
 ./gradlew jacocoTestReport
 ```
 
+### 下一版改动（0.1.18，尚未发布）
+
+- 跨城默认先提示确定 / 取消；可在“我的 → 出行 → 跨城切换”改为自动切换或保持当前城市，并记住偏好。启动、下拉刷新或较久后回到首页时检查位置；取消后本次使用不重复询问同一城市。
+- 首页滚动较远后，在乘车码按钮上方显示返回顶部；点击只回顶部，不刷新。关闭乘车码后仍可返回顶部，长辈版也支持。
+- 本轮仅准备本地同签名验证包，线上下载与更新清单保持下方的 0.1.17；验收见 [本次记录](tasks/city-change-and-scroll-validation.md)。
+
 ### 当前 Android 安装包（0.1.17）
 
 多数安卓手机用 **[64 位 APK（arm64-v8a）](https://github.com/worlt/rtbus/releases/download/v0.1.17/RTBus-0.1.17-arm64-v8a.apk)**；只有不支持 64 位的旧机才用 [32 位 APK（armeabi-v7a）](https://github.com/worlt/rtbus/releases/download/v0.1.17/RTBus-0.1.17-armeabi-v7a.apk)。[版本说明和 SHA-256 校验文件](https://github.com/worlt/rtbus/releases/tag/v0.1.17) 与源码统一位于本仓库。
