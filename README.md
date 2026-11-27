@@ -173,19 +173,19 @@ iosApp/              Xcode 宿主（UIKit 薄壳）和 TrackrWidgets 扩展
 ./gradlew jacocoTestReport
 ```
 
-### 下一版改动（0.1.18，尚未发布）
+### 最新版改动（0.1.18，2026-11-27）
 
 - 跨城默认先提示确定 / 取消；可在“我的 → 出行 → 跨城切换”改为自动切换或保持当前城市，并记住偏好。启动、下拉刷新或较久后回到首页时检查位置；取消后本次使用不重复询问同一城市。
 - 首页滚动较远后，在乘车码按钮上方显示返回顶部；点击只回顶部，不刷新，并同时展开底部“公交 / 我的”。关闭乘车码后仍可返回顶部，长辈版也支持。
 - Android“我的 → 收藏备份”可通过系统文件选择器导出 / 导入 JSON，包含收藏线路、站点、路线、分组颜色和顺序。导入会合并去重、保留现有收藏；不包含应用设置、提醒任务或定位记录，无需存储目录权限。文件上限 8 MB。
 - 首页长按线路、站点或路线收藏可弹出删除确认；取消保留，确认只删除选中的一条。长辈版同步支持，普通点按仍打开详情。
-- 本地同签名双 ABI 包已完成 1,726 项主机测试、47 项静态检查及手机功能验收，包括收藏取消 / 精确删除与重启保存。尚未推送或发布，线上下载与更新清单保持下方的 0.1.17；验收范围见 [本次记录](tasks/city-change-and-scroll-validation.md)。
+- 同签名双 ABI 包已完成 1,726 项主机测试、47 项静态检查及手机功能验收，包括收藏取消 / 精确删除与重启保存。0.1.18 已发布，默认 / 测试 / 兼容更新清单均为 code 26；范围见 [功能验收](tasks/city-change-and-scroll-validation.md) 与 [发布记录](tasks/release-0.1.18-validation.md)。
 
-### 当前 Android 安装包（0.1.17）
+### 当前 Android 安装包（0.1.18）
 
-多数安卓手机用 **[64 位 APK（arm64-v8a）](https://github.com/worlt/rtbus/releases/download/v0.1.17/RTBus-0.1.17-arm64-v8a.apk)**；只有不支持 64 位的旧机才用 [32 位 APK（armeabi-v7a）](https://github.com/worlt/rtbus/releases/download/v0.1.17/RTBus-0.1.17-armeabi-v7a.apk)。[版本说明和 SHA-256 校验文件](https://github.com/worlt/rtbus/releases/tag/v0.1.17) 与源码统一位于本仓库。
+多数安卓手机用 **[64 位 APK（arm64-v8a）](https://github.com/worlt/rtbus/releases/download/v0.1.18/RTBus-0.1.18-arm64-v8a.apk)**；只有不支持 64 位的旧机才用 [32 位 APK（armeabi-v7a）](https://github.com/worlt/rtbus/releases/download/v0.1.18/RTBus-0.1.18-armeabi-v7a.apk)。[版本说明和 SHA-256 校验文件](https://github.com/worlt/rtbus/releases/tag/v0.1.18) 与源码统一位于本仓库。
 
-版本为 **0.1.17 / code 25**。沿用现有 `.debug` 安装身份和同一调试证书，validation 变体启用 R8 / 资源收缩、关闭调试与覆盖率插桩，可覆盖既有同签名“实时公交.D”，无需卸载或清数据；它仍不是使用独立生产证书的发行版。双 ABI 均已核验包名、版本、证书、Baseline Profile 和 16 KB 对齐，匿名下载的文件哈希与本地一致。
+版本为 **0.1.18 / code 26**。沿用现有 `.debug` 安装身份和同一调试证书，validation 变体启用 R8 / 资源收缩、关闭调试与覆盖率插桩，可覆盖既有同签名“实时公交.D”，无需卸载或清数据；它仍不是使用独立生产证书的发行版。双 ABI 均已核验包名、版本、证书、Baseline Profile 和 16 KB 对齐，匿名下载的文件哈希与本地一致。
 
 **旧版迁移**：0.1.14 没有更新源；旧下载仓库已于 2026-11-27 删除，0.1.15 / 0.1.16 内置的旧地址已无法自动检查。请从本节下载新包，同签名覆盖一次；不要卸载或清数据。0.1.17 起通过“我的 → 关于实时公交 → 检查新版本”直接查询本仓库。历史 [0.1.16 真机升级记录](tasks/update-v17-validation.md) 与 [v16 升级记录](tasks/stable-v16-upgrade-validation.md) 保留，新版迁移验证见 [本次记录](tasks/repository-migration-validation.md)。
 

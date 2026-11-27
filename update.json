@@ -1,12 +1,12 @@
 {
-  "versionCode": 25,
-  "versionName": "0.1.17",
+  "versionCode": 26,
+  "versionName": "0.1.18",
   "minSupportedVersionCode": 1,
-  "changelog": "RTBus 0.1.17（versionCode 25）\n\n- 源码、APK、版本说明和更新清单统一到公开仓库 worlt/rtbus。\n- 应用默认 / 测试更新源及发版工具全部切换到本仓库，不查询或回退上游 Trackr。\n- 保留原包名、同一证书、用户数据和现有公交功能，可直接覆盖升级。\n\n多数手机选择 arm64-v8a；仅支持 32 位的旧机选 armeabi-v7a。当前仍为 release 优化的 validation 包，沿用既有 .debug 安装身份和调试证书，不是独立生产签名发行版。\n\n迁移提醒：0.1.15 / 0.1.16 内置旧下载仓库的地址；旧仓库删除后，这些版本无法自动检查更新，请从本仓库 Releases 手动下载新包覆盖一次。无需卸载或清除数据。0.1.17 起在“我的 → 关于实时公交 → 检查新版本”查询本仓库。\n\n基于 5151561/Trackr，保留原 MIT 许可证及 busonroad contributors 版权。",
-  "downloadUrl": "https://github.com/worlt/rtbus/releases/download/v0.1.17/RTBus-0.1.17-arm64-v8a.apk",
+  "changelog": "RTBus 0.1.18（versionCode 26）\n\n- 跨城默认先询问“确定 / 取消”，可在“我的 → 出行 → 跨城切换”选择自动切换或保持当前城市，偏好会保存。\n- 首页滚动较远后，在乘车码上方显示“返回顶部”；只滚动、不刷新，并恢复底部“公交 / 我的”。关闭乘车码和长辈版也支持。\n- Android 新增“我的 → 收藏备份”：通过系统文件选择器导出 / 导入 JSON，保留线路、站点、路线、分组颜色和顺序；导入合并去重，不清空已有收藏。\n- 首页长按线路、站点或路线收藏可确认删除，取消会保留；只删除选中的条目，长辈版同步支持。\n\n沿用原包名和同一证书，可直接覆盖升级，无需卸载或清除数据。多数手机选择 arm64-v8a；仅支持 32 位的旧机选择 armeabi-v7a。\n\n验证：1,726 项主机测试、47 项静态检查通过；已在一台 arm64 手机上覆盖安装，验证本轮功能及删除后的重启保存。32 位包完成构建与签名等审计，未做 32 位真机安装；iOS 未完成设备验收。本次不宣称旧手机卡顿已解决。\n\n当前仍为经过 R8 / 资源收缩的 validation 个人升级通道，沿用既有 .debug 安装身份和调试证书，不是独立生产签名发行版。\n\n0.1.17 起可在“我的 → 关于实时公交 → 检查新版本”获取本项目更新。0.1.15 / 0.1.16 内置已删除的旧下载仓库地址，请从本仓库 Releases 手动下载覆盖一次；不要卸载或清除数据。\n\n基于 5151561/Trackr，保留原 MIT 许可证及 busonroad contributors 版权。双 ABI APK、SHA256SUMS.txt 与 LICENSE 随本 Release 提供。",
+  "downloadUrl": "https://github.com/worlt/rtbus/releases/download/v0.1.18/RTBus-0.1.18-arm64-v8a.apk",
   "downloadUrls": {
-    "arm64-v8a": "https://github.com/worlt/rtbus/releases/download/v0.1.17/RTBus-0.1.17-arm64-v8a.apk",
-    "armeabi-v7a": "https://github.com/worlt/rtbus/releases/download/v0.1.17/RTBus-0.1.17-armeabi-v7a.apk"
+    "arm64-v8a": "https://github.com/worlt/rtbus/releases/download/v0.1.18/RTBus-0.1.18-arm64-v8a.apk",
+    "armeabi-v7a": "https://github.com/worlt/rtbus/releases/download/v0.1.18/RTBus-0.1.18-armeabi-v7a.apk"
   },
   "publishTime": "2026-11-27",
   "forceUpdate": false
