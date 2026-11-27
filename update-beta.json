@@ -1,12 +1,12 @@
 {
-  "versionCode": 24,
-  "versionName": "0.1.16",
+  "versionCode": 25,
+  "versionName": "0.1.17",
   "minSupportedVersionCode": 1,
-  "changelog": "RTBus 0.1.16（versionCode 24）\n\n- 接入 RTBus 自己的正式 / 测试更新清单，不检查或回退上游 Trackr。\n- 关于页区分本项目与上游项目，保留原版权。\n- 保留此前单车提醒、网络恢复、横滑切页及日常功能。\n\n多数手机选 arm64-v8a，32 位旧机选 armeabi-v7a。当前为个人升级通道：release 优化的 validation 包，沿用既有 .debug 包名和调试证书，不是独立生产签名发行版。同签名 RTBus 可直接覆盖安装，不必卸载或清除数据。原 v16（0.1.14）尚无更新源，需手动覆盖一次新包。\n\n来源：基于 5151561/Trackr，保留 MIT 及 busonroad contributors 版权。源码、APK 和更新清单现统一在 worlt/rtbus。本版保留原始 APK，内置旧更新源；请优先安装最新版本。",
-  "downloadUrl": "https://github.com/worlt/rtbus/releases/download/v0.1.16/RTBus-0.1.16-arm64-v8a.apk",
+  "changelog": "RTBus 0.1.17（versionCode 25）\n\n- 源码、APK、版本说明和更新清单统一到公开仓库 worlt/rtbus。\n- 应用默认 / 测试更新源及发版工具全部切换到本仓库，不查询或回退上游 Trackr。\n- 保留原包名、同一证书、用户数据和现有公交功能，可直接覆盖升级。\n\n多数手机选择 arm64-v8a；仅支持 32 位的旧机选 armeabi-v7a。当前仍为 release 优化的 validation 包，沿用既有 .debug 安装身份和调试证书，不是独立生产签名发行版。\n\n迁移提醒：0.1.15 / 0.1.16 内置旧下载仓库的地址；旧仓库删除后，这些版本无法自动检查更新，请从本仓库 Releases 手动下载新包覆盖一次。无需卸载或清除数据。0.1.17 起在“我的 → 关于实时公交 → 检查新版本”查询本仓库。\n\n基于 5151561/Trackr，保留原 MIT 许可证及 busonroad contributors 版权。",
+  "downloadUrl": "https://github.com/worlt/rtbus/releases/download/v0.1.17/RTBus-0.1.17-arm64-v8a.apk",
   "downloadUrls": {
-    "arm64-v8a": "https://github.com/worlt/rtbus/releases/download/v0.1.16/RTBus-0.1.16-arm64-v8a.apk",
-    "armeabi-v7a": "https://github.com/worlt/rtbus/releases/download/v0.1.16/RTBus-0.1.16-armeabi-v7a.apk"
+    "arm64-v8a": "https://github.com/worlt/rtbus/releases/download/v0.1.17/RTBus-0.1.17-arm64-v8a.apk",
+    "armeabi-v7a": "https://github.com/worlt/rtbus/releases/download/v0.1.17/RTBus-0.1.17-armeabi-v7a.apk"
   },
   "publishTime": "2026-11-27",
   "forceUpdate": false
