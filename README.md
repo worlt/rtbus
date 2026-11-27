@@ -202,7 +202,7 @@ iOS 包（未签名，需自行重签）用 Xcode 打包，命令和限制见 [i
 
 - 默认清单为 `https://raw.githubusercontent.com/worlt/rtbus/main/update.json`；启用“接收测试版”后额外查询同目录 `update-beta.json`。无独立测试版时，beta 清单与默认版一致。
 - 下载地址只指向本仓库的 RTBus Release；不请求 Trackr 清单、不回退上游，APK 不包含维护者 GitHub 令牌。
-- 保留 HTTPS、可信下载地址、按 ABI 选包、包名、递增版本与同证书校验。历史 0.1.16 已完成应用内升级；0.1.17 的构建 / 迁移与手机验收结果见 [本次记录](tasks/repository-migration-validation.md)。
+- 保留 HTTPS、可信下载地址、按 ABI 选包、包名、递增版本与同证书校验。已在一台 arm64 手机完成 0.1.16 → 0.1.17 的应用内下载 / 系统安装器覆盖升级，新源再次检测为最新，原数据库与设置一致；首轮网络重置及采样边界见 [本次记录](tasks/repository-migration-validation.md)。
 - 旧 v16 APK 没有更新源；0.1.15 / 0.1.16 的内置源仍是原独立下载仓库，删除旧仓库后无法自动发现新版本。请从本仓库 Releases 下载最新 APK 同签名覆盖一次，不要卸载或清数据。推送源码不会自动发布更新，发行需先验证 APK，再提升公开清单，见 [RTBus 更新发行流程](docs/updates.md)。
 - GitHub / raw.githubusercontent.com 不可达时可能检查或下载失败；本轮在已连接手机的实际网络成功，不代表所有网络环境均可访问。
 
