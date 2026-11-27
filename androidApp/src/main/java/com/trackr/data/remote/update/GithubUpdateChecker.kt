@@ -37,9 +37,10 @@ class GithubUpdateChecker(
 ) : UpdateChecker {
 
     companion object {
-        // 本地开发阶段未接入 RTBus 的发行源；不能回退到上游项目。
-        val DEFAULT_ENDPOINTS: List<String> = emptyList()
-        val BETA_ENDPOINTS: List<String> = emptyList()
+        // RTBus 独立下载仓库；源码仓库保持私有，不查询或回退到上游项目。
+        private const val RELEASE_METADATA_BASE = "https://raw.githubusercontent.com/worlt/rtbus-releases/main/"
+        val DEFAULT_ENDPOINTS: List<String> = listOf(RELEASE_METADATA_BASE + "update.json")
+        val BETA_ENDPOINTS: List<String> = listOf(RELEASE_METADATA_BASE + "update-beta.json")
 
         /** 更新包下载地址允许的域名白名单（精确匹配，不含子域名） */
         val ALLOWED_DOWNLOAD_HOSTS = setOf(

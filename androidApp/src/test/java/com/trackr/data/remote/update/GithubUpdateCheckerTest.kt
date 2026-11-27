@@ -29,12 +29,41 @@ import java.util.concurrent.atomic.AtomicInteger
 class GithubUpdateCheckerTest {
 
     @Test
-    fun checkForUpdates_defaultStableSource_isNotConfiguredWithoutRequests() = runTest {
+    fun checkForUpdates_defaultStableSource_readsOnlyRtbusReleaseRepository() = runTest {
+        assertDefaultRtbusSources(includeBeta = false)
+    }
+
+    @Test
+    fun checkForUpdates_defaultBetaSources_readOnlyRtbusReleaseRepository() = runTest {
+        assertDefaultRtbusSources(includeBeta = true)
+    }
+
+    private suspend fun assertDefaultRtbusSources(includeBeta: Boolean) {
+        val requestedUrls = java.util.concurrent.ConcurrentLinkedQueue<String>()
+        val client = HttpClient(MockEngine { request ->
+            requestedUrls += request.url.toString()
+            respondJson(releasePayload(24))
+        })
+        try {
+            val result = GithubUpdateChecker(client).checkForUpdates(23, "0.1.15", includeBeta)
+            assertTrue(result is UpdateCheckResult.HasUpdate)
+            val base = "https://raw.githubusercontent.com/worlt/rtbus-releases/main/"
+            val expected = if (includeBeta) setOf(base + "update.json", base + "update-beta.json")
+                else setOf(base + "update.json")
+            assertEquals(expected, requestedUrls.toSet())
+            assertEquals(expected.size, requestedUrls.size)
+        } finally {
+            client.close()
+        }
+    }
+
+    @Test
+    fun checkForUpdates_explicitEmptyStableSource_isNotConfiguredWithoutRequests() = runTest {
         assertDefaultNotConfigured(includeBeta = false)
     }
 
     @Test
-    fun checkForUpdates_defaultBetaSources_areNotConfiguredWithoutRequests() = runTest {
+    fun checkForUpdates_explicitEmptyBetaSources_areNotConfiguredWithoutRequests() = runTest {
         assertDefaultNotConfigured(includeBeta = true)
     }
 
@@ -45,7 +74,8 @@ class GithubUpdateCheckerTest {
             error("Unconfigured source must not request metadata")
         })
         try {
-            val result = GithubUpdateChecker(client).checkForUpdates(2, "0.0.2", includeBeta)
+            val result = GithubUpdateChecker(client, endpointUrls = emptyList(), betaEndpointUrls = emptyList())
+                .checkForUpdates(2, "0.0.2", includeBeta)
             assertEquals(UpdateCheckResult.NotConfigured, result)
             assertEquals(0, requests.get())
         } finally {
@@ -102,7 +132,7 @@ class GithubUpdateCheckerTest {
                 "versionName": "0.0.3",
                 "minSupportedVersionCode": 1,
                 "changelog": "新特性 1\n新特性 2",
-                "downloadUrl": "https://github.com/5151561/Trackr/releases/tag/v0.0.3",
+                "downloadUrl": "https://github.com/worlt/rtbus-releases/releases/tag/v0.0.3",
                 "publishTime": "2026-10-30",
                 "forceUpdate": false
             }
@@ -118,7 +148,7 @@ class GithubUpdateCheckerTest {
         assertEquals(3, hasUpdate.updateInfo.versionCode)
         assertEquals("0.0.3", hasUpdate.updateInfo.versionName)
         assertEquals("新特性 1\n新特性 2", hasUpdate.updateInfo.changelog)
-        assertEquals("https://github.com/5151561/Trackr/releases/tag/v0.0.3", hasUpdate.updateInfo.downloadUrl)
+        assertEquals("https://github.com/worlt/rtbus-releases/releases/tag/v0.0.3", hasUpdate.updateInfo.downloadUrl)
         assertFalse(hasUpdate.isForceUpdate)
     }
 
@@ -130,7 +160,7 @@ class GithubUpdateCheckerTest {
                 "versionName": "0.0.2",
                 "minSupportedVersionCode": 1,
                 "changelog": "更新说明",
-                "downloadUrl": "https://github.com/5151561/Trackr/releases",
+                "downloadUrl": "https://github.com/worlt/rtbus-releases/releases",
                 "publishTime": "2026-10-30",
                 "forceUpdate": false
             }
@@ -153,7 +183,7 @@ class GithubUpdateCheckerTest {
                 "versionName": "1.0.0",
                 "minSupportedVersionCode": 5,
                 "changelog": "大版本升级",
-                "downloadUrl": "https://github.com/5151561/Trackr/releases",
+                "downloadUrl": "https://github.com/worlt/rtbus-releases/releases",
                 "forceUpdate": false
             }
         """.trimIndent()
@@ -174,7 +204,7 @@ class GithubUpdateCheckerTest {
                 "versionCode": 3,
                 "versionName": "0.0.3",
                 "changelog": "Fallback successful",
-                "downloadUrl": "https://github.com/5151561/Trackr/releases"
+                "downloadUrl": "https://github.com/worlt/rtbus-releases/releases"
             }
         """.trimIndent()
 
@@ -219,7 +249,7 @@ class GithubUpdateCheckerTest {
         assertEquals(12, result.updateInfo.versionCode)
         assertEquals("0.1.8", result.updateInfo.versionName)
         assertEquals("Release 12", result.updateInfo.changelog)
-        assertEquals("https://github.com/5151561/Trackr/releases/download/v0.1.8/arm64.apk", result.updateInfo.downloadUrl)
+        assertEquals("https://github.com/worlt/rtbus-releases/releases/download/v0.1.8/arm64.apk", result.updateInfo.downloadUrl)
         assertTrue(result.isForceUpdate)
     }
 
@@ -324,9 +354,9 @@ class GithubUpdateCheckerTest {
             "versionName": "0.1.${versionCode - 4}",
             "changelog": "Release $versionCode",
             "minSupportedVersionCode": ${if (versionCode == 12) 11 else 1},
-            "downloadUrl": "https://github.com/5151561/Trackr/releases/tag/v0.1.${versionCode - 4}",
+            "downloadUrl": "https://github.com/worlt/rtbus-releases/releases/tag/v0.1.${versionCode - 4}",
             "downloadUrls": {
-                "arm64-v8a": "https://github.com/5151561/Trackr/releases/download/v0.1.${versionCode - 4}/arm64.apk"
+                "arm64-v8a": "https://github.com/worlt/rtbus-releases/releases/download/v0.1.${versionCode - 4}/arm64.apk"
             }
         }
     """.trimIndent()
@@ -349,7 +379,7 @@ class GithubUpdateCheckerTest {
     @Test
     fun checkForUpdates_whenDownloadUrlIsHttp_returnsError() = runTest {
         val checker = GithubUpdateChecker(
-            httpClient = clientReturning(payloadWithDownloadUrl("http://github.com/5151561/Trackr/releases")),
+            httpClient = clientReturning(payloadWithDownloadUrl("http://github.com/worlt/rtbus-releases/releases")),
             endpointUrls = listOf("https://example.com/update.json")
         )
         val result = checker.checkForUpdates(currentVersionCode = 2, currentVersionName = "0.0.2")
@@ -413,7 +443,7 @@ class GithubUpdateCheckerTest {
             as UpdateCheckResult.HasUpdate
 
         assertEquals(
-            "https://github.com/5151561/Trackr/releases/download/v0.0.3/trackr-0.0.3-arm64-v8a.apk",
+            "https://github.com/worlt/rtbus-releases/releases/download/v0.0.3/trackr-0.0.3-arm64-v8a.apk",
             result.updateInfo.downloadUrl
         )
     }
@@ -430,7 +460,7 @@ class GithubUpdateCheckerTest {
             as UpdateCheckResult.HasUpdate
 
         assertEquals(
-            "https://github.com/5151561/Trackr/releases/download/v0.0.3/trackr-0.0.3-armeabi-v7a.apk",
+            "https://github.com/worlt/rtbus-releases/releases/download/v0.0.3/trackr-0.0.3-armeabi-v7a.apk",
             result.updateInfo.downloadUrl
         )
     }
@@ -447,7 +477,7 @@ class GithubUpdateCheckerTest {
             as UpdateCheckResult.HasUpdate
 
         assertEquals(
-            "https://github.com/5151561/Trackr/releases/tag/v0.0.3",
+            "https://github.com/worlt/rtbus-releases/releases/tag/v0.0.3",
             result.updateInfo.downloadUrl
         )
     }
@@ -459,7 +489,7 @@ class GithubUpdateCheckerTest {
                 "versionCode": 3,
                 "versionName": "0.0.3",
                 "changelog": "更新说明",
-                "downloadUrl": "https://github.com/5151561/Trackr/releases/tag/v0.0.3",
+                "downloadUrl": "https://github.com/worlt/rtbus-releases/releases/tag/v0.0.3",
                 "downloadUrls": {
                     "arm64-v8a": "https://evil.example.com/trackr.apk"
                 }
@@ -475,7 +505,7 @@ class GithubUpdateCheckerTest {
             as UpdateCheckResult.HasUpdate
 
         assertEquals(
-            "https://github.com/5151561/Trackr/releases/tag/v0.0.3",
+            "https://github.com/worlt/rtbus-releases/releases/tag/v0.0.3",
             result.updateInfo.downloadUrl
         )
     }
@@ -485,24 +515,24 @@ class GithubUpdateCheckerTest {
             "versionCode": 3,
             "versionName": "0.0.3",
             "changelog": "更新说明",
-            "downloadUrl": "https://github.com/5151561/Trackr/releases/tag/v0.0.3",
+            "downloadUrl": "https://github.com/worlt/rtbus-releases/releases/tag/v0.0.3",
             "downloadUrls": {
-                "arm64-v8a": "https://github.com/5151561/Trackr/releases/download/v0.0.3/trackr-0.0.3-arm64-v8a.apk",
-                "armeabi-v7a": "https://github.com/5151561/Trackr/releases/download/v0.0.3/trackr-0.0.3-armeabi-v7a.apk"
+                "arm64-v8a": "https://github.com/worlt/rtbus-releases/releases/download/v0.0.3/trackr-0.0.3-arm64-v8a.apk",
+                "armeabi-v7a": "https://github.com/worlt/rtbus-releases/releases/download/v0.0.3/trackr-0.0.3-armeabi-v7a.apk"
             }
         }
     """.trimIndent()
 
     @Test
     fun isAllowedDownloadUrl_validatesSchemeAndHost() {
-        assertTrue(GithubUpdateChecker.isAllowedDownloadUrl("https://github.com/5151561/Trackr/releases"))
+        assertTrue(GithubUpdateChecker.isAllowedDownloadUrl("https://github.com/worlt/rtbus-releases/releases"))
         assertTrue(GithubUpdateChecker.isAllowedDownloadUrl("https://objects.githubusercontent.com/a/b.apk"))
         assertTrue(GithubUpdateChecker.isAllowedDownloadUrl("https://raw.githubusercontent.com/a/b.apk"))
         assertTrue(GithubUpdateChecker.isAllowedDownloadUrl("https://cdn.jsdelivr.net/gh/a/b.apk"))
         assertTrue(GithubUpdateChecker.isAllowedDownloadUrl("https://fastly.jsdelivr.net/gh/a/b.apk"))
         assertTrue(GithubUpdateChecker.isAllowedDownloadUrl("https://GitHub.com/5151561/Trackr"))
 
-        assertFalse(GithubUpdateChecker.isAllowedDownloadUrl("http://github.com/5151561/Trackr"))
+        assertFalse(GithubUpdateChecker.isAllowedDownloadUrl("http://github.com/worlt/rtbus-releases"))
         assertFalse(GithubUpdateChecker.isAllowedDownloadUrl("https://github.com.evil.com/a.apk"))
         assertFalse(GithubUpdateChecker.isAllowedDownloadUrl("https://evilgithub.com/a.apk"))
         assertFalse(GithubUpdateChecker.isAllowedDownloadUrl("https://user@evil.com/github.com"))

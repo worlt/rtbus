@@ -25,8 +25,8 @@ android {
 
     defaultConfig {
         applicationId = "com.github.u5151561.trackr"
-        versionCode = 22
-        versionName = "0.1.14"
+        versionCode = 24
+        versionName = "0.1.16"
 
         // 第 9 步存储开关 USE_NEW_STORE 的默认值（true = Room + DataStore）；运行时可用 files/store_switch 覆盖，见 StoreSwitch
         buildConfigField(
