@@ -27,7 +27,7 @@
 
 ---
 
-> **RTBus 衍生维护版本**：[本项目 worlt/rtbus](https://github.com/worlt/rtbus) 基于 [上游 Trackr（追客）](https://github.com/5151561/Trackr) 修改，保留原作者及贡献者的 MIT 版权和许可声明。当前源码仓库为私有，访问需要仓库权限；尚未远程发布 RTBus 安装包。应用内正式/测试更新源均未配置，不会检查或安装上游版本，详见下方“检查更新的当前状态”。
+> **RTBus 衍生维护版本**：[本项目 worlt/rtbus](https://github.com/worlt/rtbus) 基于 [上游 Trackr（追客）](https://github.com/5151561/Trackr) 修改，保留原作者及贡献者的 MIT 版权和许可声明。源码仓库保持私有，安装包和更新清单发布在独立的 [RTBus 下载仓库](https://github.com/worlt/rtbus-releases)。应用只检查 RTBus 自己的版本，不检查或安装上游版本，详见下方“检查更新的当前状态”。
 >
 > 保留原有全国城市选择、切换和查询范围，以及乘车码、小组件、追踪提醒等功能。本页截图仍为上游版本参考，后续以 RTBus 实际验收结果更新。
 
@@ -38,7 +38,7 @@
 - **单车乘车提醒**：可指定车辆提醒上车，确认“我已上车”后选择下车站并继续跟踪同车；语音与震动独立控制，保留一起等、定时提醒和后台通知。
 - **断网与恢复**：恢复网络后可在首页续查追踪，下拉刷新包含已上车的下车提醒；按追踪会话合并重复刷新。
 - **页面交互**：公交 / 我的支持左右滑动，保留各自页面状态；快速切页可从当前画面改向，详情进退与搜索词/键盘恢复已调整，原生提醒弹层支持系统返回。
-- **安装与验证**：提供继承 release 优化的 validation 双 ABI 包；v16 已完成同包名、同证书 `0.1.13 / 21` → `0.1.14 / 22` 覆盖升级，实际样本的数据与设置保留，见 [升级记录](tasks/stable-v16-upgrade-validation.md)。
+- **安装与验证**：提供继承 release 优化的 validation 双 ABI 包；已公开 0.1.16，并在手机完成 `0.1.14 / 22` → 带源过渡版 `0.1.15 / 23` → 应用内下载升级 `0.1.16 / 24`，实际样本的数据与设置保留，见 [更新验收记录](tasks/update-v17-validation.md)。
 
 乘车码、小组件、收藏/分组、快捷方式、长辈版、主题、KMP/iOS 工程和更新安装校验继续保留。较新手机流畅度与日常功能已获用户反馈；旧手机慢帧排查按用户要求暂停，不能据此宣称全部卡顿已解决。iOS 仍未完成 Xcode 编译和设备验收。
 
@@ -171,13 +171,15 @@ iosApp/              Xcode 宿主（UIKit 薄壳）和 TrackrWidgets 扩展
 ./gradlew jacocoTestReport
 ```
 
-### 已留存的本地 Android 候选包（v16）
+### 当前 Android 安装包（0.1.16）
 
-多数安卓手机用 **[RTBus v16 · 64 位候选包](build/rtbus-validation/RTBus-20261127-stable-v16-arm64.apk)**；只有不支持 64 位的旧机才用 [32 位候选包](build/rtbus-validation/RTBus-20261127-stable-v16-arm32.apk)。这些文件只存在于本机构建目录，已被 Git 忽略；GitHub 上没有对应下载文件。
+多数安卓手机用 **[64 位 APK（arm64-v8a）](https://github.com/worlt/rtbus-releases/releases/download/v0.1.16/RTBus-0.1.16-arm64-v8a.apk)**；只有不支持 64 位的旧机才用 [32 位 APK（armeabi-v7a）](https://github.com/worlt/rtbus-releases/releases/download/v0.1.16/RTBus-0.1.16-armeabi-v7a.apk)。[版本说明和 SHA-256 校验文件](https://github.com/worlt/rtbus-releases/releases/tag/v0.1.16) 位于公开下载仓库；源码仍为私有。
 
-版本为 **0.1.14 / code 22**。沿用现有 `.debug` 安装身份和同一调试证书，validation 变体启用 R8 / 资源收缩、关闭调试与覆盖率插桩，可覆盖既有同签名“实时公交.D”，无需卸载或清数据；它仍不是使用独立生产证书的发行版。文件哈希、真实升级的数据保留结果及样本边界见 [v16 升级记录](tasks/stable-v16-upgrade-validation.md)。后续源码修改需重新构建后才会反映在安装包中。
+版本为 **0.1.16 / code 24**。沿用现有 `.debug` 安装身份和同一调试证书，validation 变体启用 R8 / 资源收缩、关闭调试与覆盖率插桩，可覆盖既有同签名“实时公交.D”，无需卸载或清数据；它仍不是使用独立生产证书的发行版。双 ABI 均已核验包名、版本、证书、Baseline Profile 和 16 KB 对齐，匿名下载的文件哈希与本地一致。
 
-已收到真实乘车与日常功能可用的反馈，不要求重复同一流程；旧手机慢帧调查继续暂停。原始手机备份、数据库和界面证据仅留本机，未上传至源码仓库。
+旧 v16（0.1.14）没有更新源，需要先手动安装本节新包一次；之后通过“我的 → 关于实时公交 → 检查新版本”更新。真机已完成带源过渡版到本版的应用内下载安装，最终显示“已是最新版本”，原数据与设置保留，详见 [本次验收与边界](tasks/update-v17-validation.md)。旧 [v16 升级记录](tasks/stable-v16-upgrade-validation.md) 留作历史参考。
+
+已收到真实乘车与日常功能可用的反馈，不要求重复同一流程；旧手机慢帧调查继续暂停。原始手机备份、数据库和界面证据仅留本机，不上传。
 
 ### 发布 Release
 
@@ -190,17 +192,17 @@ v16 阶段已完成 validation 与常规 release 构建。常规 release 目前�
 - `androidApp/build/outputs/apk/release/androidApp-arm64-v8a-release-unsigned.apk`
 - `androidApp/build/outputs/apk/release/androidApp-armeabi-v7a-release-unsigned.apk`
 
-可安装的同签名本地候选包见上一节。后续如接入生产签名，不应将密钥或密码提交到 Git；也不能直接更换现有安装的证书并声称仍可覆盖升级。
+可安装的同签名 validation 包见上一节的公开下载链接。后续如接入生产签名，不应将密钥或密码提交到 Git；也不能直接更换现有安装的证书并声称仍可覆盖升级。
 
 iOS 包（未签名，需自行重签）用 Xcode 打包，命令和限制见 [iOS 启动工程](docs/ios.md#打包-ipa)，发布资产命名 `trackr-<版本>-unsigned.ipa`。
 
 ### 检查更新的当前状态
 
-- “检查新版本”入口、正式/测试通道、按 ABI 选包及下载/安装校验均保留；**当前两组更新源均为空**。点击会提示“更新源未配置”，不会发送元数据请求，也不会把未配置误报为“已是最新版本”。
-- 不请求 Trackr 的更新清单，不回退到上游发行版。本项目代码已备份到 GitHub，但**推送源码不等于发布安装包或配置应用更新**。
-- `worlt/rtbus` 当前是私有仓库，没有 RTBus Release。普通安装包不能靠一个私有仓库链接匿名获取更新；GitHub 发布内容同样受仓库读取权限约束，见 [GitHub 发布说明](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases)。不会把维护者 GitHub 令牌打进 APK。
-- 后续需确定 RTBus 自己的可访问发布渠道，发布同包名、同签名且版本号递增的 APK 及更新元数据，再接入只指向 RTBus 的地址。HTTPS、可信下载地址、包名、版本与证书校验继续保留。
-- 现有 v16 APK 也未配置更新源；远程发布新版后，它仍不会自动发现。接入时需先手动覆盖安装一次带正确 RTBus 更新源的版本，之后才能走应用内检查与升级。
+- 默认清单为 `https://raw.githubusercontent.com/worlt/rtbus-releases/main/update.json`；启用“接收测试版”后额外查询同目录 `update-beta.json`。首次 beta 清单与默认版相同，均为 0.1.16 / code 24。
+- 下载地址只指向公开的 `worlt/rtbus-releases`；不请求 Trackr 清单、不回退上游。源码仓库 `worlt/rtbus` 保持私有，APK 不包含维护者 GitHub 令牌。
+- 保留 HTTPS、可信下载地址、按 ABI 选包、包名、递增版本与同证书校验。真机已确认检查新版、实际下载、经系统安装器覆盖升级和再次检测“已是最新”；安装确认中间画面未完整采样，边界见验收记录。
+- 现有旧 v16 APK 没有更新源，需手动同签名覆盖一次本节的新包；不要卸载或清数据。推送源码不会自动发布更新，发行需先验证 APK，再提升公开清单，见 [RTBus 更新发行流程](docs/updates.md)。
+- GitHub / raw.githubusercontent.com 不可达时可能检查或下载失败；本轮在已连接手机的实际网络成功，不代表所有网络环境均可访问。
 
 ### 重新生成 README 截图
 
