@@ -1,5 +1,7 @@
 package com.trackr.ui.screens.me
 
+import com.trackr.core.model.CityChangeMode
+
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.trackr.core.data.repository.SettingsRepository
@@ -67,6 +69,7 @@ data class MeUiState(
     val elderMode: Boolean = false,
     val railMode: RailMode = RailMode.Horizontal,
     val themeMode: ThemeMode = ThemeMode.System,
+    val cityChangeMode: CityChangeMode = CityChangeMode.Ask,
     val userMessages: List<UserMessage> = emptyList()
 )
 
@@ -96,6 +99,7 @@ sealed interface MeEvent {
     data class SetElderMode(val enabled: Boolean) : MeEvent
     data class SetRailMode(val mode: RailMode) : MeEvent
     data class SetThemeMode(val mode: ThemeMode) : MeEvent
+    data class SetCityChangeMode(val mode: CityChangeMode) : MeEvent
     data class MessageShown(val id: Long) : MeEvent
 
     data class OpenReminder(val id: String) : MeEvent
@@ -153,6 +157,7 @@ class MeViewModel(
         .combine(settings.uiMode) { part, mode -> part.copy(elderMode = mode == UiMode.Elder) }
         .combine(settings.railMode) { part, mode -> part.copy(railMode = mode) }
         .combine(settings.themeMode) { part, mode -> part.copy(themeMode = mode) }
+        .combine(settings.cityChangeMode) { part, mode -> part.copy(cityChangeMode = mode) }
 
     val uiState: StateFlow<MeUiState> = combine(
         settingsPart,
@@ -177,7 +182,8 @@ class MeViewModel(
                 settings.autoStopAfterBoarding.value,
                 settings.themeMode.value,
                 settings.voiceAlerts.value,
-                settings.vibrationAlerts.value
+                settings.vibrationAlerts.value,
+                settings.cityChangeMode.value
             ),
             reminderRepository.reminders.value,
             PlatformStatus(liveUpdateStatus.value, notificationHealthStatus.value, backgroundLocationGranted.value),
@@ -230,6 +236,7 @@ class MeViewModel(
             is MeEvent.SetElderMode -> settings.setUiMode(if (event.enabled) UiMode.Elder else UiMode.Standard)
             is MeEvent.SetRailMode -> settings.setRailMode(event.mode)
             is MeEvent.SetThemeMode -> settings.setThemeMode(event.mode)
+            is MeEvent.SetCityChangeMode -> settings.setCityChangeMode(event.mode)
             is MeEvent.MessageShown -> notices.consume(event.id)
             // 导航与系统权限申请由 Route 处理
             is MeEvent.OpenReminder,
@@ -278,6 +285,7 @@ class MeViewModel(
         elderMode = part.elderMode,
         railMode = part.railMode,
         themeMode = part.themeMode,
+        cityChangeMode = part.cityChangeMode,
         // 和原来一样：实时通知关着时不显示胶囊权限
         liveUpdate = platform.liveUpdate?.takeIf { part.liveNotification },
         // 只在真有问题时出现，正常时那一行不该占地方
@@ -304,6 +312,7 @@ class MeViewModel(
         val autoStopAfterBoarding: Boolean = true,
         val themeMode: ThemeMode = ThemeMode.System,
         val voiceAlerts: Boolean = false,
-        val vibrationAlerts: Boolean = true
+        val vibrationAlerts: Boolean = true,
+        val cityChangeMode: CityChangeMode = CityChangeMode.Ask
     )
 }

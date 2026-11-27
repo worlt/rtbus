@@ -79,6 +79,7 @@ object SettingsKeys {
 
     /** 深浅色偏好（`ThemeMode` 的名字）；没有或认不出 = 跟随系统 */
     val THEME_MODE = stringPreferencesKey("theme_mode")
+    val CITY_CHANGE_MODE = stringPreferencesKey("city_change_mode")
     val THEME_COLORS = stringPreferencesKey("theme_colors")
 
     /** 系统字体放大时的「试试长辈版」提示点过了（第 30 步新加）；没有 = 还没点过 */

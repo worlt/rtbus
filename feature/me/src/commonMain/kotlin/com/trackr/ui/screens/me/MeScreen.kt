@@ -2,6 +2,12 @@
 
 package com.trackr.ui.screens.me
 
+import com.trackr.feature.me.resources.me_city_change_manual
+import com.trackr.feature.me.resources.me_city_change_auto
+import com.trackr.feature.me.resources.me_city_change_ask
+import com.trackr.feature.me.resources.me_city_change
+import com.trackr.core.model.CityChangeMode
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -151,11 +157,17 @@ fun MeScreen(
     var showAlertThresholdDialog by rememberSaveable { mutableStateOf(false) }
     var showRailModeDialog by rememberSaveable { mutableStateOf(false) }
     var showEngineModeDialog by rememberSaveable { mutableStateOf(false) }
+    var showCityChangeDialog by rememberSaveable { mutableStateOf(false) }
     var showRemindersSheet by rememberSaveable { mutableStateOf(false) }
     // 状态栏胶囊「去开启」的说明弹窗：只有用户自己点进来时才出现，开始追踪时不弹（issue #29）
     var showLiveUpdateGuide by rememberSaveable { mutableStateOf(false) }
 
 
+    val cityChangeLabels = mapOf(
+        CityChangeMode.Ask to stringResource(MeRes.string.me_city_change_ask),
+        CityChangeMode.Automatic to stringResource(MeRes.string.me_city_change_auto),
+        CityChangeMode.Manual to stringResource(MeRes.string.me_city_change_manual)
+    )
     val layoutDirection = LocalLayoutDirection.current
     val themeModeLabels = mapOf(
         ThemeMode.System to stringResource(MeRes.string.me_theme_system),
@@ -220,6 +232,12 @@ fun MeScreen(
 
             item(key = "group_trip", contentType = "settings_group") {
                 SettingsGroup(title = stringResource(MeRes.string.me_group_travel)) {
+                    SettingRow(
+                        title = stringResource(MeRes.string.me_city_change),
+                        value = cityChangeLabels.getValue(state.cityChangeMode),
+                        onClick = { showCityChangeDialog = true }
+                    )
+                    GroupDivider()
                     SettingRow(
                         title = stringResource(MeRes.string.me_data_source),
                         value = engineModeLabel(state.engineMode),
@@ -457,6 +475,20 @@ fun MeScreen(
                 showRailModeDialog = false
             },
             onDismiss = { showRailModeDialog = false }
+        )
+    }
+
+    if (showCityChangeDialog) {
+        ChoiceDialog(
+            title = stringResource(MeRes.string.me_city_change),
+            options = CityChangeMode.entries,
+            selected = state.cityChangeMode,
+            label = cityChangeLabels::getValue,
+            onSelect = {
+                onEvent(MeEvent.SetCityChangeMode(it))
+                showCityChangeDialog = false
+            },
+            onDismiss = { showCityChangeDialog = false }
         )
     }
 

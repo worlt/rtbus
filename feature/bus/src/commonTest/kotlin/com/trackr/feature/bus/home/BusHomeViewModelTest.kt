@@ -1,5 +1,11 @@
 package com.trackr.feature.bus.home
 
+import kotlinx.coroutines.CompletableDeferred
+
+import com.trackr.core.data.repository.RealtimeRepository
+
+import com.trackr.core.model.CityChangeMode
+
 import com.trackr.core.data.repository.DefaultLocationRepository
 import com.trackr.core.data.repository.DefaultTrackingRepository
 import com.trackr.core.data.repository.InMemoryTrackingSessionStore
@@ -146,14 +152,15 @@ class BusHomeViewModelTest {
     private fun createViewModel(
         enableAutoPolling: Boolean = false,
         elapsedRealtimeMillis: (() -> Long)? = null,
-        announcer: FakeAnnouncer = FakeAnnouncer()
+        announcer: FakeAnnouncer = FakeAnnouncer(),
+        realtimeOverride: RealtimeRepository? = null
     ): BusHomeViewModel {
         val f = fakeRepository
         return if (elapsedRealtimeMillis == null) {
             BusHomeViewModel(
                 settings = f.settings,
                 favorites = f.favoritesRepo,
-                realtime = f.realtime,
+                realtime = realtimeOverride ?: f.realtime,
                 userLocationStore = f.userLocationStore,
                 locationRepository = f.location,
                 trackingController = trackingController,
@@ -167,7 +174,7 @@ class BusHomeViewModelTest {
             BusHomeViewModel(
                 settings = f.settings,
                 favorites = f.favoritesRepo,
-                realtime = f.realtime,
+                realtime = realtimeOverride ?: f.realtime,
                 userLocationStore = f.userLocationStore,
                 locationRepository = f.location,
                 trackingController = trackingController,
@@ -473,6 +480,129 @@ class BusHomeViewModelTest {
         assertEquals(false, viewModel.uiState.value.isLocating)
         assertEquals(1, viewModel.uiState.value.nearbyStops.size)
         assertEquals("人民广场", viewModel.uiState.value.nearbyStops.first().name)
+    }
+
+    @Test
+    fun manualSelectionWhileLocationIsResolvingIsNotOverriddenOrPrompted() = runTest(main.dispatcher) {
+        grantFreshGpsLocation(30.2741, 120.1551)
+        val releaseLocation = CompletableDeferred<Unit>()
+        val gated = object : RealtimeRepository by fakeRepository.realtime {
+            override suspend fun resolveCityByLocation(wgsLat: Double, wgsLng: Double): Result<TransitCity?> {
+                releaseLocation.await()
+                return Result.success(hangzhou)
+            }
+        }
+        val vm = createViewModel(realtimeOverride = gated)
+        testScheduler.runCurrent()
+        vm.selectCity(beijing)
+        testScheduler.runCurrent()
+        releaseLocation.complete(Unit)
+        testScheduler.runCurrent()
+        assertEquals(beijing, vm.uiState.value.currentCity)
+        assertNull(vm.uiState.value.pendingCityChange)
+    }
+
+    @Test
+    fun changedCityAsksBeforeSwitchingAndConfirmUsesDetectedCity() = runTest(main.dispatcher) {
+        grantFreshGpsLocation(30.2741, 120.1551)
+        fakeRepository.resolveCityResult = Result.success(hangzhou)
+        val vm = createViewModel()
+        testScheduler.runCurrent()
+        assertEquals(shanghai.cityId, vm.uiState.value.currentCity.cityId)
+        assertEquals(hangzhou, vm.uiState.value.pendingCityChange)
+        vm.onEvent(BusHomeEvent.ConfirmCityChange)
+        testScheduler.runCurrent()
+        assertEquals(hangzhou, fakeRepository.selectedCity.value)
+        assertNull(vm.uiState.value.pendingCityChange)
+        assertEquals(30.2741, vm.uiState.value.currentLat, absoluteTolerance = 0.0001)
+    }
+
+    @Test
+    fun cancelKeepsCityAndSuppressesRepeatedPromptUntilLocationChanges() = runTest(main.dispatcher) {
+        grantFreshGpsLocation(30.2741, 120.1551)
+        fakeRepository.resolveCityResult = Result.success(hangzhou)
+        val vm = createViewModel()
+        testScheduler.runCurrent()
+        vm.onEvent(BusHomeEvent.CancelCityChange)
+        vm.onEvent(BusHomeEvent.CancelCityChange)
+        vm.refresh()
+        testScheduler.runCurrent()
+        assertEquals(shanghai.cityId, vm.uiState.value.currentCity.cityId)
+        assertNull(vm.uiState.value.pendingCityChange)
+        fakeRepository.resolveCityResult = Result.success(beijing)
+        vm.refresh()
+        testScheduler.runCurrent()
+        assertEquals(beijing, vm.uiState.value.pendingCityChange)
+    }
+
+    @Test
+    fun automaticCityModeSwitchesWithoutPrompt() = runTest(main.dispatcher) {
+        fakeRepository.settings.setCityChangeMode(CityChangeMode.Automatic)
+        grantFreshGpsLocation(30.2741, 120.1551)
+        fakeRepository.resolveCityResult = Result.success(hangzhou)
+        val vm = createViewModel()
+        testScheduler.runCurrent()
+        assertEquals(hangzhou, vm.uiState.value.currentCity)
+        assertNull(vm.uiState.value.pendingCityChange)
+    }
+
+    @Test
+    fun manualCityModeKeepsCityWithoutPromptButExplicitRelocationStillWorks() = runTest(main.dispatcher) {
+        fakeRepository.settings.setCityChangeMode(CityChangeMode.Manual)
+        grantFreshGpsLocation(30.2741, 120.1551)
+        fakeRepository.resolveCityResult = Result.success(hangzhou)
+        val vm = createViewModel()
+        testScheduler.runCurrent()
+        assertEquals(shanghai.cityId, vm.uiState.value.currentCity.cityId)
+        assertNull(vm.uiState.value.pendingCityChange)
+        vm.onEvent(BusHomeEvent.RelocateCity)
+        testScheduler.runCurrent()
+        assertEquals(hangzhou, vm.uiState.value.currentCity)
+    }
+
+    @Test
+    fun selectingAnotherCityClearsPendingConfirmation() = runTest(main.dispatcher) {
+        grantFreshGpsLocation(30.2741, 120.1551)
+        fakeRepository.resolveCityResult = Result.success(hangzhou)
+        val vm = createViewModel()
+        testScheduler.runCurrent()
+        vm.selectCity(beijing)
+        testScheduler.runCurrent()
+        vm.onEvent(BusHomeEvent.ConfirmCityChange)
+        testScheduler.runCurrent()
+        assertEquals(beijing, vm.uiState.value.currentCity)
+        assertNull(vm.uiState.value.pendingCityChange)
+    }
+
+    @Test
+    fun returningAfterLocationExpiresChecksForAnotherCityButQuickReturnDoesNot() = runTest(main.dispatcher) {
+        var now = 0L
+        grantFreshGpsLocation(31.2304, 121.4737)
+        fakeRepository.resolveCityResult = Result.success(shanghai)
+        val vm = createViewModel(elapsedRealtimeMillis = { now })
+        testScheduler.runCurrent()
+        grantFreshGpsLocation(30.2741, 120.1551)
+        fakeRepository.resolveCityResult = Result.success(hangzhou)
+        now = 10_000L
+        vm.onResume()
+        testScheduler.runCurrent()
+        assertNull(vm.uiState.value.pendingCityChange)
+        now = BusHomeViewModel.LOCATION_RECHECK_INTERVAL_MS
+        vm.onResume()
+        testScheduler.runCurrent()
+        assertEquals(hangzhou, vm.uiState.value.pendingCityChange)
+    }
+
+    @Test
+    fun changingCityPreferenceClosesObsoletePrompt() = runTest(main.dispatcher) {
+        grantFreshGpsLocation(30.2741, 120.1551)
+        fakeRepository.resolveCityResult = Result.success(hangzhou)
+        val vm = createViewModel()
+        testScheduler.runCurrent()
+        fakeRepository.settings.setCityChangeMode(CityChangeMode.Manual)
+        testScheduler.runCurrent()
+        assertNull(vm.uiState.value.pendingCityChange)
+        assertEquals(shanghai.cityId, vm.uiState.value.currentCity.cityId)
     }
 
     @Test

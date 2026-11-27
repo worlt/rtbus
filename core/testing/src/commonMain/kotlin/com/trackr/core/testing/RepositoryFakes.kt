@@ -1,5 +1,7 @@
 package com.trackr.core.testing
 
+import com.trackr.core.model.CityChangeMode
+
 import com.trackr.core.model.ThemeColors
 import com.trackr.core.data.repository.FavoritesRepository
 import com.trackr.core.data.repository.LineDetailUpdate
@@ -109,6 +111,9 @@ class FakeSettingsRepository(
 
     private val _themeMode = MutableStateFlow(ThemeMode.System)
     override val themeMode: StateFlow<ThemeMode> = _themeMode.asStateFlow()
+    private val _cityChangeMode = MutableStateFlow(CityChangeMode.Ask)
+    override val cityChangeMode: StateFlow<CityChangeMode> = _cityChangeMode.asStateFlow()
+    override fun setCityChangeMode(mode: CityChangeMode) { _cityChangeMode.value = mode }
 
     private val _fontScalePromptDismissed = MutableStateFlow(false)
     override val fontScalePromptDismissed: StateFlow<Boolean> = _fontScalePromptDismissed.asStateFlow()

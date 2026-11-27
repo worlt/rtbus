@@ -1,5 +1,7 @@
 package com.trackr.core.data.repository
 
+import com.trackr.core.model.CityChangeMode
+
 import com.trackr.core.data.local.SerialWriter
 import com.trackr.core.data.local.TransitLocalSnapshot
 import com.trackr.core.data.local.TransitLocalStore
@@ -74,6 +76,8 @@ class DefaultSettingsRepository private constructor(
 
     private val _themeMode = MutableStateFlow(ThemeMode.entries.firstOrNull { it.name == initial.themeMode } ?: ThemeMode.System)
     override val themeMode: StateFlow<ThemeMode> = _themeMode.asStateFlow()
+    private val _cityChangeMode = MutableStateFlow(CityChangeMode.fromName(initial.cityChangeMode))
+    override val cityChangeMode: StateFlow<CityChangeMode> = _cityChangeMode.asStateFlow()
 
     private val _fontScalePromptDismissed = MutableStateFlow(initial.fontScalePromptDismissed ?: false)
     override val fontScalePromptDismissed: StateFlow<Boolean> = _fontScalePromptDismissed.asStateFlow()
@@ -161,6 +165,11 @@ class DefaultSettingsRepository private constructor(
         val normalized = colors.normalized()
         _themeColors.value = normalized
         writer.enqueue { store.saveThemeColors(json.encodeToString(normalized)) }
+    }
+
+    override fun setCityChangeMode(mode: CityChangeMode) {
+        _cityChangeMode.value = mode
+        writer.enqueue { store.saveCityChangeMode(mode.name) }
     }
 
     override fun setThemeMode(mode: ThemeMode) {

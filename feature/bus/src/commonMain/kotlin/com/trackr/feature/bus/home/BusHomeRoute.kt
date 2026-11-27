@@ -31,8 +31,8 @@ fun BusHomeRoute(
         onStopOrDispose { viewModel.setPollingActive(false) }
     }
 
-    // 上一次定位失败的话，回到前台（多半刚从系统设置里开了定位 / 补了权限）静默再试一次，见 issue #34
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.retryLocationIfFailed() }
+    // 回到首页时按定位时效检查跨城；授权 / 定位开关变化仍沿用原来的失败重试。
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.onResume() }
 
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current

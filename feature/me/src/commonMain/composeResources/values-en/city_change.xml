@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="me_city_change">City changes</string>
+    <string name="me_city_change_ask">Ask before switching (default)</string>
+    <string name="me_city_change_auto">Switch automatically</string>
+    <string name="me_city_change_manual">Keep current city</string>
+</resources>

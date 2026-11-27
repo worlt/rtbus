@@ -125,4 +125,8 @@
     <string name="me_test_arrival_desc">发送真正的到站测试通知，并查看最近实际提醒记录</string>
     <string name="me_test_vibration_close">关闭</string>
     <string name="me_alert_channel_settings">系统提醒设置</string>
+    <string name="me_city_change">跨城切换</string>
+    <string name="me_city_change_ask">询问后切换（默认）</string>
+    <string name="me_city_change_auto">自动切换</string>
+    <string name="me_city_change_manual">保持当前城市</string>
 </resources>

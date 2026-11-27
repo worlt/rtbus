@@ -1,5 +1,7 @@
 package com.trackr.feature.bus.home
 
+import com.trackr.core.model.CityChangeMode
+
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.trackr.core.data.repository.FavoritesRepository
@@ -86,6 +88,9 @@ class BusHomeViewModel(
     private var catchUpPollJob: Job? = null
 
     private var nextMessageId = 1L
+    private var dismissedCityChange: TransitCity? = null
+    private var citySelectionGeneration = 0L
+    private var lastLocationRefreshAtMs: Long? = null
 
     /** 「本城全部线路」加载的代际号：切城市 / 切数据源会并发触发多次加载，只让最新一次的结果落地 */
     private var cityLinesGeneration = 0
@@ -261,6 +266,13 @@ class BusHomeViewModel(
             }
         }
 
+        viewModelScope.launch {
+            settings.cityChangeMode.drop(1).collect {
+                dismissedCityChange = null
+                edit { state -> state.copy(pendingCityChange = null) }
+            }
+        }
+
         // 初始化加载支持的城市
         loadSupportedCities()
 
@@ -292,6 +304,16 @@ class BusHomeViewModel(
             is BusHomeEvent.ProvinceSelected -> selectProvince(event.province)
             is BusHomeEvent.CitySelected -> selectCity(event.city)
             BusHomeEvent.RelocateCity -> refreshLocationAndNearby(switchCity = true)
+            BusHomeEvent.ConfirmCityChange -> {
+                val state = _uiState.value
+                val city = state.pendingCityChange
+                edit { it.copy(pendingCityChange = null) }
+                if (city != null && city.matchesCity(state.locatedCity)) selectCity(city)
+            }
+            BusHomeEvent.CancelCityChange -> {
+                _uiState.value.pendingCityChange?.let { dismissedCityChange = it }
+                edit { it.copy(pendingCityChange = null) }
+            }
             BusHomeEvent.OpenLocationSettings -> systemSettings.openLocationSettings()
             BusHomeEvent.OpenAppSettings -> systemSettings.openAppSettings()
             BusHomeEvent.OpenSearch,
@@ -335,12 +357,19 @@ class BusHomeViewModel(
         refresh(switchCity)
     }
 
-    /**
-     * 回到前台时调用：上次定位失败、且失败的原因已经变了，就静默再定位一次（issue #34）。
-     *
-     * 「原因变了」= 用户去系统设置里把那一层补上了（没授权→授权了、总开关关着→开了）。
-     * 原因没变就不重试：每次从搜索页返回都空转 4.5 秒定位窗口、再打一次附近站，纯属白烧电。
-     */
+    /** 回到首页时，成功定位超过一分钟才重新检查跨城；失败时仅在授权或开关发生变化后重试。 */
+    fun onResume() {
+        val state = _uiState.value
+        if (state.isLocating || state.isRefreshing) return
+        if (state.locationIssue != null) {
+            retryLocationIfFailed()
+            return
+        }
+        val last = lastLocationRefreshAtMs ?: return
+        if (elapsedRealtimeMillis() - last >= LOCATION_RECHECK_INTERVAL_MS) refresh()
+    }
+
+    /** 只在失败原因已改变时重试，避免短时切页反复消耗定位窗口（issue #34）。 */
     fun retryLocationIfFailed() {
         val state = _uiState.value
         val issue = state.locationIssue ?: return
@@ -396,11 +425,12 @@ class BusHomeViewModel(
     /**
      * 整体刷新（重新定位、刷新附近公交与收藏线路实时到站）
      *
-     * @param switchCity 为 true 时把城市切到定位城市（仅城市弹窗里的「重新定位」使用）。
-     * 启动、授权、下拉刷新等自动场景传 false：只更新坐标，不覆盖用户已选的城市（Issue #6）。
-     * 从未存过城市（首次安装）时，即使传 false 也会切到定位城市。
+     * @param switchCity 为 true 时直接切到定位城市（城市弹窗里的「重新定位」）。
+     * 自动场景按跨城偏好处理：默认先询问，确认前保留用户已选城市。
+     * 从未存过城市（首次安装）时，仍直接使用定位城市。
      */
     fun refresh(switchCity: Boolean = false) {
+        val selectionGeneration = citySelectionGeneration
         viewModelScope.launch {
             edit { it.copy(isRefreshing = true, isLocating = true, locationIssue = null) }
 
@@ -426,7 +456,21 @@ class BusHomeViewModel(
                         null
                     }
 
-                    val shouldSwitchCity = switchCity || !settings.hasSavedCity.value
+                    // 定位在等待网络时，用户可能已经明确选择了城市；迟到的结果只记录位置。
+                    if (selectionGeneration != citySelectionGeneration) {
+                        dismissedCityChange = resolvedCity
+                        edit { it.copy(locatedCity = resolvedCity ?: it.locatedCity) }
+                        return@launch
+                    }
+                    val mode = settings.cityChangeMode.value
+                    val cityChanged = resolvedCity != null && !resolvedCity.matchesCity(settings.selectedCity.value)
+                    if (resolvedCity != null && !cityChanged) dismissedCityChange = null
+                    val shouldSwitchCity = switchCity || !settings.hasSavedCity.value ||
+                        (mode == CityChangeMode.Automatic && cityChanged)
+                    val cityToAsk = resolvedCity?.takeIf {
+                        cityChanged && !shouldSwitchCity && mode == CityChangeMode.Ask &&
+                            !it.matchesCity(dismissedCityChange)
+                    }
                     if (resolvedCity != null && shouldSwitchCity) {
                         // 定位到单数据源县级城市（如掌上公交独有的北流、掌上出行独有的范县）时，
                         // 自动切到支持该城市的数据源，避免停在不支持该县的源导致附近站为空（Issue #57）。
@@ -435,6 +479,7 @@ class BusHomeViewModel(
                         edit {
                             it.copy(
                                 currentCity = resolvedCity,
+                                pendingCityChange = null,
                                 locatedCity = resolvedCity,
                                 selectedProvince = resolvedCity.province.ifBlank {
                                     ProvinceCityCatalog.inferProvince(
@@ -452,10 +497,11 @@ class BusHomeViewModel(
                         loadCityLines(resolvedCity)
                         Triple(lat, lng, resolvedCity)
                     } else {
-                        // 保留用户已选城市，只记录定位城市供城市弹窗展示「定位: X」
+                        // 确认前保留已选城市，同时记录定位城市及待确认提示。
                         edit {
                             it.copy(
                                 locatedCity = resolvedCity ?: it.locatedCity,
+                                pendingCityChange = cityToAsk,
                                 currentLat = lat,
                                 currentLng = lng,
                                 isLocating = false,
@@ -474,13 +520,15 @@ class BusHomeViewModel(
                             currentLat = lat,
                             currentLng = lng,
                             isLocating = false,
-                            locationIssue = diagnoseLocationIssue()
+                            locationIssue = diagnoseLocationIssue(),
+                            pendingCityChange = null
                         )
                     }
                     Triple(lat, lng, currentCity)
                 }
 
                 val firstResult = realtime.getNearbyStops(targetCity, lat, lng, limit = NEARBY_STOPS_LIMIT)
+                if (!targetCity.matchesCity(_uiState.value.currentCity)) return@launch
                 var stops = firstResult.getOrNull().orEmpty()
 
                 // 人不在已选城市（如出差在外）时，GPS 坐标查不到该城市的站点：改用已选城市中心点再查一次
@@ -489,6 +537,7 @@ class BusHomeViewModel(
                     if (center != null) {
                         stops = realtime.getNearbyStops(targetCity, center.first, center.second, limit = NEARBY_STOPS_LIMIT)
                             .getOrNull().orEmpty()
+                        if (!targetCity.matchesCity(_uiState.value.currentCity)) return@launch
                         edit { it.copy(currentLat = center.first, currentLng = center.second) }
                     }
                 }
@@ -509,6 +558,7 @@ class BusHomeViewModel(
             nearbyJob.join()
             edit { it.copy(isRefreshing = false, isLocating = false, isLoadingNearby = false) }
             lastRealtimeRefreshAtMs = elapsedRealtimeMillis()
+            lastLocationRefreshAtMs = lastRealtimeRefreshAtMs
         }
     }
 
@@ -626,8 +676,11 @@ class BusHomeViewModel(
     }
 
     fun selectCity(city: TransitCity) {
+        citySelectionGeneration++
+        edit { it.copy(pendingCityChange = null) }
         viewModelScope.launch {
             val state = _uiState.value
+            dismissedCityChange = state.locatedCity
             val isLocated = city.matchesCity(state.locatedCity)
             val coords = if (isLocated) {
                 // 优先用真实 GPS 坐标：当前坐标可能已回退为其他城市的中心点
@@ -764,6 +817,7 @@ class BusHomeViewModel(
         /** 附近站固定 6 个（v3：删掉「附近站数」设置） */
         const val NEARBY_STOPS_LIMIT = 6
         const val POLLING_INTERVAL_MS = 3_000L
+        const val LOCATION_RECHECK_INTERVAL_MS = 60_000L
 
         const val NEARBY_FAILED = "附近站没刷出来，下拉再试一次"
 

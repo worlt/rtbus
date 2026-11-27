@@ -1,5 +1,7 @@
 package com.trackr.ui.screens.me
 
+import com.trackr.core.model.CityChangeMode
+
 import com.trackr.core.domain.platform.BoardingTraceLog
 import com.trackr.core.domain.platform.LocationSource
 import com.trackr.core.model.EngineMode
@@ -67,6 +69,19 @@ class MeViewModelTest {
         notificationHealthAccess = notificationHealthAccess,
         statusDispatcher = main.dispatcher
     )
+
+    @Test
+    fun cityChangePreferenceUpdatesSettingsAndUi() = runTest(main.dispatcher) {
+        val vm = createViewModel()
+        testScheduler.runCurrent()
+        assertEquals(CityChangeMode.Ask, vm.uiState.value.cityChangeMode)
+        for (mode in CityChangeMode.entries) {
+            vm.onEvent(MeEvent.SetCityChangeMode(mode))
+            testScheduler.runCurrent()
+            assertEquals(mode, settings.cityChangeMode.value)
+            assertEquals(mode, vm.uiState.value.cityChangeMode)
+        }
+    }
 
     /** 假的判定记录：[shareResult] 是分享面板开没开成 */
     private class FakeBoardingTraceLog(var shareResult: Boolean) : BoardingTraceLog {

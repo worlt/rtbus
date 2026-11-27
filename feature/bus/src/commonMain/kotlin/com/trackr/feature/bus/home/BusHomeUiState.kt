@@ -38,6 +38,8 @@ data class BusHomeUiState(
     val currentCity: TransitCity = DEFAULT_CITY,
     val selectedProvince: String = "直辖市",
     val locatedCity: TransitCity? = null,
+    /** 跨城确认前保持当前城市；取消只关闭本次提示。 */
+    val pendingCityChange: TransitCity? = null,
     val cities: List<TransitCity> = emptyList(),
     val citySearchQuery: String = "",
     val isCityPickerOpen: Boolean = false,

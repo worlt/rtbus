@@ -70,6 +70,7 @@ class SharedPrefsTransitStore(private val prefs: SharedPreferences) : TransitLoc
         uiMode = prefs.getString(KEY_UI_MODE, null),
         railMode = prefs.getString(KEY_RAIL_MODE, null),
         themeMode = prefs.getString(KEY_THEME_MODE, null),
+        cityChangeMode = prefs.getString(KEY_CITY_CHANGE_MODE, null),
         themeColorsJson = prefs.getString(KEY_THEME_COLORS, null),
         fontScalePromptDismissed = if (prefs.contains(KEY_FONT_SCALE_PROMPT_DISMISSED)) prefs.getBoolean(KEY_FONT_SCALE_PROMPT_DISMISSED, false) else null,
         searchHistory = decodeOrEmpty(prefs.getString(KEY_SEARCH_HISTORY, null))
@@ -143,6 +144,10 @@ class SharedPrefsTransitStore(private val prefs: SharedPreferences) : TransitLoc
         prefs.edit().putString(KEY_THEME_COLORS, json).apply()
     }
 
+    override suspend fun saveCityChangeMode(name: String) {
+        prefs.edit().putString(KEY_CITY_CHANGE_MODE, name).apply()
+    }
+
     override suspend fun saveThemeMode(name: String) {
         prefs.edit().putString(KEY_THEME_MODE, name).apply()
     }
@@ -185,6 +190,7 @@ class SharedPrefsTransitStore(private val prefs: SharedPreferences) : TransitLoc
         private const val KEY_UI_MODE = "ui_mode"
         private const val KEY_RAIL_MODE = "rail_mode"
         private const val KEY_THEME_MODE = "theme_mode"
+        private const val KEY_CITY_CHANGE_MODE = "city_change_mode"
         private const val KEY_THEME_COLORS = "theme_colors"
         private const val KEY_FONT_SCALE_PROMPT_DISMISSED = "font_scale_prompt_dismissed"
         /** 收藏的车（[SharedPrefsFavoritesStore] 读写） */

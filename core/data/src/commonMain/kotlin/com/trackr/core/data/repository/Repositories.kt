@@ -1,5 +1,7 @@
 package com.trackr.core.data.repository
 
+import com.trackr.core.model.CityChangeMode
+
 import com.trackr.core.model.ThemeColors
 import com.trackr.core.domain.tracking.LocationCadence
 import com.trackr.core.model.BusLineDetail
@@ -44,8 +46,11 @@ import kotlinx.coroutines.flow.emptyFlow
 interface SettingsRepository {
     val selectedCity: StateFlow<TransitCity>
 
-    /** 用户是否曾经选过/存过城市（首次安装为 false，此时才允许定位自动切换城市）。第 9 步起是 Flow */
+    /** 用户是否曾经选过/存过城市（首次安装为 false，此时定位选城无需再次确认）。第 9 步起是 Flow */
     val hasSavedCity: StateFlow<Boolean>
+    /** 检测到不同城市时默认先询问，可在设置改为自动切换或保持当前城市。 */
+    val cityChangeMode: StateFlow<CityChangeMode>
+    fun setCityChangeMode(mode: CityChangeMode)
     /** 实时数据源，二选一（D1） */
     val engineMode: StateFlow<EngineMode>
     val preferredTransitCodeProvider: StateFlow<TransitCodeProvider>

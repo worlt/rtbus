@@ -1,5 +1,7 @@
 package com.trackr.data.local
 
+import com.trackr.core.model.CityChangeMode
+
 import com.trackr.core.model.SystemThemeSeed
 import com.trackr.core.model.ThemeSeed
 import com.trackr.core.model.ThemeColorStyle
@@ -75,6 +77,37 @@ class UiModeSettingsTest {
         context, TransitProviderCoordinator(emptyMap()), backend.transitStore,
         RouteGroupRepository.openFavorites(backend.favoritesStore), scope
     )
+
+    @Test
+    fun cityChangeModeDefaultsToAskAndPersistsOnBothStorageBackends() = runBlocking {
+        for (legacy in listOf(false, true)) {
+            var backend = open(forceLegacy = legacy)
+            assertEquals(!legacy, backend.usesNewStore)
+            var current = repo(backend)
+            assertEquals(CityChangeMode.Ask, current.cityChangeMode.value)
+            for (mode in listOf(CityChangeMode.Automatic, CityChangeMode.Manual, CityChangeMode.Ask)) {
+                current.setCityChangeMode(mode)
+                current.flushWrites()
+                closeAll()
+                backend = open(forceLegacy = legacy)
+                assertEquals(!legacy, backend.usesNewStore)
+                current = repo(backend)
+                assertEquals(mode, current.cityChangeMode.value)
+            }
+            closeAll()
+        }
+    }
+
+    @Test
+    fun legacyCityChangeChoiceMigratesToDataStore() = runBlocking {
+        val legacy = repo(open(forceLegacy = true))
+        legacy.setCityChangeMode(CityChangeMode.Manual)
+        legacy.flushWrites()
+        closeAll()
+        val backend = open()
+        assertTrue(backend.usesNewStore)
+        assertEquals(CityChangeMode.Manual, repo(backend).cityChangeMode.value)
+    }
 
     @Test
     fun freshInstall_isStandard_andPromptNotDismissed() {

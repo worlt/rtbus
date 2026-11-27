@@ -10,6 +10,21 @@ import kotlin.test.*
 
 class PersistentPreferencesTest {
     @Test
+    fun cityChangeDefaultsToAskAndPersistsEveryChoice() = runTest {
+        val store = MemoryPreferencesStore()
+        val writer = SerialWriter(backgroundScope)
+        val settings = DefaultSettingsRepository.create(store, writer)
+        assertEquals(CityChangeMode.Ask, settings.cityChangeMode.value)
+        for (mode in CityChangeMode.entries) {
+            settings.setCityChangeMode(mode)
+            settings.flushWrites()
+            assertEquals(mode, DefaultSettingsRepository.create(store, writer).cityChangeMode.value)
+        }
+        store.snapshot = store.snapshot.copy(cityChangeMode = "unrecognized")
+        assertEquals(CityChangeMode.Ask, DefaultSettingsRepository.create(store, writer).cityChangeMode.value)
+    }
+
+    @Test
     fun voiceAndVibrationAreIndependentAndPersistAllCombinations() = runTest {
         val store = MemoryPreferencesStore()
         val writer = SerialWriter(backgroundScope)
@@ -107,6 +122,7 @@ private class MemoryPreferencesStore(var snapshot: TransitLocalSnapshot = Transi
     override suspend fun saveUiMode(name: String) { snapshot = snapshot.copy(uiMode = name) }
     override suspend fun saveRailMode(name: String) { snapshot = snapshot.copy(railMode = name) }
     override suspend fun saveThemeMode(name: String) { snapshot = snapshot.copy(themeMode = name) }
+    override suspend fun saveCityChangeMode(name: String) { snapshot = snapshot.copy(cityChangeMode = name) }
     override suspend fun saveThemeColors(json: String) { snapshot = snapshot.copy(themeColorsJson = json) }
     override suspend fun saveFontScalePromptDismissed(dismissed: Boolean) { snapshot = snapshot.copy(fontScalePromptDismissed = dismissed) }
     override suspend fun saveSearchHistory(list: List<String>) { snapshot = snapshot.copy(searchHistory = list) }

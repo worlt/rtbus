@@ -1,5 +1,7 @@
 package com.trackr.feature.bus.elder
 
+import com.trackr.feature.bus.home.CityChangeConfirmation
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -220,6 +222,8 @@ fun ElderBusHomeScreen(
             onDismiss = { onEvent(BusHomeEvent.CloseCityPicker) }
         )
     }
+
+    CityChangeConfirmation(state, onEvent)
 
     if (state.isTransitCodeSheetOpen) {
         TransitCodeChooserSheet(

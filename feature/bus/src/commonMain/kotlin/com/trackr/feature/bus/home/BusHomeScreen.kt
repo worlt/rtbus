@@ -216,6 +216,8 @@ fun BusHomeScreen(
         )
     }
 
+    CityChangeConfirmation(state, onEvent)
+
     if (state.isTransitCodeSheetOpen) {
         TransitCodeChooserSheet(
             onDismiss = { onEvent(BusHomeEvent.TransitCodeSheetDismissed) },

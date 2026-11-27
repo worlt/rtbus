@@ -60,4 +60,6 @@ sealed interface BusHomeEvent {
     data class ProvinceSelected(val province: String) : BusHomeEvent
     data class CitySelected(val city: TransitCity) : BusHomeEvent
     data object RelocateCity : BusHomeEvent
+    data object ConfirmCityChange : BusHomeEvent
+    data object CancelCityChange : BusHomeEvent
 }

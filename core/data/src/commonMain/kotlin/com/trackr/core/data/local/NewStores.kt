@@ -39,6 +39,7 @@ class RoomDataStoreTransitStore(
             uiMode = prefs[SettingsKeys.UI_MODE],
             railMode = prefs[SettingsKeys.RAIL_MODE],
             themeMode = prefs[SettingsKeys.THEME_MODE],
+            cityChangeMode = prefs[SettingsKeys.CITY_CHANGE_MODE],
             themeColorsJson = prefs[SettingsKeys.THEME_COLORS],
             fontScalePromptDismissed = prefs[SettingsKeys.FONT_SCALE_PROMPT_DISMISSED],
             searchHistory = db.searchHistory().getAll().map { it.query }
@@ -110,6 +111,10 @@ class RoomDataStoreTransitStore(
 
     override suspend fun saveThemeColors(json: String) {
         settings.edit { it[SettingsKeys.THEME_COLORS] = json }
+    }
+
+    override suspend fun saveCityChangeMode(name: String) {
+        settings.edit { it[SettingsKeys.CITY_CHANGE_MODE] = name }
     }
 
     override suspend fun saveThemeMode(name: String) {
