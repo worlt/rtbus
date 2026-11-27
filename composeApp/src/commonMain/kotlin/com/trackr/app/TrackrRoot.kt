@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.ime
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -33,6 +32,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.navigation3.runtime.NavEntry
@@ -279,9 +279,9 @@ private fun TrackrNavApp(
                     }
                 }
                 else -> NavEntry(navEntry = entry) {
-                    DisposableEffect(Unit) {
+                    LifecycleStartEffect(Unit) {
                         visibleChildren++
-                        onDispose { visibleChildren-- }
+                        onStopOrDispose { visibleChildren-- }
                     }
                     entry.Content()
                 }
@@ -297,6 +297,7 @@ private fun TrackrNavApp(
         Box(Modifier.fillMaxSize().nestedScroll(nestedScrollConnection)) {
             TabNavigationDisplay(
                 state = navigationState, entryProvider = provideEntry, onBack = { navigator.back() },
+                onSelectTab = onSelectTab,
                 modifier = Modifier.fillMaxSize().clipToBounds(),
             )
             if (sharedMaterialBar) {

@@ -79,6 +79,15 @@ android {
                 signingConfig = releaseSigning
             }
         }
+        create("validation") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".debug"
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += "release"
+            isDebuggable = false
+            enableUnitTestCoverage = false
+            enableAndroidTestCoverage = false
+        }
     }
 
     // 两个 ABI 各出一个包，避免把所有 ABI 的原生依赖塞进同一个 APK。

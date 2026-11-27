@@ -160,13 +160,13 @@ iosApp/              Xcode 宿主（UIKit 薄壳）和 TrackrWidgets 扩展
 ./gradlew jacocoTestReport
 ```
 
-### 本轮可安装的 Android 测试包（v12）
+### 本轮可安装的 Android 复测包（v15）
 
-多数安卓手机用 **[RTBus v12 · 64 位测试包](build/rtbus-validation/RTBus-20261126-tracking-refresh-v12-arm64-debug.apk)**。只有不支持 64 位的旧机才用 [32 位测试包](build/rtbus-validation/RTBus-20261126-tracking-refresh-v12-arm32-debug.apk)。这些是本机的构建副本，不是远程下载地址；安装到已有同签名「实时公交.D」上，不用先卸载。
+多数安卓手机用 **[RTBus v15 · 64 位复测包](build/rtbus-validation/RTBus-20261126-swipe-v15-arm64.apk)**。只有不支持 64 位的旧机才用 [32 位复测包](build/rtbus-validation/RTBus-20261126-swipe-v15-arm32.apk)。这些是本机的构建副本，不是远程下载地址；可覆盖已有同签名「实时公交.D」，不必卸载或清除数据。
 
-v12：安卓恢复可用网络时，对刷新失败或暂时缺车的「我已上车」追踪提前补查；标准版首页下拉也会请求追踪更新。不把附近轮询常驻后台，不变更提醒判定；上游未返回对应车辆时仍显示无位置。保留 v11 车牌/车号、车辆站名及 v9 的同站双车隔离和断网防误开。
+v15 支持「公交 ↔ 我的」左右横滑，保留两个根页的组合；详情和弹层不参与页签横滑，底栏连续改向仍以最后点击为准。原生底部弹层使用自己窗口的返回分发，避免按返回或侧滑时没有反应。性能复测使用继承 release 优化、保留 `.debug` 包名及原调试证书的 `validation` 变体，关闭调试及覆盖率插桩。它仍是本地复测包，未发布。
 
-版本仍为 0.1.13 / code 21；用 v12 文件名和[交接记录](tasks/HANDOFF.md)里的 SHA-256 核对。诊断页的「到站反馈：确认到站与主动引导 v4」只表示震动机制版本，不能用来区分测试包。[提醒验收清单](tasks/boarding-feedback-acceptance.md)第 5 节有重连与下拉复测步骤。
+版本仍为 0.1.13 / code 21；用 v15 文件名和[真机验证记录](tasks/navigation-v15-device-validation.md)里的 SHA-256 核对。真机采集确认仍有慢帧，不能把主机测试通过当作所有页面已流畅；测量条件、未覆盖状态及设备编译失败的线索均在记录中。保留此前追踪、到站和重连功能；2026-11-27 用户已反馈真实乘车可用，不要求重复相同流程，逐项覆盖边界见[提醒验收记录](tasks/boarding-feedback-acceptance.md)。
 
 ### 发布 Release
 
@@ -174,7 +174,7 @@ v12：安卓恢复可用网络时，对刷新失败或暂时缺车的「我已�
 ./gradlew :androidApp:assembleRelease
 ```
 
-以下是上一阶段产物，不含本轮新增提醒功能；本轮测试请用上面的 debug 包。沿用现有 ABI 拆包配置，分别输出 arm64-v8a 和 armeabi-v7a。当前本地未提供 release 签名配置，2026-11-26 构建的实际产物如下（未签名，不能直接安装/升级）：
+以下是上一阶段产物，不含本轮新增提醒功能；本轮复测请用上面的 validation 包。沿用现有 ABI 拆包配置，分别输出 arm64-v8a 和 armeabi-v7a。当前本地未提供 release 签名配置，2026-11-26 构建的实际产物如下（未签名，不能直接安装/升级）：
 
 | 产物 | 大小 |
 | :--- | :--- |

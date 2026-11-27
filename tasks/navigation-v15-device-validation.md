@@ -1,0 +1,141 @@
+# v15 横滑、返回分发与真机卡顿记录
+
+更新：2026-11-27（Asia/Shanghai）。本记录区分用户反馈、手机采样与主机回归；当前仍有卡顿，不能作为全部页面已流畅的结论。仅本地开发，未推送、未预发布。
+
+## 已保留的改动
+
+- 公交 / 我的使用 `HorizontalPager`，支持双向横滑并保留两页组合。点击中途改向从当前位置继续，最终目标以最后点击为准。子页和弹层禁止跨页签横滑；每条返回栈仍独立保存。
+- 隐藏且停稳的页签降至 CREATED，过渡页 STARTED、当前停稳页 RESUMED。可见子页计数改用生命周期启停，避免保留在后台的子页隐藏前台根页底栏。
+- 修复真机复现的“我的 → 定时提醒空弹层，按 Back 不关闭”：自定义页签返回分发器此前覆盖了整个页面子树，原生弹窗误用外层分发器。现在仅给该栈的场景 Back handler 提供分发器，弹窗内容使用自身窗口的 owner。窗口返回分发回归在修复前失败、修复后通过。
+- 增加 `validation` 变体：继承 release 的 R8 优化与资源裁剪，关闭调试、覆盖率插桩；保留 `.debug` 包名和既有调试证书，允许覆盖安装。没有通过删业务功能缩小安装包。
+- 既有不透明子页、预测返回、搜索返回保留查询并隐藏键盘的行为继续保留；没有数据库或存储格式变更。
+
+## 条件与用户反馈
+
+- 设备：22041216C / xaga，Android 15、arm64、1080×2460；采集时观察到 60 Hz。未修改系统动画倍率、刷新率、全局编译参数或安全设置。
+- 同签名 `adb install -r` 覆盖；未卸载 RTBus、未清数据。应用 ID `com.github.u5151561.trackr.debug`，版本仍为 0.1.13 / code 21，以下方 APK SHA-256 区分构建。
+- **2026-11-27 用户反馈：真实乘车测试已经试过，可以使用。** 这是用户实际乘车反馈，不是脚本模拟结果；没有另外提供本次乘车 APK 哈希或逐项清单，不据此推断所有锁屏、语音、自动结束、机型组合均已覆盖，也不要求重复完成相同乘车流程。
+- 2026-11-26 用户要求暂停后，已停止测试并关闭全部 ADB，核验剩余 ADB 进程为 0。2026-11-27 用户再次明确允许测试手机，才重新连接。
+
+## 2026-11-26 最终安装后的功能复测
+
+`nav-v15/final-smoke.json` 在 23:51:43 记录完成以下 13 项检查，最终回到公交首页：
+
+1. 公交横滑到我的、我的横滑回公交。
+2. 快速五次切换，停在最后一次点击的我的。
+3. 收藏、站点、线路、城市页面打开 / 滚动 / 返回，未保存业务变更。
+4. 搜索结果 → 线路详情 → 返回，查询保留且键盘隐藏。
+5. 主题子页不能横滑到其他页签；九种配色风格仍可访问。
+6. 关于页打开 / 返回。
+7. 定时提醒空弹层收到 Back 后关闭，仍停在我的；最后回到首页。
+
+以上是脚本操作验收，不等同于每个页面每种状态的性能验收。当前空提醒列表未覆盖已有提醒编辑。回归夹具使用真实 `ModalBottomSheet` 的窗口返回分发器，而非只调用 dismiss 回调。
+
+2026-11-27 恢复保留包后，`continuation-final-smoke.json` 再次完成上述 13 项检查；`continuation-system-edge-back.json` 另行验证系统手势模式下，左右两侧边缘 Back 均关闭原生提醒空弹层且保留“我的”根页，最后回到公交首页。
+
+## 性能证据与限制
+
+### 实际手操作采样
+
+采样开始前已通知用户。2026-11-26 22:00:50.387+08:00 开始，记录 `scripted_input:false`，计划 60 秒。最终 gfxinfo 在约 69.5 秒读出，包含约 9.5 秒尾段：2,120 帧、372 janky（17.55%），P95 24 ms、P99 65 ms。
+
+首份 Perfetto 环形缓冲太小，仅保留约 3.55 秒，不能声称拥有完整一分钟逐页跟踪，不能据此把慢帧精确分配给页面。后续改用流式写文件。手动操作与脚本的节奏、按下 / 抬起和中途打断可以不同，因此分开记录。
+
+### 最终窗口返回修复后的固定回放
+
+| 2026-11-26 场景 | 渲染帧 | janky | P95 | P99 |
+| --- | ---: | ---: | ---: | ---: |
+| 公交 / 我的 8 轮交替 | 450 | 8（1.78%） | 22 ms | 32 ms |
+| 主题页 5 次进退，预热一次 | 100 | 20（20.00%） | 73 ms | 150 ms |
+
+来自 `final-windowfix-{tabs,theme}-clean-gfxinfo.txt`，只读首组汇总，未重复累加后面的窗口统计。`janky` 为该设备 gfxinfo 报告值，不是所有时间的平均 FPS。旧 v14 debug 同模式切页曾为 295 帧、41 janky、P95 133 ms / P99 150 ms；构建方式和动画均有变化，帧数也不同，只能作方向性对照，不能拆分归因或宣传全应用提升比例。
+
+2026-11-27 对最终主题轨迹作离线分析：主线程 `AndroidOwner:measureAndLayout` 的 107 次片段累计约 647.04 ms，最大 120.50 ms；10 次慢测量分布在重复往返中（39.77–120.50 ms），并非只有第一次进入才慢。片段为包含子调用的墙钟耗时，不能相互相加作为总 CPU 时间。旧轨迹未采 sched，不能用它报告 Running / Runnable 分解。
+
+### 已试过而未保留的方案
+
+| 尝试 | 决定与证据 |
+| --- | --- |
+| 主题级有界配色缓存 | 相同往返回放未得到稳定收益，已撤回；`theme-cache-repeat{1,2,3}*` |
+| 配色风格网格按行惰性组合 | 相同回放未稳定改善，已撤回；`theme-lazy-repeat{1,2,3}*` |
+
+不要因代码看似更快重新保留这两项；应先记录新证据和可复现条件。列表初始测量 / 排版仍是调查重点。
+
+### 2026-11-27 重复回放与第三项撤回实验
+
+用户重新允许连接后，手机为 Awake / 未锁定；沿用原有设置，电池温度首次只读为 30.1°C。先用原包做三轮主题往返，再试将种子色选择区的 `BoxWithConstraints` 子组合替换成等宽普通测量布局。既有主题主机测试及实验包构建通过（首次缺少扩展导入的编译错误已修正）；没有将编译通过当作优化有效。
+
+| 主题页五次进退 | 第 1 轮 P95 / P99 | 第 2 轮 P95 / P99 | 第 3 轮 P95 / P99 |
+| --- | --- | --- | --- |
+| 原保留包 | 81 / 101 ms | 69 / 81 ms | 61 / 69 ms |
+| 种子色布局实验 | 85 / 97 ms | 73 / 97 ms | 81 / 150 ms |
+
+P95 中位数为 69 → 81 ms，没有稳定收益；实验已撤回，源码 `feature/me` / `core/designsystem` 均与原基线一致，手机已用 `install -r` 恢复上方 SHA 的保留 v15。不同进程 / 预热状态及设备波动仍存在，不能按某轮 janky 比例较低就保留。证据 `continuation-baseline-theme{1,2,3}*`、`seed-layout-theme{1,2,3}*`、`seed-layout-experiment-summary.json`；所有尝试源码仅留忽略目录。
+
+同日原包也完成了各三次往返的定向采样：收藏 P95 / P99 69 / 81 ms，站点 61 / 69 ms，城市弹层 57 / 101 ms，关于 53 / 73 ms。先前测试的线路标签已不在用户当前收藏中，脚本如实跳过该标签，随后改从当前可见线路进入补测，线路详情为 34 / 65 ms。它们显示不只主题页有长帧，但不代替所有页面 / 所有数据状态覆盖。只记录页面类型，不把用户城市 / 收藏明细写入 Git。
+
+### 设备编译异常线索，尚未归因完毕
+
+采样中可见较多解释执行。此前安装的 v15 实验构建执行应用范围的 `speed-profile` 和 `speed` 编译均失败；ArtService 报 `dex2oat returned an unexpected code: 255`，CPU / wall time 为 0。`dex2oat64 --help` 也返回 255。2026-11-27 只读复查，当前包仍是 `run-from-apk / reason=unknown`。
+
+2026-11-27 对本次自建的独立极小辅助包 `com.rtbus.probe` 作相同应用范围编译，标准输出为 `Failure`，ArtService 也记录 FAILED、CPU / wall time 为 0；命令进程返回码为 0，不能据返回码宣称编译成功。这使异常不限于 RTBus 成为更有依据的方向，但尚未确定具体系统原因或其对卡顿的贡献比例。
+
+只读属性 `dalvik.vm.usejit=true`；`run-from-apk` 和 AOT 失败不等于 JIT 关闭，也不等于全部方法只能解释执行。没有修改全局属性或尝试 root。应用侧长布局区间也仍然存在。证据保留在 `dexopt-*`、`compiler-readonly-check.txt`、`auxiliary-compiler-*` 及 `continuation-runtime-properties.json`，不提交设备原始输出。
+
+### 系统页对照与资源状态（2026-11-27）
+
+不改任何设置，打开系统设置主列表，以两次往返滑动预热，再做两轮各八次交替 350 ms 滑动，并读取该进程的 gfxinfo。只记录性能指标，没有导出账户界面内容；随后返回 RTBus。
+
+| 系统设置列表 | 总帧 | gfxinfo janky / 总帧 | P95 / P99 | legacy janky |
+| --- | ---: | --- | --- | --- |
+| 第 1 轮 | 408 | 161 / 408（39.46%） | 13 / 15 ms | 1 / 408 |
+| 第 2 轮 | 404 | 124 / 404（30.69%） | 13 / 16 ms | 1 / 404 |
+
+系统页绘制直方图耗时较短，但仍记录了较多截止时间错失，不能据 P95 一项宣称系统完全正常，也不能将 janky 比例直接解释为肉眼掉帧比例。补查两应用前台滑动时的 active display mode / render frame rate 均为 60 Hz，SurfaceFlinger 周期均为 16,666,667 ns；未更改刷新率。系统列表滑动与 RTBus 页面进退的工作负载不同，因此这个对照只用于排除“手机所有 UI 必然同样慢”的简单归因，不能作为应用间跑分或完整系统健康鉴定。
+
+只读资源快照：MemAvailable 2,689,660 kB（约 2.56 GiB），数据分区可用 58,521,260 KiB（约 55.8 GiB），Thermal Status 为 0。它们未呈现当时内存 / 存储耗尽或热服务报告严重热限制的直接证据，但不能排除其他时刻的后台竞争、调度或功耗策略影响。温度输出含 cached 与 current HAL 两组，不混用。
+
+综合判断：目前没有足够证据把问题归为“四年机龄 / 天玑 8100 算力不足”。应用存在可重复的长布局区间；设备编译异常以及系统页截止时间错失也值得独立排查。不能确定两者贡献比例，不以换机、清数据、重置或修改系统设置代替定位。证据为 `system-settings-scroll-*`、`display-comparison-summary.json`、`*-display-readonly.txt` 与 `continuation-thermal-readonly.txt`。
+
+指标解释参考 Android 官方[慢速渲染](https://developer.android.com/topic/performance/vitals/render)与 [ART JIT / AOT](https://source.android.com/docs/core/runtime/jit-compiler) 文档；官方概念不代替本机因果验证。
+
+## 主机与构建验证
+
+- 2026-11-26 最终 `test :androidApp:assembleValidation --continue` 成功（4m5s），18 模块合计 **1,684 项**，失败 / 错误 / 跳过均为 0。导航模块 86 项，其中横滑夹具 6 项。
+- 2026-11-27 原保留代码再次离线运行相同命令成功（35s，823 tasks；20 executed / 803 up-to-date）。撤回第三项布局实验后，最终同命令又成功（1m56s，823 tasks；38 executed / 785 up-to-date），重新聚合当前 XML 仍为 18 模块 1,684 项、0 失败 / 错误 / 跳过。缓存任务不表述为全部重新执行。证据 `retained-final-20261127.log` 与 `retained-final-test-summary-20261127.json`。
+- 原生弹层 Back 的红 / 绿证据：`modal-back-red.log`、`modal-back-red.xml` 与最终导航测试 XML。
+- 一个未改动的 SDK34 Robolectric 恢复夹具曾出现 `Parcel recycled earlier than expected`；原样完整重跑及最终全套通过。保留失败 XML，不把它当作手机进程恢复验证。
+- 2026-11-27 重跑 26 项 Python 静态检查全部通过；提交前另作 `git diff --check`。
+- 双 ABI 包核验包括同签名、R8 mapping、Baseline Profile、退役 SDK 边界和 ELF / ZIP 16 KB 对齐。
+
+命令：
+
+```powershell
+$env:JAVA_HOME='C:/E/dev-tools/jdk-21'
+$env:GRADLE_USER_HOME='C:/E/dev-tools/gradle-home'
+& "$env:JAVA_HOME/bin/java.exe" -cp gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain --offline --console=plain --max-workers=4 test :androidApp:assembleValidation --continue
+python -m unittest discover -s .github/scripts -p 'test_*.py' -v
+git diff --check
+```
+
+## v15 产物身份
+
+目录：`build/rtbus-validation/`（本地忽略产物，不提交 APK）。
+
+| APK | 字节 | SHA-256 |
+| --- | ---: | --- |
+| `RTBus-20261126-swipe-v15-arm64.apk` | 4,911,166 | `6dbdfae135bd4569903e2b3a066fd859b55256d9c365a486f3f7e7b6a0d5b898` |
+| `RTBus-20261126-swipe-v15-arm32.apk` | 4,909,242 | `fcdc855df21247e5437d0c772f40822002d3623104000e1ccca609cec9d6d131` |
+
+旧 v14 arm64 debug 为 35,268,767 字节，压缩 DEX 29,346,656 字节；v15 为 4,911,166 字节，压缩 DEX 2,956,600 字节。差异主要来自优化 / 资源裁剪与关闭覆盖率插桩；两包的两份 arm64 原生库一致。小包不等于无卡顿。
+
+## 本轮设备清理
+
+2026-11-27 结束前，确认 RTBus 回到公交首页、已安装 APK SHA-256 与保留 arm64 包一致。只移除本次自建辅助包 `com.rtbus.probe`；RTBus 安装与数据保留。22 份任务 trace 先与本地忽略目录副本核对字节数后移除；本次屏幕截图和 CPU 样本先拉回并核对 SHA-256，再移除对应两个临时文件。没有清理其他应用或系统文件。最后关闭 ADB server，主机剩余 ADB 进程为 0。证据 `continuation-cleanup-20261127.json`；原始诊断资料仍只保留本地，不进 Git。
+
+## 保持开放的事项
+
+- 主题及其他子页的长帧仍未消除，不能标记全页面性能验收完成；需要同条件、重复样本证明有效的改进。
+- 用户已确认实际乘车可用；精确开关矩阵、已有提醒编辑、全部锁屏 / 后台 / 自动结束组合，仍只按实际提供的证据标记。
+- 外部乘车码应用、小组件放置、iOS 编译和运行、正式签名升级与远程发布未在本轮完整验收。
+- 原始 trace、屏幕快照、CPU 样本和 UI 树只留本地忽略目录，包含使用数据，不提交到 Git。

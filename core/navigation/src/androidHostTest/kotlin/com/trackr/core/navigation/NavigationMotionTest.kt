@@ -38,7 +38,7 @@ class NavigationMotionTest {
         rule.setContent {
             val state = rememberNavigationState(topLevel = TopLevel.visibleTabs())
             nav = remember(state) { Navigator(state) }
-            TabNavigationDisplay(state = state, onBack = { nav.back() },
+            TabNavigationDisplay(state = state, onBack = { nav.back() }, onSelectTab = nav::selectTab,
                 modifier = Modifier.size(120.dp).background(Color.Magenta).testTag("pages"),
                 entryProvider = { key -> NavEntry<NavKey>(key) {
                     Box(Modifier.fillMaxSize().background(if (key == ScreenKey.Home) Color.Black else Color.White))
@@ -54,23 +54,31 @@ class NavigationMotionTest {
         return List(bitmap.width) { bitmap.getPixel(it, bitmap.height / 2) }
     }
 
+    private fun whiteWidth(): Int {
+        val pixels = scanline()
+        assertTrue("tab pages must stay opaque", pixels.all {
+            it == android.graphics.Color.BLACK || it == android.graphics.Color.WHITE
+        })
+        return pixels.count { it == android.graphics.Color.WHITE }
+    }
+
     private fun frame() {
         rule.mainClock.advanceTimeByFrame()
         rule.waitForIdle()
     }
 
-    @Test fun tabFadeProgressesEvenlyIncludingMidFlightReversal() {
+    @Test fun tabSlideMovesOpaquePagesContinuouslyIncludingReversal() {
         launch()
-        val samples = mutableListOf(red(scanline().first()))
-        fun sample(count: Int) = repeat(count) { frame(); samples += red(scanline().first()) }
+        val samples = mutableListOf(whiteWidth())
+        fun sample(count: Int) = repeat(count) { frame(); samples += whiteWidth() }
         rule.runOnIdle { nav.selectTab(ScreenKey.More) }
         sample(7)
         val atReversal = samples.lastIndex
         rule.runOnIdle { nav.selectTab(ScreenKey.Home) }
         sample(20)
         assertEquals(0, samples.first())
-        assertTrue("must reverse while blended: $samples", samples[atReversal] in 40..225)
-        assertTrue("single frame flash: $samples", samples.zipWithNext().all { (a, b) -> abs(b - a) <= 22 })
+        assertTrue("must reverse while blended: $samples", samples[atReversal] in 10 until scanline().size)
+        assertTrue("single frame flash: $samples", samples.zipWithNext().all { (a, b) -> abs(b - a) <= scanline().size / 4 })
         assertEquals(0, samples.last())
     }
 
@@ -78,15 +86,15 @@ class NavigationMotionTest {
         launch()
         rule.runOnIdle { nav.selectTab(ScreenKey.More) }
         repeat(26) { frame() }
-        val samples = mutableListOf(red(scanline().first()))
+        val samples = mutableListOf(whiteWidth())
         for ((tab, frames) in listOf(ScreenKey.Home to 12, ScreenKey.More to 4, ScreenKey.Home to 6, ScreenKey.More to 26)) {
             rule.runOnIdle { nav.selectTab(tab) }
-            repeat(frames) { frame(); samples += red(scanline().first()) }
+            repeat(frames) { frame(); samples += whiteWidth() }
         }
-        assertEquals(255, samples.first())
-        assertTrue("taps had no visible response: $samples", samples.min() < 170)
-        assertTrue("rapid taps flashed: $samples", samples.zipWithNext().all { (a, b) -> abs(b - a) <= 22 })
-        assertEquals(255, samples.last())
+        assertEquals(scanline().size, samples.first())
+        assertTrue("taps had no visible response: $samples", samples.min() < scanline().size * 3 / 4)
+        assertTrue("rapid taps flashed: $samples", samples.zipWithNext().all { (a, b) -> abs(b - a) <= scanline().size / 4 })
+        assertEquals(scanline().size, samples.last())
     }
 
     private fun preview(edge: Int) {
@@ -103,27 +111,27 @@ class NavigationMotionTest {
         rule.runOnIdle { nav.selectTab(ScreenKey.More) }
         repeat(24) { frame() }
         preview(BackEventCompat.EDGE_LEFT)
-        assertTrue("halfway tab preview", red(scanline().first()) in 120..135)
+        assertTrue("halfway tab preview", whiteWidth() in (scanline().size / 2 - 2)..(scanline().size / 2 + 2))
         rule.runOnIdle { rule.activity.onBackPressedDispatcher.dispatchOnBackCancelled() }
         repeat(24) { frame() }
-        assertEquals(255, red(scanline().first()))
+        assertEquals(scanline().size, whiteWidth())
         preview(BackEventCompat.EDGE_LEFT)
         rule.runOnIdle { rule.activity.onBackPressedDispatcher.onBackPressed() }
         repeat(24) { frame() }
-        assertEquals(0, red(scanline().first()))
+        assertEquals(0, whiteWidth())
     }
 
-    @Test fun predictiveBackTakesOverAnUnfinishedTabFadeWithoutJumpingToWhite() {
+    @Test fun predictiveBackTakesOverAnUnfinishedTabSlideWithoutJumping() {
         launch()
         rule.runOnIdle { nav.selectTab(ScreenKey.More) }
         repeat(6) { frame() }
-        val before = red(scanline().first())
-        assertTrue(before in 50..150)
+        val before = whiteWidth()
+        assertTrue(before in 1 until scanline().size)
         preview(BackEventCompat.EDGE_LEFT)
-        assertTrue("halfway gesture must start from the current blend", abs(red(scanline().first()) - before / 2) <= 12)
+        assertTrue("halfway gesture must start from current slide: before=$before after=${whiteWidth()}", abs(whiteWidth() - before / 2) <= scanline().size / 10 + 2)
         rule.runOnIdle { rule.activity.onBackPressedDispatcher.dispatchOnBackCancelled() }
         repeat(24) { frame() }
-        assertEquals(255, red(scanline().first()))
+        assertEquals(scanline().size, whiteWidth())
     }
 
     @Test fun childBackPreviewFollowsTheTouchedEdgeAndCancelKeepsThePage() {

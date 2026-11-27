@@ -1,26 +1,29 @@
 package com.trackr.core.navigation
 
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.semantics.hideFromAccessibility
-import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.rememberLifecycleOwner
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.NavKey
+import androidx.navigation3.scene.NavigationBackHandler as SceneNavigationBackHandler
+import androidx.navigation3.scene.rememberNavigationEventState as rememberSceneNavigationEventState
+import androidx.navigation3.scene.rememberSceneState
 import androidx.navigation3.ui.NavDisplay
 import androidx.navigationevent.NavigationEventInfo
 import androidx.navigationevent.NavigationEventTransitionState.InProgress
@@ -29,21 +32,29 @@ import androidx.navigationevent.compose.NavigationBackHandler
 import androidx.navigationevent.compose.rememberNavigationEventDispatcherOwner
 import androidx.navigationevent.compose.rememberNavigationEventState
 import com.trackr.core.navigation.scene.BottomSheetSceneStrategy
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-/** 标准版的两个同级栈：页签共享一个可反向的透明度；栈内仍由 Nav3 管理页面、弹层和预测返回。 */
+/** 同级页使用原生 Pager，保留两页组合；子页、弹层和预测返回仍由各自的 Nav3 栈管理。 */
 @Composable
 fun TabNavigationDisplay(
     state: NavigationState,
     entryProvider: (NavKey) -> NavEntry<NavKey>,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    onSelectTab: (ScreenKey) -> Unit,
 ) {
     val stacks = state.decoratedStacks(entryProvider)
+    val tabs = remember { TopLevel.visibleTabs() }
     val selected = state.topLevel
-    val target = if (selected == state.start) 0f else 1f
-    val blend = remember { Animatable(target) }
+    val target = tabs.indexOf(selected).coerceAtLeast(0)
+    val start = tabs.indexOf(state.start)
+    val pager = rememberPagerState(initialPage = target, pageCount = { tabs.size })
+    val dragged by pager.interactionSource.collectIsDraggedAsState()
+    val selectTab by rememberUpdatedState(onSelectTab)
     val back = rememberNavigationEventState(NavigationEventInfo.None)
     NavigationBackHandler(
         state = back,
@@ -51,49 +62,67 @@ fun TabNavigationDisplay(
         onBackCompleted = onBack,
     )
     val preview = (back.transitionState as? InProgress)?.latestEvent?.progress
-    // 刚点「我的」就拖返回时，手势接手当前画面，不先跳到完全不透明。
-    val gestureStart = remember(preview != null) { if (preview != null) blend.value else 0f }
+    val gestureStart = remember(preview != null) { pager.currentPage + pager.currentPageOffsetFraction }
     LaunchedEffect(target, preview) {
         if (preview != null) {
-            blend.snapTo(gestureStart * (1f - preview.coerceIn(0f, 1f)))
+            val position = gestureStart + (start - gestureStart) * preview.coerceIn(0f, 1f)
+            val page = position.roundToInt().coerceIn(tabs.indices)
+            pager.scrollToPage(page, position - page)
         } else {
-            // 中途点回直接从已经画出的值反向，耗时与剩余距离成正比，不重新播整段或先跳到端点。
-            val remaining = (TAB_FADE_MS * abs(target - blend.value)).roundToInt()
-            if (remaining == 0) blend.snapTo(target)
-            else blend.animateTo(target, tween(remaining, easing = LinearEasing))
+            val distance = abs(target - pager.currentPage - pager.currentPageOffsetFraction)
+            if (distance > 0f) {
+                pager.animateScrollToPage(target, animationSpec = tween(
+                    (TAB_SLIDE_MS * distance).roundToInt().coerceAtLeast(1), easing = tabEasing,
+                ))
+            }
         }
     }
-    val showStart by remember { derivedStateOf { blend.value < 1f } }
-    val showOther by remember { derivedStateOf { blend.value > 0f } }
-    val atTarget by remember(target) { derivedStateOf { blend.value == target } }
-    val strategies = remember { listOf(BottomSheetSceneStrategy<NavKey>()) }
-    val tabs = remember { TopLevel.visibleTabs() }
-    Box(modifier) {
-        // 固定层序，永远只混合上层；到端点即移除非活动栈，后台页不继续组合或轮询。
-        for (tab in tabs) key(tab) {
-            val active = tab == selected
-            val above = tab != state.start
-            if (active || (if (above) showOther else showStart)) {
-                val lifecycle = rememberLifecycleOwner(
-                    maxLifecycle = if (active && atTarget) Lifecycle.State.RESUMED else Lifecycle.State.STARTED,
-                )
-                val dispatcher = rememberNavigationEventDispatcherOwner(enabled = active)
-                CompositionLocalProvider(
-                    LocalLifecycleOwner provides lifecycle,
-                    LocalNavigationEventDispatcherOwner provides dispatcher,
-                ) {
-                    NavDisplay(
-                        entries = stacks.getValue(tab), onBack = onBack, sceneStrategies = strategies,
-                        modifier = Modifier.fillMaxSize()
-                            .then(if (above) Modifier.graphicsLayer { alpha = blend.value } else Modifier)
-                            .then(if (active) Modifier else Modifier.semantics { hideFromAccessibility() }),
-                        transitionSpec = TrackrTransitions.push, popTransitionSpec = TrackrTransitions.pop,
-                        predictivePopTransitionSpec = TrackrTransitions.predictivePop,
-                    )
-                }
+    // 只有用户拖动结束才提交页签；程序动画、预测返回预览不能抢回用户刚点的目标。
+    LaunchedEffect(pager) {
+        snapshotFlow { dragged }.filter { it }.collectLatest {
+            val requested = state.topLevel
+            snapshotFlow { pager.isScrollInProgress }.first { !it }
+            if (back.transitionState !is InProgress && state.topLevel == requested && state.currentStack.size == 1) {
+                val tab = tabs[pager.settledPage]
+                if (tab != state.topLevel) selectTab(tab)
             }
+        }
+    }
+    val idle by remember { derivedStateOf { !pager.isScrollInProgress && pager.currentPageOffsetFraction == 0f } }
+    val strategies = remember { listOf(BottomSheetSceneStrategy<NavKey>()) }
+    HorizontalPager(
+        state = pager,
+        modifier = modifier,
+        key = { tabs[it].toString() },
+        beyondViewportPageCount = 1,
+        // 子页和弹层不参与同级横滑，避免抢走详情手势或跨栈离开弹窗。
+        userScrollEnabled = state.currentStack.size == 1 && preview == null,
+    ) { page ->
+        val tab = tabs[page]
+        val active = tab == selected
+        val lifecycle = rememberLifecycleOwner(maxLifecycle = when {
+            active && idle && pager.settledPage == target -> Lifecycle.State.RESUMED
+            active || !idle -> Lifecycle.State.STARTED
+            else -> Lifecycle.State.CREATED
+        })
+        val dispatcher = rememberNavigationEventDispatcherOwner(enabled = active)
+        CompositionLocalProvider(LocalLifecycleOwner provides lifecycle) {
+            val scenes = rememberSceneState(stacks.getValue(tab), sceneStrategies = strategies, onBack = onBack)
+            val events = rememberSceneNavigationEventState(scenes)
+            // Gate only this stack's handler. Native dialogs must resolve their own window owner.
+            CompositionLocalProvider(LocalNavigationEventDispatcherOwner provides dispatcher) {
+                SceneNavigationBackHandler(scenes, events, onBackCompleted = onBack)
+            }
+            NavDisplay(
+                sceneState = scenes, navigationEventState = events,
+                modifier = Modifier.fillMaxSize()
+                    .then(if (active || !idle) Modifier else Modifier.clearAndSetSemantics {}),
+                transitionSpec = TrackrTransitions.push, popTransitionSpec = TrackrTransitions.pop,
+                predictivePopTransitionSpec = TrackrTransitions.predictivePop,
+            )
         }
     }
 }
 
-private const val TAB_FADE_MS = 216
+private const val TAB_SLIDE_MS = 280
+private val tabEasing = CubicBezierEasing(0.2f, 0f, 0f, 1f)

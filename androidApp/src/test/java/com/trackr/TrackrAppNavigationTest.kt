@@ -10,6 +10,7 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotFocused
@@ -22,6 +23,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
@@ -213,20 +215,23 @@ class TrackrAppNavigationTest {
     }
 
     @Test
-    fun tabSwitch_keepsBothPageHeadersInPlace_inBothDirections() {
+    fun tabSwitch_slidesBothHeadersTogether_inBothDirections() {
         launch()
         val home = composeTestRule.onNodeWithTag("bus_home_top_bar")
         val me = composeTestRule.onNodeWithTag("me_top_bar")
-        val x = home.getUnclippedBoundsInRoot().left.value
+        val bounds = composeTestRule.onRoot().getUnclippedBoundsInRoot()
+        val width = bounds.right.value - bounds.left.value
         composeTestRule.mainClock.autoAdvance = false
         for (tab in listOf("我的", "公交")) {
             selectTabWithPausedClock(tab)
             advanceTransitionFrames(5)
-            assertEquals("首页标题不应横穿屏幕", x, home.getUnclippedBoundsInRoot().left.value, 0.5f)
-            assertEquals("我的标题不应横穿屏幕", x, me.getUnclippedBoundsInRoot().left.value, 0.5f)
+            val homeX = home.getUnclippedBoundsInRoot().left.value
+            val meX = me.getUnclippedBoundsInRoot().left.value
+            assertTrue("首页应随横向翻页移动", homeX < 0f)
+            assertTrue("两个根页应相邻，不能叠化或留出空白", kotlin.math.abs(meX - homeX - width) < 1f)
             advanceTransitionFrames(22)
         }
-        me.assertDoesNotExist()
+        me.assertIsNotDisplayed()
     }
 
     @Test
@@ -238,7 +243,7 @@ class TrackrAppNavigationTest {
         selectTabWithPausedClock("公交")
         composeTestRule.mainClock.autoAdvance = true
         composeTestRule.waitForIdle()
-        composeTestRule.onNodeWithTag("me_top_bar").assertDoesNotExist()
+        composeTestRule.onNodeWithTag("me_top_bar").assertIsNotDisplayed()
         openSearch()
         searchField().assertIsFocused()
     }
@@ -262,7 +267,7 @@ class TrackrAppNavigationTest {
         composeTestRule.mainClock.autoAdvance = true
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithTag("me_top_bar").assertExists()
-        composeTestRule.onNodeWithTag("bus_home_top_bar").assertDoesNotExist()
+        composeTestRule.onNodeWithTag("bus_home_top_bar").assertIsNotDisplayed()
         pressBack()
         assertOnHomeRoot()
     }
@@ -435,6 +440,31 @@ class TrackrAppNavigationTest {
 
         assertOnLineDetail()
         pressBack()
+        assertOnHomeRoot()
+    }
+
+    @Test
+    fun retainedInactiveChild_doesNotHideTheActiveRootTabBar() {
+        launch()
+        clickTab("我的")
+        composeTestRule.waitForIdle()
+        val themeTitle = hasText("主题与颜色") or hasText("Theme & colors")
+        composeTestRule.onNodeWithTag("me_settings_list").performScrollToNode(themeTitle)
+        composeTestRule.onNode(themeTitle).performClick()
+        composeTestRule.waitForIdle()
+
+        composeTestRule.runOnIdle { deepLink = line49Link }
+        composeTestRule.waitForIdle()
+        assertOnLineDetail()
+        pressBack()
+        assertOnHomeRoot()
+
+        // 另一条栈保留设置子页，但不能让当前根页的底栏失去响应。
+        clickTab("我的")
+        composeTestRule.waitForIdle()
+        pressBack()
+        clickTab("公交")
+        composeTestRule.waitForIdle()
         assertOnHomeRoot()
     }
 
