@@ -179,7 +179,7 @@ iosApp/              Xcode 宿主（UIKit 薄壳）和 TrackrWidgets 扩展
 
 版本为 **0.1.17 / code 25**。沿用现有 `.debug` 安装身份和同一调试证书，validation 变体启用 R8 / 资源收缩、关闭调试与覆盖率插桩，可覆盖既有同签名“实时公交.D”，无需卸载或清数据；它仍不是使用独立生产证书的发行版。双 ABI 均已核验包名、版本、证书、Baseline Profile 和 16 KB 对齐，匿名下载的文件哈希与本地一致。
 
-**旧版迁移**：0.1.14 没有更新源；0.1.15 / 0.1.16 仍内置旧下载仓库地址，旧仓库删除后无法自动检查。请从本节下载新包，同签名覆盖一次；不要卸载或清数据。0.1.17 起通过“我的 → 关于实时公交 → 检查新版本”直接查询本仓库。历史 [0.1.16 真机升级记录](tasks/update-v17-validation.md) 与 [v16 升级记录](tasks/stable-v16-upgrade-validation.md) 保留，新版迁移验证见 [本次记录](tasks/repository-migration-validation.md)。
+**旧版迁移**：0.1.14 没有更新源；旧下载仓库已于 2026-11-27 删除，0.1.15 / 0.1.16 内置的旧地址已无法自动检查。请从本节下载新包，同签名覆盖一次；不要卸载或清数据。0.1.17 起通过“我的 → 关于实时公交 → 检查新版本”直接查询本仓库。历史 [0.1.16 真机升级记录](tasks/update-v17-validation.md) 与 [v16 升级记录](tasks/stable-v16-upgrade-validation.md) 保留，新版迁移验证见 [本次记录](tasks/repository-migration-validation.md)。
 
 已收到真实乘车与日常功能可用的反馈，不要求重复同一流程；旧手机慢帧调查继续暂停。原始手机备份、数据库和界面证据仅留本机，不上传。
 
@@ -203,7 +203,7 @@ iOS 包（未签名，需自行重签）用 Xcode 打包，命令和限制见 [i
 - 默认清单为 `https://raw.githubusercontent.com/worlt/rtbus/main/update.json`；启用“接收测试版”后额外查询同目录 `update-beta.json`。无独立测试版时，beta 清单与默认版一致。
 - 下载地址只指向本仓库的 RTBus Release；不请求 Trackr 清单、不回退上游，APK 不包含维护者 GitHub 令牌。
 - 保留 HTTPS、可信下载地址、按 ABI 选包、包名、递增版本与同证书校验。已在一台 arm64 手机完成 0.1.16 → 0.1.17 的应用内下载 / 系统安装器覆盖升级，新源再次检测为最新，原数据库与设置一致；首轮网络重置及采样边界见 [本次记录](tasks/repository-migration-validation.md)。
-- 旧 v16 APK 没有更新源；0.1.15 / 0.1.16 的内置源仍是原独立下载仓库，删除旧仓库后无法自动发现新版本。请从本仓库 Releases 下载最新 APK 同签名覆盖一次，不要卸载或清数据。推送源码不会自动发布更新，发行需先验证 APK，再提升公开清单，见 [RTBus 更新发行流程](docs/updates.md)。
+- 旧 v16 APK 没有更新源；原独立下载仓库已删除，0.1.15 / 0.1.16 内置的旧源已无法自动发现新版本。请从本仓库 Releases 下载最新 APK 同签名覆盖一次，不要卸载或清数据。推送源码不会自动发布更新，发行需先验证 APK，再提升公开清单，见 [RTBus 更新发行流程](docs/updates.md)。
 - GitHub / raw.githubusercontent.com 不可达时可能检查或下载失败；本轮在已连接手机的实际网络成功，不代表所有网络环境均可访问。
 
 ### 重新生成 README 截图
