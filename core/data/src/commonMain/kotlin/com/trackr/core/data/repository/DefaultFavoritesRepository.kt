@@ -48,7 +48,7 @@ class DefaultFavoritesRepository private constructor(
     private val ioDispatcher: CoroutineDispatcher,
     private val now: () -> Long,
     private val newId: () -> String
-) : FavoritesRepository {
+) : FavoritesRepository, FavoritesBackup {
 
     /** 内存里的一份完整数据，[items] 按 sortOrder 排好 */
     private data class State(
@@ -77,6 +77,28 @@ class DefaultFavoritesRepository private constructor(
 
     private val _favoriteItems = MutableStateFlow(itemsOf(initial))
     override val favoriteItems: StateFlow<List<FavoriteItem>> = _favoriteItems.asStateFlow()
+
+    override suspend fun exportFavorites(): String = locked {
+        FavoritesBackupCodec.encode(FavoritesBackupCodec.archive(state.stops, state.routes, state.stations, state.groups, state.items))
+    }
+
+    override suspend fun importFavorites(text: String): FavoritesImportResult {
+        // 解析、版本和完整性检查先完成，任何异常都不会写入。
+        val incoming = withContext(ioDispatcher) { FavoritesBackupCodec.decode(text) }
+        return locked {
+            val current = FavoritesBackupCodec.archive(state.stops, state.routes, state.stations, state.groups, state.items, includeTemporary = true)
+            val (merged, result) = FavoritesBackupCodec.merge(current, incoming, newId)
+            if (result.added == 0 && result.groupsAdded == 0) return@locked result
+            val next = rebuild(stops = merged.stops, stations = merged.stations,
+                routes = merged.routes, groups = merged.groups, items = merged.items)
+            // 导入必须写成功才发布；不能沿用普通收藏的静默失败策略。
+            store.write(FavoritesWrite(stops = next.stops, routes = next.routes, stations = next.stations,
+                groups = next.groups, items = next.items, markGroupsInitialized = true))
+            itemsPersisted = true
+            publish(next)
+            result
+        }
+    }
 
     // ---- 收藏的车 ----
 

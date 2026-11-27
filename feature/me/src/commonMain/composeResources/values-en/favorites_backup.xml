@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="me_favorites_backup">Favorites backup</string>
+    <string name="me_favorites_export">Export favorites</string>
+    <string name="me_favorites_export_desc">Save lines, stops, routes and groups to a JSON file</string>
+    <string name="me_favorites_import">Import favorites</string>
+    <string name="me_favorites_import_desc">Merge an RTBus JSON backup, keeping existing favorites and skipping duplicates</string>
+    <string name="me_favorites_busy">Working…</string>
+</resources>

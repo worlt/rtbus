@@ -52,6 +52,8 @@ data class MeUiState(
     /** 后台定位（「始终允许」）：true = 已开启，false = 未开启，null = 不需要显示（未开自动结束或平台不需要） */
     val backgroundLocationGranted: Boolean? = null,
     val canExportBoardingTrace: Boolean = false,
+    val canTransferFavorites: Boolean = false,
+    val favoritesTransferBusy: Boolean = false,
     val voiceAlerts: Boolean = false,
     val vibrationAlerts: Boolean = true,
     val canTestVibration: Boolean = false,
@@ -83,6 +85,8 @@ sealed interface MeEvent {
     data object RequestBackgroundLocation : MeEvent
     /** 把判上车的判定记录交给系统分享面板（issue #49） */
     data object ExportBoardingTrace : MeEvent
+    data object ExportFavorites : MeEvent
+    data object ImportFavorites : MeEvent
     data class SetVoiceAlerts(val enabled: Boolean) : MeEvent
     data class SetVibrationAlerts(val enabled: Boolean) : MeEvent
     data object TestVibration : MeEvent
@@ -191,8 +195,11 @@ class MeViewModel(
         )
     )
 
+    fun onFavoritesTransferMessage(message: String) = notices.post(message)
+
     fun onEvent(event: MeEvent) {
         when (event) {
+            MeEvent.ExportFavorites, MeEvent.ImportFavorites -> Unit // 文件选择由 Route 的平台桥处理
             is MeEvent.SetEngineMode -> settings.setEngineMode(event.mode)
             is MeEvent.SetTransitCode -> viewModelScope.launch {
                 settings.setPreferredTransitCodeProvider(event.provider)

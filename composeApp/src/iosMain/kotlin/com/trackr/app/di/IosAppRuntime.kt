@@ -117,6 +117,7 @@ internal class IosAppRuntime(val module: Module, val resolveFavorite: (String) -
                             single<SettingsRepository> { settings }
                             single<SearchHistoryRepository> { history }
                             single<FavoritesRepository> { favorites }
+                            single<com.trackr.core.data.repository.FavoritesBackup> { favorites }
                             single<IRouteGroupRepository> { DefaultRouteGroupRepository(favorites) }
                             single { coordinator }
                             single<LocalMigrationFlags> { StoreMigrationFlags(store) }

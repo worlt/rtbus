@@ -2,6 +2,12 @@
 
 package com.trackr.ui.screens.me
 
+import com.trackr.feature.me.resources.me_favorites_backup
+import com.trackr.feature.me.resources.me_favorites_export
+import com.trackr.feature.me.resources.me_favorites_export_desc
+import com.trackr.feature.me.resources.me_favorites_import
+import com.trackr.feature.me.resources.me_favorites_import_desc
+import com.trackr.feature.me.resources.me_favorites_busy
 import com.trackr.feature.me.resources.me_city_change_manual
 import com.trackr.feature.me.resources.me_city_change_auto
 import com.trackr.feature.me.resources.me_city_change_ask
@@ -319,6 +325,27 @@ fun MeScreen(
                 }
             }
 
+            if (state.canTransferFavorites) {
+                item(key = "group_favorites_backup", contentType = "settings_group") {
+                    SettingsGroup(title = stringResource(MeRes.string.me_favorites_backup)) {
+                        SettingRow(
+                            title = stringResource(MeRes.string.me_favorites_export),
+                            subtitle = stringResource(MeRes.string.me_favorites_export_desc),
+                            value = if (state.favoritesTransferBusy) stringResource(MeRes.string.me_favorites_busy) else null,
+                            enabled = !state.favoritesTransferBusy,
+                            onClick = { onEvent(MeEvent.ExportFavorites) }
+                        )
+                        GroupDivider()
+                        SettingRow(
+                            title = stringResource(MeRes.string.me_favorites_import),
+                            subtitle = stringResource(MeRes.string.me_favorites_import_desc),
+                            enabled = !state.favoritesTransferBusy,
+                            onClick = { onEvent(MeEvent.ImportFavorites) }
+                        )
+                    }
+                }
+            }
+
             item(key = "group_notification", contentType = "settings_group") {
                 SettingsGroup(title = stringResource(MeRes.string.me_group_notify)) {
                     SwitchRow(
@@ -620,12 +647,13 @@ private fun SettingRow(
     subtitle: String? = null,
     value: String? = null,
     valueColor: Color? = null,
-    subtitleModifier: Modifier = Modifier
+    subtitleModifier: Modifier = Modifier,
+    enabled: Boolean = true
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(enabled = enabled, onClick = onClick)
             .heightIn(min = 56.dp)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically

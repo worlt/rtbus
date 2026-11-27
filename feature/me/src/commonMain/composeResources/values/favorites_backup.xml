@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="me_favorites_backup">收藏备份</string>
+    <string name="me_favorites_export">导出收藏</string>
+    <string name="me_favorites_export_desc">保存线路、站点、路线和分组为 JSON 文件</string>
+    <string name="me_favorites_import">导入收藏</string>
+    <string name="me_favorites_import_desc">从 RTBus JSON 备份合并去重，保留现有收藏</string>
+    <string name="me_favorites_busy">处理中…</string>
+</resources>

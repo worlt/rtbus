@@ -1,5 +1,8 @@
 package com.trackr.feature.me
 
+import com.trackr.ui.screens.me.rememberFavoritesFileTransfer
+import com.trackr.core.data.repository.FavoritesBackup
+import org.koin.compose.koinInject
 import com.trackr.ui.screens.me.ThemeSettingsScreen
 import com.trackr.ui.screens.me.ThemeSettingsEvent
 import com.trackr.ui.screens.me.ThemeSettingsViewModel
@@ -70,6 +73,9 @@ private fun MeRoute(viewModel: MeViewModel, navigator: TrackrNavigator) {
     }
 
     val bgLocationRequester = rememberBackgroundLocationRequester { viewModel.onScreenResumed() }
+    val favoritesTransfer = rememberFavoritesFileTransfer(
+        backup = koinInject<FavoritesBackup>(), onMessage = viewModel::onFavoritesTransferMessage
+    )
 
     // 跳转只在 RESUMED 时做（防连点压两层，和 dropUnlessResumed 一样）
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -78,13 +84,19 @@ private fun MeRoute(viewModel: MeViewModel, navigator: TrackrNavigator) {
     }
 
     MeScreen(
-        state = if (bgLocationRequester == null) state.copy(backgroundLocationGranted = null) else state,
+        state = state.copy(
+            backgroundLocationGranted = if (bgLocationRequester == null) null else state.backgroundLocationGranted,
+            canTransferFavorites = favoritesTransfer != null,
+            favoritesTransferBusy = favoritesTransfer?.isBusy == true
+        ),
         onEvent = { event ->
             when (event) {
                 is MeEvent.OpenReminder -> whenResumed { navigator.open(ScreenKey.ReminderEdit(event.id)) }
                 MeEvent.OpenAbout -> whenResumed { navigator.open(ScreenKey.About) }
                 MeEvent.OpenThemeSettings -> whenResumed { navigator.open(ScreenKey.ThemeSettings) }
                 MeEvent.RequestBackgroundLocation -> bgLocationRequester?.request()
+                MeEvent.ExportFavorites -> whenResumed { favoritesTransfer?.exportFavorites?.invoke() }
+                MeEvent.ImportFavorites -> whenResumed { favoritesTransfer?.importFavorites?.invoke() }
                 else -> viewModel.onEvent(event)
             }
         }

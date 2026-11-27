@@ -81,6 +81,25 @@ class FavoritesRepositoryTest {
         db.close()
     }
 
+    @Test
+    fun portableBackupRestoresAllFavoriteTypesInRoomAndSurvivesReopening() = runBlocking {
+        val repository = open()
+        repository.toggleFavorite(stop("backup"))
+        repository.toggleStation(FavoriteStation("station", "051", "城市", "站点", "st"))
+        repository.saveRoute(route("backup-route"))
+        val group = repository.createGroup("备份", GroupColor.Preset.BLUE)
+        repository.favoriteItems.value.forEach { repository.setGroup(it.key, group.id) }
+        val expected = repository.favoriteItems.value.map { it.key to it.groupId }
+        val text = repository.exportFavorites()
+        repository.removeFavorite("backup")
+        repository.removeStation("station")
+        repository.removeRoute("backup-route")
+        assertEquals(3, repository.importFavorites(text).added)
+        val reopened = open()
+        assertEquals(expected, reopened.favoriteItems.value.map { it.key to it.groupId })
+        assertEquals(group.colorKey, reopened.favoriteGroups.value.single { it.id == group.id }.colorKey)
+    }
+
     private suspend fun open(): DefaultFavoritesRepository = DefaultFavoritesRepository.create(
         RoomFavoritesStore(db),
         ioDispatcher = Dispatchers.Unconfined,

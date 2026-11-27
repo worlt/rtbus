@@ -7,6 +7,7 @@ import com.trackr.core.data.local.TransitLocalStore
 import com.trackr.core.data.provider.TransitProviderCoordinator
 import com.trackr.core.data.repository.DefaultFavoritesRepository
 import com.trackr.core.data.repository.DefaultLocationRepository
+import com.trackr.core.data.repository.FavoritesBackup
 import com.trackr.core.data.repository.FavoritesRepository
 import com.trackr.core.data.repository.LocationRepository
 import com.trackr.core.data.repository.RealtimeRepository
@@ -108,6 +109,7 @@ val appModule: Module = module {
     // 拆开的仓库接口（重构计划 §2.5）：第 9 步换存储之前都是同一个 TransitRepository
     single<SettingsRepository> { get<ITransitRepository>() }
     single<FavoritesRepository> { get<DefaultFavoritesRepository>() }
+    single<FavoritesBackup> { get<DefaultFavoritesRepository>() }
     single<RealtimeRepository> { get<ITransitRepository>() }
     single<SearchHistoryRepository> { get<ITransitRepository>() }
     single<IScheduledReminderRepository> {
