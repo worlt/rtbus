@@ -23,6 +23,7 @@ import com.trackr.core.model.TransitCodeProvider
 import com.trackr.core.model.TransitGroup
 import com.trackr.core.model.TransitLeg
 import com.trackr.core.model.EngineMode
+import com.trackr.core.model.FavoriteStation
 import com.trackr.core.model.FavoriteStationLine
 import com.trackr.core.model.NearbyStop
 import com.trackr.core.model.ProvinceCityCatalog
@@ -147,6 +148,39 @@ class BusHomeViewModelTest {
         vm.onEvent(BusHomeEvent.Refresh)
         testScheduler.runCurrent()
         assertEquals(1, requests)
+    }
+
+    @Test
+    fun confirmedDeletionTargetsExactTypeAndIdWithoutRemovingGroups() = runTest(main.dispatcher) {
+        val stop = fav("same", "325", "科技园")
+        val keep = stop.copy(id = "keep")
+        val station = FavoriteStation("same", "051", "深圳", "科技园", "s1")
+        val route = TransitGroup("same", "回家")
+        val groups = listOf(FavoriteGroup("group", "通勤"))
+        val repo = FakeFavoritesRepository(initialFavorites = listOf(stop, keep),
+            initialStations = listOf(station), initialRoutes = listOf(route), initialGroups = groups)
+        fakeRepository = HomeFakes(shanghai, repo)
+        val vm = createViewModel()
+        testScheduler.runCurrent()
+        vm.onEvent(BusHomeEvent.DeleteFavorite(FavoriteItem.stationKey("same")))
+        testScheduler.runCurrent()
+        assertTrue(repo.favoriteStations.value.isEmpty())
+        assertEquals(listOf(stop, keep), repo.favorites.value)
+        assertEquals(listOf(route), repo.routes.value)
+        vm.onEvent(BusHomeEvent.DeleteFavorite(FavoriteItem.stopKey("same")))
+        testScheduler.runCurrent()
+        assertEquals(listOf(keep), repo.favorites.value)
+        assertEquals(listOf(route), repo.routes.value)
+        vm.onEvent(BusHomeEvent.DeleteFavorite(FavoriteItem.routeKey("same")))
+        testScheduler.runCurrent()
+        assertTrue(repo.routes.value.isEmpty())
+        assertEquals(listOf(keep), repo.favorites.value)
+        assertEquals(groups, repo.favoriteGroups.value)
+        // 已经删掉或未知的 key 安全忽略，不能误删剩余的同名收藏。
+        vm.onEvent(BusHomeEvent.DeleteFavorite(FavoriteItem.stopKey("same")))
+        vm.onEvent(BusHomeEvent.DeleteFavorite("unknown"))
+        testScheduler.runCurrent()
+        assertEquals(listOf(keep), repo.favorites.value)
     }
 
     private fun createViewModel(

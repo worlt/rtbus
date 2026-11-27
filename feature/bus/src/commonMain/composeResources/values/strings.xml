@@ -62,4 +62,6 @@
     <string name="bus_city_change_title">切换到定位城市？</string>
     <string name="bus_city_change_message">检测到你位于%1$s，是否从%2$s切换过去？取消后保留当前城市，可在“我的 → 出行 → 跨城切换”修改默认方式。</string>
     <string name="bus_home_back_to_top">返回顶部</string>
+    <string name="bus_favorite_delete_title">删除这条收藏？</string>
+    <string name="bus_favorite_delete_body">确定删除「%1$s」这条收藏吗？</string>
 </resources>

@@ -291,6 +291,14 @@ class BusHomeViewModel(
             is BusHomeEvent.SetNearbySortByArrival -> settings.setSortLinesByArrival(event.enabled)
             is BusHomeEvent.SetFavoritesCurrentCityOnly -> settings.setFavoritesCurrentCityOnly(event.enabled)
             BusHomeEvent.ToggleFavoritesExpanded -> edit { it.copy(isFavoritesExpanded = !it.isFavoritesExpanded) }
+            is BusHomeEvent.DeleteFavorite -> viewModelScope.launch {
+                when (val item = _uiState.value.favoriteItems.firstOrNull { it.key == event.key }) {
+                    is FavoriteItem.Stop -> favorites.removeFavorite(item.stop.id)
+                    is FavoriteItem.Station -> favorites.removeStation(item.station.id)
+                    is FavoriteItem.Route -> favorites.removeRoute(item.route.id)
+                    null -> Unit
+                }
+            }
             is BusHomeEvent.StopTracking -> stopTracking(event.sessionId, event.watchLineId)
             is BusHomeEvent.SelectGroup -> selectGroup(event.groupId)
             BusHomeEvent.TransitCodeClicked -> onTransitCodeClicked()

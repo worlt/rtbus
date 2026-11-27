@@ -17,6 +17,8 @@ import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import com.trackr.core.designsystem.theme.TrackrTheme
@@ -76,6 +78,20 @@ class ElderBusHomeScreenTest {
         targetStopName = "科技园站",
         targetOrder = 5
     )
+
+    @Test
+    @Config(qualifiers = "zh-rCN-w360dp-h800dp")
+    fun elderFavoriteAlsoRequiresConfirmationBeforeDeletion() {
+        setContent(stateOf())
+        val key = FavoriteItem.stopKey(fav.id)
+        composeTestRule.onNodeWithTag(ElderBusHomeTags.LIST)
+            .performScrollToNode(hasTestTag(ElderBusHomeTags.favorite(key)))
+        composeTestRule.onNodeWithTag(ElderBusHomeTags.favorite(key)).performTouchInput { longClick() }
+        composeTestRule.onNodeWithText("删除这条收藏？").assertIsDisplayed()
+        assertTrue(events.isEmpty())
+        composeTestRule.onNodeWithText("删除", substring = false).performClick()
+        assertEquals(listOf(BusHomeEvent.DeleteFavorite(key)), events)
+    }
 
     private fun trackingSession(): TrackingSession = TrackingSession(
         sessionId = "x",

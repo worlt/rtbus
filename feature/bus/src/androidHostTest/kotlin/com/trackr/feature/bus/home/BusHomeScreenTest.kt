@@ -4,6 +4,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.performScrollToIndex
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.test.swipeUp
@@ -38,6 +39,7 @@ import com.trackr.core.model.TrackingLegParams
 import com.trackr.core.model.TrackingSession
 import com.trackr.core.model.TrackingSessionState
 import com.trackr.core.model.TrackingTarget
+import com.trackr.core.model.TransitGroup
 import com.trackr.core.model.TransitCity
 import com.trackr.core.model.WatchLine
 import com.trackr.core.model.WatchedLine
@@ -89,6 +91,55 @@ class BusHomeScreenTest {
             state = TrackingSessionState(isActive = true, cityId = "051", lineId = "w1", lineName = "L1", targetOrder = 5),
             watchedLines = watched
         )
+    }
+
+    @Test
+    @Config(qualifiers = "zh-rCN")
+    fun longPressFavoriteAsksBeforeDeletingAndCancelKeepsIt() {
+        setContent(stateOf())
+        val key = FavoriteItem.stopKey(fav.id)
+        composeTestRule.onNodeWithTag(BusHomeTags.favoriteRow(key)).performTouchInput { longClick() }
+        composeTestRule.onNodeWithText("删除这条收藏？").assertIsDisplayed()
+        assertTrue(events.isEmpty())
+        composeTestRule.onNodeWithText("取消").performClick()
+        composeTestRule.onNodeWithText("删除这条收藏？").assertDoesNotExist()
+        assertTrue(events.isEmpty())
+        composeTestRule.onNodeWithTag(BusHomeTags.favoriteRow(key)).performClick()
+        assertTrue(events.single() is BusHomeEvent.OpenLine)
+    }
+
+    @Test
+    @Config(qualifiers = "zh-rCN")
+    fun confirmingLongPressDeletesOnlyTheSelectedKeyForEveryFavoriteKind() {
+        val items = listOf(
+            FavoriteItem.Stop(fav, null, 0),
+            FavoriteItem.Station(FavoriteStation("f1", "051", "深圳", "科技园站", "s1"), null, 1),
+            FavoriteItem.Route(TransitGroup("f1", "回家路线"), null, 2)
+        )
+        val holder = mutableStateOf(BusHomeMapper.derive(BusHomeUiState(),
+            stateOf(withFavorites = false).copy(favoriteItems = items)))
+        composeTestRule.setContent {
+            TrackrTheme {
+                BusHomeScreen(state = holder.value, onEvent = { event ->
+                    events += event
+                    if (event is BusHomeEvent.DeleteFavorite) {
+                        holder.value = BusHomeMapper.derive(holder.value,
+                            holder.value.copy(favoriteItems = holder.value.favoriteItems.filterNot { it.key == event.key }))
+                    }
+                })
+            }
+        }
+        items.forEachIndexed { index, item ->
+            val tag = BusHomeTags.favoriteRow(item.key)
+            composeTestRule.onNodeWithTag(BusHomeTags.LIST).performScrollToNode(hasTestTag(tag))
+            composeTestRule.onNodeWithTag(tag).performTouchInput { longClick() }
+            composeTestRule.onNodeWithText("删除这条收藏？").assertIsDisplayed()
+            assertEquals(index, events.size)
+            composeTestRule.onNodeWithText("删除", substring = false).performClick()
+            assertEquals(BusHomeEvent.DeleteFavorite(item.key), events.last())
+            composeTestRule.onNodeWithTag(tag).assertDoesNotExist()
+            assertEquals(items.drop(index + 1).map { it.key }, holder.value.favoriteItems.map { it.key })
+        }
     }
 
     private fun stateOf(

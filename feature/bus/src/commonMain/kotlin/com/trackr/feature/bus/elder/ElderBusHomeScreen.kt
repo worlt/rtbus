@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import com.trackr.feature.bus.home.CityChangeConfirmation
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -49,12 +50,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.trackr.core.designsystem.resources.Res
+import com.trackr.core.designsystem.resources.action_delete
 import com.trackr.core.designsystem.resources.action_relocate
 import com.trackr.core.designsystem.resources.ic_arrow_drop_down
 import com.trackr.core.designsystem.resources.ic_chevron_right
@@ -66,6 +69,7 @@ import com.trackr.feature.bus.home.BusHomeEvent
 import com.trackr.feature.bus.home.BusHomeMapper
 import com.trackr.feature.bus.home.BusHomeUiState
 import com.trackr.feature.bus.home.visibleFavorites
+import com.trackr.feature.bus.home.FavoriteDeleteConfirmation
 import com.trackr.feature.bus.home.FavoritesTitle
 import com.trackr.feature.bus.home.FavoriteRowUi
 import com.trackr.feature.bus.home.StationStatus
@@ -431,33 +435,39 @@ private fun LazyListScope.elderFavorites(rows: List<FavoriteRowUi>, expanded: Bo
             }
         }
     ) { row ->
-        when (row) {
-            is FavoriteRowUi.Stop -> ElderFavoriteStopCard(
-                row,
-                onClick = { onEvent(BusHomeEvent.OpenLine(row.open)) },
-                onReadAloud = { onEvent(BusHomeEvent.ReadAloud(row.spoken)) }
-            )
-            is FavoriteRowUi.Route -> ElderFavoriteRouteCard(row, onClick = { onEvent(BusHomeEvent.OpenRoute(row.routeId)) })
-            is FavoriteRowUi.Station -> ElderFavoriteStationCard(
-                row,
-                onClick = { onEvent(BusHomeEvent.OpenStop(row.open)) },
-                onReadAloud = { onEvent(BusHomeEvent.ReadAloud(row.spoken)) }
-            )
+        FavoriteDeleteConfirmation(row, onEvent) { onLongClick ->
+            when (row) {
+                is FavoriteRowUi.Stop -> ElderFavoriteStopCard(
+                    row,
+                    onClick = { onEvent(BusHomeEvent.OpenLine(row.open)) },
+                    onLongClick = onLongClick,
+                    onReadAloud = { onEvent(BusHomeEvent.ReadAloud(row.spoken)) }
+                )
+                is FavoriteRowUi.Route -> ElderFavoriteRouteCard(row, onClick = { onEvent(BusHomeEvent.OpenRoute(row.routeId)) }, onLongClick = onLongClick)
+                is FavoriteRowUi.Station -> ElderFavoriteStationCard(
+                    row,
+                    onClick = { onEvent(BusHomeEvent.OpenStop(row.open)) },
+                    onLongClick = onLongClick,
+                    onReadAloud = { onEvent(BusHomeEvent.ReadAloud(row.spoken)) }
+                )
+            }
         }
     }
 }
 
 /** 一辆车：「325」「科技园站上车」「→ 科技园」+ 大字到站 +「读给我听」 */
 @Composable
-private fun ElderFavoriteStopCard(row: FavoriteRowUi.Stop, onClick: () -> Unit, onReadAloud: () -> Unit) {
+private fun ElderFavoriteStopCard(row: FavoriteRowUi.Stop, onClick: () -> Unit, onLongClick: () -> Unit, onReadAloud: () -> Unit) {
     val dimens = TrackrTheme.dimens
     Surface(
-        onClick = onClick,
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surface,
         modifier = Modifier
             .fillMaxWidth()
             .testTag(ElderBusHomeTags.favorite(row.key))
+            .clip(MaterialTheme.shapes.large)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick,
+                onLongClickLabel = stringResource(Res.string.action_delete))
     ) {
         Column(
             modifier = Modifier.padding(dimens.cardPadding),
@@ -487,15 +497,17 @@ private fun ElderFavoriteStopCard(row: FavoriteRowUi.Stop, onClick: () -> Unit, 
  * 整张卡点开站点页
  */
 @Composable
-private fun ElderFavoriteStationCard(row: FavoriteRowUi.Station, onClick: () -> Unit, onReadAloud: () -> Unit) {
+private fun ElderFavoriteStationCard(row: FavoriteRowUi.Station, onClick: () -> Unit, onLongClick: () -> Unit, onReadAloud: () -> Unit) {
     val dimens = TrackrTheme.dimens
     Surface(
-        onClick = onClick,
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surface,
         modifier = Modifier
             .fillMaxWidth()
             .testTag(ElderBusHomeTags.favorite(row.key))
+            .clip(MaterialTheme.shapes.large)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick,
+                onLongClickLabel = stringResource(Res.string.action_delete))
     ) {
         Column(
             modifier = Modifier.padding(dimens.cardPadding),
@@ -549,16 +561,18 @@ private fun ElderFavoriteStationCard(row: FavoriteRowUi.Station, onClick: () -> 
 
 /** 收藏的路线：「家 → 公司」「325 › 19 · 换乘 1 次」，点了看路线详情（没有地图规划，Q10） */
 @Composable
-private fun ElderFavoriteRouteCard(row: FavoriteRowUi.Route, onClick: () -> Unit) {
+private fun ElderFavoriteRouteCard(row: FavoriteRowUi.Route, onClick: () -> Unit, onLongClick: () -> Unit) {
     val dimens = TrackrTheme.dimens
     Surface(
-        onClick = onClick,
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surface,
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = ElderButtonHeight)
             .testTag(ElderBusHomeTags.favorite(row.key))
+            .clip(MaterialTheme.shapes.large)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick,
+                onLongClickLabel = stringResource(Res.string.action_delete))
     ) {
         Row(modifier = Modifier.padding(dimens.cardPadding), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {

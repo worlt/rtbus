@@ -17,6 +17,9 @@ sealed interface BusHomeEvent {
     /** 收藏右上角「编辑」 */
     data object EditFavorites : BusHomeEvent
 
+    /** 仅在长按确认后删除对应收藏。 */
+    data class DeleteFavorite(val key: String) : BusHomeEvent
+
     /** 顶栏右上角「设置」（只有长辈版首页有：没有底部页签，从这里进「我的」） */
     data object OpenSettings : BusHomeEvent
 

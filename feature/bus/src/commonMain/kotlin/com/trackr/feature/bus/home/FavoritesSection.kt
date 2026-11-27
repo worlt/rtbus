@@ -1,6 +1,7 @@
 package com.trackr.feature.bus.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -49,6 +50,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.trackr.core.designsystem.resources.Res
+import com.trackr.core.designsystem.resources.action_delete
 import com.trackr.core.designsystem.resources.action_edit
 import com.trackr.core.designsystem.resources.ic_arrow_drop_down
 import com.trackr.core.designsystem.resources.ic_chevron_right
@@ -151,10 +153,12 @@ internal fun LazyListScope.favoritesSection(state: BusHomeUiState, onEvent: (Bus
                 }
             }
         ) { row ->
-            when (row) {
-                is FavoriteRowUi.Stop -> FavoriteStopRow(row, onClick = { onEvent(BusHomeEvent.OpenLine(row.open)) })
-                is FavoriteRowUi.Route -> FavoriteRouteRow(row, onClick = { onEvent(BusHomeEvent.OpenRoute(row.routeId)) })
-                is FavoriteRowUi.Station -> FavoriteStationRow(row, onClick = { onEvent(BusHomeEvent.OpenStop(row.open)) })
+            FavoriteDeleteConfirmation(row, onEvent) { onLongClick ->
+                when (row) {
+                    is FavoriteRowUi.Stop -> FavoriteStopRow(row, onClick = { onEvent(BusHomeEvent.OpenLine(row.open)) }, onLongClick = onLongClick)
+                    is FavoriteRowUi.Route -> FavoriteRouteRow(row, onClick = { onEvent(BusHomeEvent.OpenRoute(row.routeId)) }, onLongClick = onLongClick)
+                    is FavoriteRowUi.Station -> FavoriteStationRow(row, onClick = { onEvent(BusHomeEvent.OpenStop(row.open)) }, onLongClick = onLongClick)
+                }
             }
         }
     }
@@ -289,8 +293,8 @@ private fun GroupChips(state: BusHomeUiState, onSelect: (String?) -> Unit) {
 
 /** 收藏的车：线路号 | 「科技园站上车」「→ 科技园」 | 到站 */
 @Composable
-private fun FavoriteStopRow(row: FavoriteRowUi.Stop, onClick: () -> Unit) {
-    RowCard(onClick = onClick, testTag = BusHomeTags.favoriteRow(row.key), accent = row.groupColor?.let { groupAccentColor(it) }) {
+private fun FavoriteStopRow(row: FavoriteRowUi.Stop, onClick: () -> Unit, onLongClick: () -> Unit) {
+    RowCard(onClick = onClick, onLongClick = onLongClick, testTag = BusHomeTags.favoriteRow(row.key), accent = row.groupColor?.let { groupAccentColor(it) }) {
         LineBadge(name = row.lineName)
         Spacer(modifier = Modifier.width(TrackrTheme.dimens.spaceM))
         Column(modifier = Modifier.weight(1f)) {
@@ -313,8 +317,8 @@ private fun FavoriteStopRow(row: FavoriteRowUi.Stop, onClick: () -> Unit) {
  * 整行点开站点页（停在默认站台）。
  */
 @Composable
-private fun FavoriteStationRow(row: FavoriteRowUi.Station, onClick: () -> Unit) {
-    RowCard(onClick = onClick, testTag = BusHomeTags.favoriteRow(row.key), accent = row.groupColor?.let { groupAccentColor(it) }) {
+private fun FavoriteStationRow(row: FavoriteRowUi.Station, onClick: () -> Unit, onLongClick: () -> Unit) {
+    RowCard(onClick = onClick, onLongClick = onLongClick, testTag = BusHomeTags.favoriteRow(row.key), accent = row.groupColor?.let { groupAccentColor(it) }) {
         StationBadge(muted = row.status == StationStatus.NotFound)
         Spacer(modifier = Modifier.width(TrackrTheme.dimens.spaceM))
         Column(modifier = Modifier.weight(1f)) {
@@ -400,8 +404,8 @@ internal fun StationBadge(muted: Boolean = false, modifier: Modifier = Modifier)
 
 /** 收藏的路线：「家 → 公司」「325 › 19 · 换乘 1 次」 */
 @Composable
-private fun FavoriteRouteRow(row: FavoriteRowUi.Route, onClick: () -> Unit) {
-    RowCard(onClick = onClick, testTag = BusHomeTags.favoriteRow(row.key), accent = row.groupColor?.let { groupAccentColor(it) }) {
+private fun FavoriteRouteRow(row: FavoriteRowUi.Route, onClick: () -> Unit, onLongClick: () -> Unit) {
+    RowCard(onClick = onClick, onLongClick = onLongClick, testTag = BusHomeTags.favoriteRow(row.key), accent = row.groupColor?.let { groupAccentColor(it) }) {
         Column(modifier = Modifier.weight(1f)) {
             Text(text = row.title, style = MaterialTheme.typography.item, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (row.linesText.isNotBlank()) {
@@ -437,11 +441,11 @@ internal fun RowCard(
     onClick: () -> Unit,
     testTag: String,
     accent: Color? = null,
+    onLongClick: (() -> Unit)? = null,
     content: @Composable RowScope.() -> Unit
 ) {
     val dimens = TrackrTheme.dimens
     Surface(
-        onClick = onClick,
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 1.dp,
@@ -449,6 +453,13 @@ internal fun RowCard(
             .fillMaxWidth()
             .padding(horizontal = dimens.screenPadding)
             .testTag(testTag)
+            .clip(MaterialTheme.shapes.medium)
+            .combinedClickable(
+                role = Role.Button,
+                onClick = onClick,
+                onLongClick = onLongClick,
+                onLongClickLabel = if (onLongClick != null) stringResource(Res.string.action_delete) else null
+            )
     ) {
         Row(
             modifier = Modifier
